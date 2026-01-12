@@ -1,6 +1,6 @@
 import com.matterci.pipelineLib.RaspiPipelineLib
 import com.matterci.pipelineLib.RunTests
-//import com.matterci.pipelineLib.TestParamDefaults
+import com.matterci.pipelineLib.TestParamDefaults
 import com.matterci.pipelineLib.RepoUtils
 import com.matterci.pipelineLib.commonPipelineLib
 

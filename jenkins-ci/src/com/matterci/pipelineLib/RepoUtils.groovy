@@ -40,33 +40,35 @@ class RepoUtils implements Serializable {
         def controller_sdk_sha = ''
 
         // Clone the controller SDK
-        if (controllerConfig) {
-            def controllerGitRef = controllerConfig?.branch ?: 'master'
-            def controllerShaRef = controllerConfig?.sha
-            def controllerTagRef = controllerConfig?.tag
-            def controllerPrRef = controllerConfig?.pr
-            def controllerRepoUrl = controllerConfig?.repoUrl ?: 'git@github.com:project-chip/connectedhomeip.git' // Default to controller repo URL
+        if (testConfigs.ci_config?.clone_sdk_code_stage?.controller_sdk_config.controller_repo == "connectedhomeip") {
+            if (controllerConfig) {
+                def controllerGitRef = controllerConfig?.branch ?: 'master'
+                def controllerShaRef = controllerConfig?.sha
+                def controllerTagRef = controllerConfig?.tag
+                def controllerPrRef = controllerConfig?.pr
+                def controllerRepoUrl = controllerConfig?.repoUrl ?: 'git@github.com:project-chip/connectedhomeip.git' // Default to controller repo URL
 
-            try {
-                steps.timeout(time: 60, unit: 'MINUTES') {
-                    steps.ws(controllerWorkspace) {
-                        // Clone the controller SDK
-                        controller_sdk_sha = RepoUtils.cloneGitRepo(steps, controllerRepoUrl, "connectedhomeip", controllerGitRef,controllerShaRef, controllerTagRef, controllerPrRef)
-                        steps.echo "controller SDK SHA cloned : ${controller_sdk_sha}"
-                        if (!controller_sdk_sha) {
-                            throw new Exception("cloning controller SDK failed")
+                try {
+                    steps.timeout(time: 60, unit: 'MINUTES') {
+                        steps.ws(controllerWorkspace) {
+                            // Clone the controller SDK
+                            controller_sdk_sha = RepoUtils.cloneGitRepo(steps, controllerRepoUrl, "connectedhomeip", controllerGitRef,controllerShaRef, controllerTagRef, controllerPrRef)
+                            steps.echo "controller SDK SHA cloned : ${controller_sdk_sha}"
+                            if (!controller_sdk_sha) {
+                                throw new Exception("cloning controller SDK failed")
+                            }
+                            // save controller SDK SHA
+                            testConfigs.ci_config.controller_sdk_sha = "${controller_sdk_sha}"
                         }
-                        // save controller SDK SHA
-                        testConfigs.ci_config.controller_sdk_sha = "${controller_sdk_sha}"
                     }
+                } catch (Exception e) {
+                    cloneControllerSuccess = false
+                    steps.echo "Error during controller SDK clone: ${e.getMessage()}"
+                    steps.error "Error during controller SDK clone"
                 }
-            } catch (Exception e) {
-                cloneControllerSuccess = false
-                steps.echo "Error during controller SDK clone: ${e.getMessage()}"
-                steps.error "Error during controller SDK clone"
+            } else {
+                steps.echo "Skipping controller SDK clone (no controller SDK config provided)."
             }
-        } else {
-            steps.echo "Skipping controller SDK clone (no controller SDK config provided)."
         }
         // Read app configuration from testConfigs and clone apps SDK
         def appConfig = testConfigs?.ci_config?.clone_sdk_code_stage?.apps_sdk_config

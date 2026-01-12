@@ -47,6 +47,8 @@ node {
     env.testConfigs = testConfigs
     echo "Test Parameters: ${testConfigs}"
 
+    echo "Starting Parallel Test Execution check run status : ${testConfigs.ci_config?.raspi_pipeline?.run}"
+
     if (testConfigs.ci_config?.raspi_pipeline?.run)
         raspiPipeline(testConfigs, testCasesList)
 

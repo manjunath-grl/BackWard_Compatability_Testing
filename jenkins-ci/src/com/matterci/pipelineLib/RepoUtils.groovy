@@ -111,10 +111,15 @@ class RepoUtils implements Serializable {
 
         if (cloneSuccess){
             // Clean up and archive
+            def isConnectedHomeIp = testConfigs?.ci_config?.clone_sdk_code_stage?.controller_sdk_config?.controller_repo == "connectedhomeip"
             steps.sh """
                 set -ex
                 rm -f ${archivePath}
-                tar -czvf ${archivePath} -C ${buildIDWorkspace} ${controllerGitCloneDirectory} ${appGitCloneDirectory}
+                if [ "${isConnectedHomeIp}" = "true" ]; then
+                    tar -czvf ${archivePath} -C ${buildIDWorkspace} ${controllerGitCloneDirectory} ${appGitCloneDirectory}
+                else
+                    tar -czvf ${archivePath} -C ${buildIDWorkspace} ${appGitCloneDirectory}
+                fi
             """
         }
 

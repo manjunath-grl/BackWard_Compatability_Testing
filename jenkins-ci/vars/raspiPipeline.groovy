@@ -11,16 +11,16 @@ are to be built with docker. Docker has some issues when called from sharedLib. 
 calling the these APIs inside jenkins files.
 */
 
-def buildAndinstallControllerBinaries(steps, testConfigs, testCasesList, workSpace, raspiBinariesDir) {
+def buildAndinstallControllerBinaries(testConfigs, workSpace, raspiBinariesDir) {
 
     def status = 0
 
     stage('build controller on raspi') {
 
-        def arch = steps.sh(script: "uname -m", returnStdout: true).trim()
-        steps.echo "Running on node: ${env.NODE_NAME}"
-        steps.echo "Architecture: ${arch}"
-        steps.echo "Workspace: ${workSpace}"
+        def arch = sh(script: "uname -m", returnStdout: true).trim()
+        echo "Running on node: ${env.NODE_NAME}"
+        echo "Architecture: ${arch}"
+        echo "Workspace: ${workSpace}"
 
         def raspiStages = testConfigs.ci_config?.raspi_pipeline?.stages
         def isFreshInstall = raspiStages?.build_controller?.fresh_install ?: false
@@ -34,14 +34,14 @@ def buildAndinstallControllerBinaries(steps, testConfigs, testCasesList, workSpa
             error("Repo URL or branch not defined in YAML (clone_sdk_code_stage.controller_sdk_config)")
         }
 
-        steps.ws(workSpace) {
+        ws(${workSpace}) {
 
             /* ======================================================
              * Fresh Installation
              * ====================================================== */
             if (raspiStages?.build_controller?.enabled && isFreshInstall) {
 
-                steps.echo "Fresh install using branch: ${branch}"
+                echo "Fresh install using branch: ${branch}"
 
                 def freshInstallCmd = """#!/bin/bash
                 set -ex
@@ -63,7 +63,7 @@ def buildAndinstallControllerBinaries(steps, testConfigs, testCasesList, workSpa
                 sleep 300
                 """
 
-                status = steps.sh(
+                status = sh(
                     script: freshInstallCmd,
                     returnStatus: true
                 )
@@ -74,7 +74,7 @@ def buildAndinstallControllerBinaries(steps, testConfigs, testCasesList, workSpa
              * ====================================================== */
             else if (raspiStages?.build_controller?.enabled && !isFreshInstall) {
 
-                steps.echo "Updating certification-tool to branch: ${branch}"
+                echo "Updating certification-tool to branch: ${branch}"
 
                 def updateCmd = """#!/bin/bash
                 set -ex
@@ -97,13 +97,13 @@ def buildAndinstallControllerBinaries(steps, testConfigs, testCasesList, workSpa
                 fi
                 """
 
-                status = steps.sh(
+                status = sh(
                     script: updateCmd,
                     returnStatus: true
                 )
             }
             else {
-                steps.echo "build_controller stage disabled"
+                echo "build_controller stage disabled"
                 status = 0
             }
         }
@@ -350,7 +350,7 @@ def call(testConfigs, testCasesList) {
             if (testConfigs?.ci_config?.clone_sdk_code_stage?.controller_sdk_config?.controller_repo == "certification-tool"){
                 stage ('Copy and install binaries into ON_NETWORK_RASPI_CONTROLLER_NODE'){
                     node("${cntrlNode}"){
-                        def result = commonPipelineLib.buildAndinstallControllerBinaries(this, testConfigs, controllerBuildWorkSpace, raspiBinariesDirString)
+                        def result = buildAndinstallControllerBinaries(testConfigs, controllerBuildWorkSpace, raspiBinariesDirString)
                         if (!result.success)
                             error("Copy and install binaries into ON_NETWORK_RASPI_CONTROLLER_NODE failed")
                         else

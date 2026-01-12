@@ -350,7 +350,7 @@ def call(testConfigs, testCasesList) {
             if (testConfigs?.ci_config?.clone_sdk_code_stage?.controller_sdk_config?.controller_repo == "certification-tool"){
                 stage ('Copy and install binaries into ON_NETWORK_RASPI_CONTROLLER_NODE'){
                     node("${cntrlNode}"){
-                        def result = commonPipelineLib.buildAndinstallControllerBinaries(this, testConfigs, controllerBuildWorkSpace, raspiBinariesDirString
+                        def result = commonPipelineLib.buildAndinstallControllerBinaries(this, testConfigs, controllerBuildWorkSpace, raspiBinariesDirString)
                         if (!result.success)
                             error("Copy and install binaries into ON_NETWORK_RASPI_CONTROLLER_NODE failed")
                         else

@@ -1,0 +1,62 @@
+# =============================================================================
+# ci_config.yaml - CI/CD Pipeline Configuration for Jenkins Workflow
+# =============================================================================
+# This configuration file serves as an input to the Jenkins CI/CD pipeline.
+# It defines environment settings, source control parameters, application
+# under test, and pipeline execution stages for various platforms (e.g., RPi, Nordic).
+#
+# Usage:
+# - This file is passed as a Jenkins pipeline input to control what stages are
+#   executed, which repositories and branches to use, and which nodes to target.
+# - Update repository URLs, branches, tags, or specific SHAs as needed.
+# - Toggle stages or entire pipelines using the `enabled` and `run` flags.
+
+# ci_config:
+#   raspi_controller_node:       Dedicated Raspberry's Pi nodes for controller operations
+#   raspi_device_node:           Dedicated Raspberry's Pi nodes for device operations
+ci_config:
+  raspi_controller_node: "raspi_controller_agent"
+  raspi_device_node: "raspi_device_agent"
+  workspace_base: "/mnt/tests"
+
+  #   clone_sdk_code_stage:        Configuration for cloning SDK and QA repositories.
+  #     enabled:                   Flag to enable/disable SDK cloning.
+  clone_sdk_code_stage:
+    enabled: true
+    node_to_clone_code: "node_to_clone_code"
+    controller_sdk_config:
+      controller_repo: "certification-tool"
+      repoUrl: "git@github.com:project-chip/certification-tool.git"
+      branch: "v2.14+fall2025"
+      sha: ""
+      tag: ""
+      pr: ""
+    apps_sdk_config:
+      repoUrl: "git@github.com:project-chip/connectedhomeip.git"
+      branch: "v1.4-branch"
+      sha: ""
+      tag: ""
+      pr: ""
+    matter_qa_repo_git_config:
+      repoUrl: "git@github.com:CHIP-Specifications/matter-qa.git"
+      branch: "main"
+      sha: ""
+      tag: ""
+      pr: ""
+
+  app_to_test: "all-clusters-app"
+
+  copy_build_artifact: # - Configuration for copying build artifacts from a specific Jenkins job.
+    enabled: false # - enabled: Set to true to enable artifact copying, false to skip.
+    job_name: "Production" # - job_name: Name of the Jenkins job to copy artifacts from.
+    build_number: 1 # - build_number: Specific build number to copy artifacts from.
+
+  # raspi_pipeline:              CI stages for Raspberry Pi platform.
+  raspi_pipeline:
+    run: false
+    stages:
+      build_controller:
+        fresh_install: true
+      build_DUT:
+        enabled: true
+        docker_image: "testing_partof_chip_cert_bins_dockerfile"

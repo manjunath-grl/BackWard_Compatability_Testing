@@ -1,0 +1,91 @@
+Testcase_runner_config:
+  # Notes for this section:
+  # - Each script in `test_scripts` is executed sequentially.
+  # - Paths specified in script_path need to be updated with real directory locations before
+  #   running the configuration.
+  # - If `args` is specified within a script, it can override any parameter from `common_args`
+  #   (e.g., changing `--commissioning-method` to 'ble-wifi' for the second script).
+  # - Paths specified in arguments `reliability-tests-arg` may needs to be updated
+  #   with different configuration files based on the requirements.
+  # - Using `common_args` ensures consistency across all test cases, while `args` within specific scripts
+  #   provides flexibility for individual script customization.
+  # - `clear_temp_files` is an optional boolean; if True, it clears temporary files after executing that script.
+  #   If False or omitted, temporary files will be retained after execution.
+
+  # Common arguments that apply to all test scripts, unless specifically overridden in individual scripts.
+  # These arguments set up key test parameters such as discriminator, passcode, storage path,
+  # timeout duration, commissioning method, and paths for logs and PAA trust store.
+  common_args: --storage-path admin_storage.json  --paa-trust-store-path /home/grl/connectedhomeip/credentials/development/paa-root-certs/
+  commissioning_arg: --discriminator 3722 --passcode 20202021 --commissioning-method on-network
+  platform: rpi
+  pics_file: /home/grl/all_pics.txt
+
+  # List of test scripts with paths and optional script-specific arguments.
+  # Each entry represents a script to execute as part of the test run.
+  python_scripts:
+    # This is the example for the script that run with the common_args specified above,
+    # as no additional or overriding arguments are provided.
+    - script_path: /home/grl/connectedhomeip/src/python_testing/TC_TLSCERT.py
+      args: --tests test_TC_TLSCERT_2_1 --endpoint 1
+      use_existing_commissiong: False
+
+    # This is the example for the script that uses both the common_args and specific arguments
+    # listed under `args` , This allows setting script-specific parameters that can override or
+    # add to those in common_args.
+    - script_path: /home/grl/connectedhomeip/src/python_testing/TC_SOIL_2_1.py
+      args: --endpoint 1
+      use_existing_commissiong: False
+
+    - script_path: /home/grl/connectedhomeip/src/python_testing/TC_TLSCLIENT.py
+      args: --tests test_TC_TLSCLIENT_2_1 --endpoint 1
+      use_existing_commissiong: False
+
+  yaml_scripts:
+    - script_path: /home/grl/connectedhomeip/scripts/tests/chipyaml/chiptool.py tests Test_TC_ACFREMON_2_1
+      use_existing_commissiong: False
+
+    - script_path: /home/grl/connectedhomeip/scripts/tests/chipyaml/chiptool.py tests Test_TC_ACFREMON_2_1
+      use_existing_commissiong: False
+
+  controller_config:
+    chip_tool_app: /home/grl/connectedhomeip/out/chip-tool/chip-tool
+
+  dut_config:
+    rpi: # These parameters are used to take ssh session to a remote host and start DUT application on a raspberrypi
+      module: matter_qa.library.platform.raspberrypi # Python file which will inherit the BaseDUTNode class and define the behaviour of the DUT Working
+      rpi_hostname: "127.0.0.1"
+      delay_after_factory_reset: 5
+      do_factory_reset_every_iteration: True
+      logging:
+        capture_bluez: false
+        capture_hcidump: false
+        capture_tcpdump: false
+        capture_dbus: false
+        capture_wpasupplicant: false
+      rpi_username: "grl"
+      rpi_password: "chip-cert"
+      rpi_sudo_password: "chip-cert"
+      download_var_logs: False
+      var_log_filenames: ["avahi-daemon.log"]
+      # Optional:
+      factory_reset:
+        clear_wpa_supplicant_state: false
+        clear_bluetoothd_state: false
+
+      app_config: # These parameters are used to start the DUT application os user's choice, provide full app path and the arguments
+        # matter_app: "/home/grl/connectedhomeip/examples/lighting-app/linux/out/lighting-app/chip-lighting-app"
+        # matter_app: "/home/grl/connectedhomeip/examples/lit-icd-app/linux/out/lit-icd-app/lit-icd-app"
+        matter_app: "/home/grl/connectedhomeip/examples/all-clusters-app/linux/out/all-clusters-app/chip-all-clusters-app"
+        discriminator: 3722
+        passcode: 20202021
+        # crash_log: /home/ubuntu/apps/crash_log.txt
+        # end_user_support_log: /home/ubuntu/apps/end_user_support_log.txt
+        # network_diagnostics_log: /home/ubuntu/apps/nw_log.txt
+# Execution log transfer configuration
+execution_log_transfer_config:
+  enableLogsTransfer: false
+  storageServerNode: "storage-server"
+  storageServerPath: "/home/ubuntu/logs"
+  logTransferTimeoutMinutes: 60
+  retryCount: 3 # try 3 times
+  retryDelay: 5 # wait 5 minutes between retries

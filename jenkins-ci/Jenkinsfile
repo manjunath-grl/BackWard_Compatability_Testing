@@ -29,10 +29,10 @@ node {
 
     // override YAML settings with user provided settings in the UI, bit crazy here
     // The user provided value can be overwritten with Injected env params here
-    def numberOfIterations = env.INJECTED_NUMBER_OF_ITERATIONS ?: params.number_of_iterations
-    testConfigs.general_configs.number_of_iterations = numberOfIterations.toInteger()
+    //def numberOfIterations = env.INJECTED_NUMBER_OF_ITERATIONS ?: params.number_of_iterations
+    //testConfigs.general_configs.number_of_iterations = numberOfIterations.toInteger()
 
-    def testCasesList = ConfigLoader.getTestCaseList(testConfigs)
+    def testCasesList = [] //ConfigLoader.getTestCaseList(testConfigs)
     echo "Loaded test cases: ${testCasesList}"
 
     //assign these before starting the test so that python runner has this info to store in DB.

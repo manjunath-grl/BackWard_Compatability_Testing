@@ -12,7 +12,6 @@ node {
         parameters([
             string(name: 'ci_config_file', defaultValue: '~/jenkins-config/ci_config.yaml', description: 'Path to CI configuration YAML file'),
             string(name: 'test_run_config_file', defaultValue: '~/jenkins-config/test_run_config.yaml', description: 'Path to Test Run configuration YAML file'),
-            string(name: 'number_of_iterations', defaultValue: '3', description: 'Override number of iterations')
         ])
     ])
     // Override config file paths if provided in environmental variables

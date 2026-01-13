@@ -22,8 +22,11 @@ def buildAndinstallControllerBinaries(testConfigs, workSpace, raspiBinariesDir) 
         echo "Architecture: ${arch}"
         echo "Workspace: ${workSpace}"
 
-        def raspiStages = testConfigs.ci_config?.raspi_pipeline?.stages
+        def raspiStages   = testConfigs.ci_config?.raspi_pipeline?.stages
         def isFreshInstall = raspiStages?.build_controller?.fresh_install ?: false
+        def deviceIP = steps.sh(script: "hostname -I | awk '{print \$1}'", returnStdout: true).trim()
+        def hostname = steps.sh(script: "hostname", returnStdout: true).trim()
+        steps.echo "Hostname is: ${hostname}"
 
         /* ---- Read repo details from YAML ---- */
         def sdkCfg  = testConfigs.ci_config?.clone_sdk_code_stage?.controller_sdk_config
@@ -37,7 +40,7 @@ def buildAndinstallControllerBinaries(testConfigs, workSpace, raspiBinariesDir) 
         ws(workSpace) {
 
             /* ======================================================
-             * Fresh Installation
+             * Fresh Installation (with reboot)
              * ====================================================== */
             if (raspiStages?.build_controller?.enabled && isFreshInstall) {
 
@@ -57,20 +60,34 @@ def buildAndinstallControllerBinaries(testConfigs, workSpace, raspiBinariesDir) 
                 cd "\$WORKDIR"
 
                 # Auto-select option 1 (restart)
-                yes 1 | ./scripts/pi-setup/auto-install.sh
-
-                echo "Waiting 5minutes for Raspberry Pi reboot..."
-                sleep 300
+                yes 1 | ./scripts/pi-setup/auto-install.sh || true
                 """
 
                 status = sh(
                     script: freshInstallCmd,
                     returnStatus: true
                 )
+
+                if (status == 0) {
+                    echo "Waiting for Raspberry Pi to reboot and come back online..."
+
+                    /* ---- Preferred: wait for SSH ---- */
+                    timeout(time: 10, unit: 'MINUTES') {
+                        waitUntil {
+                            sleep 10
+                            sh(
+                                script: "ssh -o StrictHostKeyChecking=no -o ConnectTimeout=5 ${hostname}@${deviceIP} 'echo up'",
+                                returnStatus: true
+                            ) == 0
+                        }
+                    }
+
+                    echo "Raspberry Pi is back online"
+                }
             }
 
             /* ======================================================
-             * Update Existing Installation
+             * Update Existing Installation (no reboot expected)
              * ====================================================== */
             else if (raspiStages?.build_controller?.enabled && !isFreshInstall) {
 
@@ -89,12 +106,9 @@ def buildAndinstallControllerBinaries(testConfigs, workSpace, raspiBinariesDir) 
                 cd "\$WORKDIR"
                 git fetch
                 git checkout "${branch}"
-                git pull
+                git pull --recurse-submodules
 
-                # Placeholder for future update scripts
-                if [ -d "./scripts/ubuntu" ]; then
-                    echo "scripts/ubuntu directory present"
-                fi
+                echo "Update completed successfully"
                 """
 
                 status = sh(
@@ -110,11 +124,12 @@ def buildAndinstallControllerBinaries(testConfigs, workSpace, raspiBinariesDir) 
     }
 
     return [
-        success: (status == 0),
-        status : status,
-        cntrlWorksSpace: workSpace
+        success         : (status == 0),
+        status          : status,
+        cntrlWorksSpace : workSpace
     ]
 }
+
 
 def buildController(testConfigs, testCasesList, workSpace, raspiBinariesDir){
 

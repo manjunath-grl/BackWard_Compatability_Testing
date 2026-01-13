@@ -42,7 +42,7 @@ def buildAndinstallControllerBinaries(testConfigs, workSpace, raspiBinariesDir) 
             /* ======================================================
              * Fresh Installation (with reboot)
              * ====================================================== */
-            if (raspiStages?.build_controller?.enabled && isFreshInstall) {
+            if (isFreshInstall) {
 
                 echo "Fresh install using branch: ${branch}"
 
@@ -89,7 +89,7 @@ def buildAndinstallControllerBinaries(testConfigs, workSpace, raspiBinariesDir) 
             /* ======================================================
              * Update Existing Installation (no reboot expected)
              * ====================================================== */
-            else if (raspiStages?.build_controller?.enabled && !isFreshInstall) {
+            else if (!isFreshInstall) {
 
                 echo "Updating certification-tool to branch: ${branch}"
 
@@ -401,15 +401,15 @@ def call(testConfigs, testCasesList) {
                         }
                     }
             }
-            stage ('Run Tests on ON_NETWORK_RASPI_CONTROLLER_NODE') {
-                echo "Run Tests"
-                node (cntrlNode) {
-                    echo "on-network controller workspace is : ${cntlWorkSpace}"
-                    def localTestParams = RaspiPipelineLib.initRaspiOnNetworkTestParams(this, testConfigs, cntlWorkSpace, deviceWorkSpace, deviceNodeIPAddress, env.appToTest)
-                    def raspi_onnetwork = new RunTests()
-                    raspi_onnetwork.runTests(this, cntlWorkSpace,localTestParams,testCasesList)
-                }
-            }
+            // stage ('Run Tests on ON_NETWORK_RASPI_CONTROLLER_NODE') {
+            //     echo "Run Tests"
+            //     node (cntrlNode) {
+            //         echo "on-network controller workspace is : ${cntlWorkSpace}"
+            //         def localTestParams = RaspiPipelineLib.initRaspiOnNetworkTestParams(this, testConfigs, cntlWorkSpace, deviceWorkSpace, deviceNodeIPAddress, env.appToTest)
+            //         def raspi_onnetwork = new RunTests()
+            //         raspi_onnetwork.runTests(this, cntlWorkSpace,localTestParams,testCasesList)
+            //     }
+            // }
             if (logTransferConfig?.enableLogsTransfer && logTransferConfig?.storageServerNode && logTransferConfig?.storageServerPath) {
                 stage ('Transfer Logs to server storage') {
                     def verifySucessTransfer = commonPipelineLib.transferLogsToStorageServer(

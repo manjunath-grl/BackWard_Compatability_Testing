@@ -74,20 +74,22 @@ def buildAndinstallControllerBinaries(testConfigs, workSpace, raspiBinariesDir) 
     stage('build controller on raspi') {
 
         def raspiStages = testConfigs.ci_config?.raspi_pipeline?.stages
+        echo "raspiStages : ${raspiStages}"
         def isFreshInstall = raspiStages?.build_controller?.fresh_install ?: false
-
+        echo "isFreshInstall : ${isFreshInstall}"
         def sdkCfg  = testConfigs.ci_config?.clone_sdk_code_stage?.controller_sdk_config
         def repoUrl = sdkCfg?.repoUrl
         def branch  = sdkCfg?.branch
 
         def hostname = sh(script: "hostname", returnStdout: true).trim()
+        echo "hostname : ${hostname}"
+        def raspiBinariesDirString = raspiBinariesDir
         WORKDIR = "/home/${hostname}/certification-tool"
         homedir = "/home/${hostname}"
         def buildSuccess = false
 
-        def imageSha = raspiStages?.build_controller?.chip-cert-bins
+        def imageSha = raspiStages?.build_controller?.chip_cert_bins
         try {
-        
             ws(workSpace) {
 
                 /* ================================

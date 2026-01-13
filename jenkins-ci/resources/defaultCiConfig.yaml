@@ -57,7 +57,7 @@ ci_config:
     stages:
       build_controller:
         fresh_install: true
-        chip-cert-bins: ca9d1118e097fe947b2aec1ba84f265d6cf2447e
+        chip_cert_bins: ca9d1118e097fe947b2aec1ba84f265d6cf2447e
       build_DUT:
         enabled: true
         docker_image: "testing_partof_chip_cert_bins_dockerfile"

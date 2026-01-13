@@ -55,7 +55,7 @@ def buildAndinstallControllerBinaries(testConfigs, workSpace, raspiBinariesDir) 
                     echo "Removing existing certification-tool directory"
                     rm -rf "\$WORKDIR"
                 fi
-                cd "\$WORKDIR"
+                cd "\$HOME"
 
                 git clone -b "${branch}" "${repoUrl}" --recurse-submodules
 

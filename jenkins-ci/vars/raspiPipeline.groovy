@@ -112,7 +112,7 @@ def buildAndinstallControllerBinaries(testConfigs, workSpace, raspiBinariesDir) 
     return [
         success         : (status == 0),
         status          : status,
-        cntrlWorksSpace : WORKDIR
+        cntrlWorksSpace : workSpace
     ]
 }
 

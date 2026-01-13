@@ -79,7 +79,6 @@ def buildAndinstallControllerBinaries(testConfigs, workSpace, raspiBinariesDir) 
         def sdkCfg  = testConfigs.ci_config?.clone_sdk_code_stage?.controller_sdk_config
         def repoUrl = sdkCfg?.repoUrl
         def branch  = sdkCfg?.branch
-        def imageSha = sdkCfg?.image_sha
 
         def hostname = sh(script: "hostname", returnStdout: true).trim()
         WORKDIR = "/home/${hostname}/certification-tool"
@@ -95,9 +94,7 @@ def buildAndinstallControllerBinaries(testConfigs, workSpace, raspiBinariesDir) 
                 * Fresh install (reboot)
                 * ================================ */
                 if (isFreshInstall) {
-
                     echo "Fresh install enabled"
-
                     status = sh(
                         script: """
                         set -ex
@@ -136,7 +133,11 @@ def buildAndinstallControllerBinaries(testConfigs, workSpace, raspiBinariesDir) 
                     extractDockerArtifacts(imageSha, raspiBinariesDirString)
                     archiveArtifacts artifacts: "${homedir}/${raspiBinariesDirString}/**", fingerprint: true, allowEmptyArchive: true
                 }
-                def status = RepoUtils.cloneMatterQARepo(steps, testConfigs, "main", homedir, raspiBinariesDirString)
+                def matterCloneStatus = RepoUtils.cloneMatterQARepo(steps, testConfigs, "main", homedir, raspiBinariesDirString)
+                if (matterCloneStatus != 0) {
+                    buildSuccess = false
+                    steps.echo("Error occurred in shell CMDs in 'Copy and install binaries into CONTROLLER_NODE' stage.")
+                }
             }
 
         }catch (Exception e) {

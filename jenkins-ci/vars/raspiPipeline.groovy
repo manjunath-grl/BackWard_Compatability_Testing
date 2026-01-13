@@ -55,9 +55,9 @@ def buildAndinstallControllerBinaries(testConfigs, workSpace, raspiBinariesDir) 
                     echo "Removing existing certification-tool directory"
                     rm -rf "\$WORKDIR"
                 fi
+                cd "\$WORKDIR"
 
                 git clone -b "${branch}" "${repoUrl}" --recurse-submodules
-                cd "\$WORKDIR"
 
                 # Auto-select option 1 (restart)
                 yes 1 | ./scripts/pi-setup/auto-install.sh || true

@@ -93,6 +93,7 @@ def buildAndinstallControllerBinaries(testConfigs, workSpace, raspiBinariesDir) 
                 git fetch
                 git checkout "${branch}"
                 git pull --recurse-submodules
+                ./scripts/ubuntu/auto-update.sh "${branch}"
 
                 echo "Update completed successfully"
                 """

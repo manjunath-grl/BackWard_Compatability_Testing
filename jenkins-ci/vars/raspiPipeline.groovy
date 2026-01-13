@@ -11,110 +11,140 @@ are to be built with docker. Docker has some issues when called from sharedLib. 
 calling the these APIs inside jenkins files.
 */
 
-def buildAndinstallControllerBinaries(testConfigs, workSpace, raspiBinariesDir) {
+def waitForNodeAfterReboot(int timeoutMinutes = 10) {
+    echo "Waiting for node to come back after reboot..."
 
-    def status = 0
-
-    stage('build controller on raspi') {
-
-        def arch = sh(script: "uname -m", returnStdout: true).trim()
-        echo "Running on node: ${env.NODE_NAME}"
-        echo "Architecture: ${arch}"
-        echo "Workspace: ${workSpace}"
-
-        def raspiStages   = testConfigs.ci_config?.raspi_pipeline?.stages
-        def isFreshInstall = raspiStages?.build_controller?.fresh_install ?: false
-        def deviceIP = steps.sh(script: "hostname -I | awk '{print \$1}'", returnStdout: true).trim()
-        def hostname = steps.sh(script: "hostname", returnStdout: true).trim()
-        steps.echo "Hostname is: ${hostname}"
-
-        /* ---- Read repo details from YAML ---- */
-        def sdkCfg  = testConfigs.ci_config?.clone_sdk_code_stage?.controller_sdk_config
-        def repoUrl = sdkCfg?.repoUrl
-        def branch  = sdkCfg?.branch
-        def WORKDIR = "/home/${hostname}/certification-tool"
-
-        if (!repoUrl || !branch) {
-            error("Repo URL or branch not defined in YAML (clone_sdk_code_stage.controller_sdk_config)")
-        }
-
-        ws(workSpace) {
-
-            /* ======================================================
-             * Fresh Installation (with reboot)
-             * ====================================================== */
-            if (isFreshInstall) {
-
-                echo "Fresh install using branch: ${branch}"
-
-                def freshInstallCmd = """#!/bin/bash
-                set -ex
-
-                WORKDIR="$HOME/certification-tool"
-
-                if [ -d "$WORKDIR" ]; then
-                    echo "Removing existing certification-tool directory"
-                    sudo docker ps -q | xargs -r sudo docker kill
-                    sudo rm -rf "$WORKDIR"
-                fi
-
-                cd "\$HOME"
-                git clone -b "${branch}" "${repoUrl}" --recurse-submodules
-                cd "\$WORKDIR"
-                # Auto-select option 1 (restart)
-                yes 1 | ./scripts/pi-setup/auto-install.sh || true
-
-                """
-
-                status = sh(
-                    script: freshInstallCmd,
-                    returnStatus: true
-                )
-            }
-
-            /* ======================================================
-             * Update Existing Installation (no reboot expected)
-             * ====================================================== */
-            else if (!isFreshInstall) {
-
-                echo "Updating certification-tool to branch: ${branch}"
-
-                def updateCmd = """#!/bin/bash
-                set -ex
-
-                WORKDIR="\$HOME/certification-tool"
-
-                if [ ! -d "\$WORKDIR" ]; then
-                    echo "certification-tool directory not found, update not possible"
-                    exit 1
-                fi
-
-                cd "\$WORKDIR"
-                git fetch
-                git checkout "${branch}"
-                git pull --recurse-submodules
-                ./scripts/ubuntu/auto-update.sh "${branch}"
-
-                echo "Update completed successfully"
-                """
-
-                status = sh(
-                    script: updateCmd,
-                    returnStatus: true
-                )
-            }
-            else {
-                echo "build_controller stage disabled"
-                status = 0
+    timeout(time: timeoutMinutes, unit: 'MINUTES') {
+        waitUntil {
+            try {
+                sh(script: "echo node-up", returnStatus: true) == 0
+            } catch (e) {
+                sleep 10
+                return false
             }
         }
     }
 
-    return [
-        success         : (status == 0),
-        status          : status,
-        cntrlWorksSpace : workSpace
-    ]
+    echo "Node is back online"
+}
+
+
+def extractDockerArtifacts(String imageSha, String baseDir) {
+
+    sh """
+    set -ex
+
+    CONTAINER=chip-cert-temp
+    BASE_DIR="\$HOME/${baseDir}"
+
+    # Clean existing dirs if present
+    rm -rf "\$BASE_DIR"
+
+    # Re-create clean directories
+    mkdir -p "\$BASE_DIR"
+    mkdir -p "\$BASE_DIR/python_scripts"
+
+    # Run container
+    docker run --name \$CONTAINER -dit \
+      connectedhomeip/chip-cert-bins:${imageSha} bash
+
+    # Copy controller wheels
+    docker cp \$CONTAINER:/root/python_lib/controller/python/. \
+      \$BASE_DIR/ || true
+
+    # Copy matter-testing wheels
+    docker cp \$CONTAINER:/root/python_lib/obj/src/python_testing/matter_testing_infrastructure/matter-testing._build_wheel/. \
+      \$BASE_DIR/ || true
+    # Copy python_testing folder
+    docker cp \$CONTAINER:/root/python_testing/scripts/sdk. \
+      \$BASE_DIR/python_scripts/ || true
+
+    # Cleanup
+    docker rm -f \$CONTAINER
+    """
+}
+
+
+def buildAndinstallControllerBinaries(testConfigs, workSpace, raspiBinariesDir) {
+
+    def status = 0
+    def WORKDIR = ""
+    def homedir = ""
+
+    stage('build controller on raspi') {
+
+        def raspiStages = testConfigs.ci_config?.raspi_pipeline?.stages
+        def isFreshInstall = raspiStages?.build_controller?.fresh_install ?: false
+
+        def sdkCfg  = testConfigs.ci_config?.clone_sdk_code_stage?.controller_sdk_config
+        def repoUrl = sdkCfg?.repoUrl
+        def branch  = sdkCfg?.branch
+        def imageSha = sdkCfg?.image_sha
+
+        def hostname = sh(script: "hostname", returnStdout: true).trim()
+        WORKDIR = "/home/${hostname}/certification-tool"
+        homedir = "/home/${hostname}"
+        def buildSuccess = false
+
+        def imageSha = raspiStages?.build_controller?.chip-cert-bins
+        try {
+        
+            ws(workSpace) {
+
+                /* ================================
+                * Fresh install (reboot)
+                * ================================ */
+                if (isFreshInstall) {
+
+                    echo "Fresh install enabled"
+
+                    status = sh(
+                        script: """
+                        set -ex
+                        WORKDIR="\$HOME/certification-tool"
+                        sudo docker ps -q | xargs -r sudo docker kill
+                        sudo rm -rf "\$WORKDIR"
+                        cd "\$HOME"
+                        git clone -b "${branch}" "${repoUrl}" --recurse-submodules
+                        cd "\$WORKDIR"
+                        yes 1 | ./scripts/pi-setup/auto-install.sh || true
+                        """,
+                        returnStatus: true
+                    )
+                    // Node reboot happens here
+                    waitForNodeAfterReboot(5)
+                }
+                else {
+                    echo "Update install enabled"
+                    status = sh(
+                        script: """
+                        set -ex
+                        WORKDIR="\$HOME/certification-tool"
+                        cd "\$WORKDIR"
+                        git fetch
+                        git checkout "${branch}"
+                        git pull --recurse-submodules
+                        ./scripts/ubuntu/auto-update.sh "${branch}"
+                        """,
+                        returnStatus: true
+                    )
+                }
+                //Docker artifact extraction
+                if (status == 0) {
+                    buildSuccess = true
+                    echo "Extracting docker artifacts"
+                    extractDockerArtifacts(imageSha, raspiBinariesDirString)
+                    archiveArtifacts artifacts: "${homedir}/${raspiBinariesDirString}/**", fingerprint: true, allowEmptyArchive: true
+                }
+                def status = RepoUtils.cloneMatterQARepo(steps, testConfigs, "main", homedir, raspiBinariesDirString)
+            }
+
+        }catch (Exception e) {
+            buildSuccess = false
+            echo "Error occurred during 'Build for controller using certification-tool repo' stage: ${e.getMessage()}"
+        }
+    }
+    return [success: buildSuccess, cntrlWorksSpace: homedir]
 }
 
 
@@ -350,13 +380,13 @@ def call(testConfigs, testCasesList) {
             }
             //Runs only if it is certification-tool repo
             if (testConfigs?.ci_config?.clone_sdk_code_stage?.controller_sdk_config?.controller_repo == "certification-tool"){
-                stage ('Copy and install binaries into ON_NETWORK_RASPI_CONTROLLER_NODE'){
+                stage ('Build and Install CTRL binaries into RASPI_CONTROLLER_NODE'){
                     node("${cntrlNode}"){
                         controllerBuildWorkSpace = "${env.WORKSPACE}/controller_sdk"
                         echo "Controller build work space : ${controllerBuildWorkSpace}"
                         def result = buildAndinstallControllerBinaries(testConfigs, controllerBuildWorkSpace, raspiBinariesDirString)
                         if (!result.success)
-                            error("Copy and install binaries into ON_NETWORK_RASPI_CONTROLLER_NODE failed")
+                            error("Copy and install binaries into RASPI_CONTROLLER_NODE failed")
                         else
                             cntlWorkSpace = result.cntrlWorksSpace
                     }
@@ -364,17 +394,17 @@ def call(testConfigs, testCasesList) {
             }
             //else runs if it is connectedhomeip repo
             else{
-                stage ('Copy and install binaries into ON_NETWORK_RASPI_CONTROLLER_NODE'){
+                stage ('Copy and install binaries into RASPI_CONTROLLER_NODE'){
                     node("${cntrlNode}"){
                         def result = commonPipelineLib.installControllerBinaries(this, testConfigs, raspiBinariesDirString)
                         if (!result.success)
-                            error("Copy and install binaries into ON_NETWORK_RASPI_CONTROLLER_NODE failed")
+                            error("Copy and install binaries into RASPI_CONTROLLER_NODE failed")
                         else
                             cntlWorkSpace = result.cntrlWorksSpace
                     }
                 }
             }
-            stage ('Copy and install binaries into ON_NETWORK_DEVICE_NODE'){
+            stage ('Copy and install binaries into DEVICE_NODE'){
                 def result = RaspiPipelineLib.installDeviceBinaries(this, testConfigs, deviceNode, "On-Network")
                 if (!result.success)
                     error("Copy and install binaries into ON_NETWORK_DEVICE_NODE failed ")

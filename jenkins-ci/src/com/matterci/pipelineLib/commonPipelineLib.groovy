@@ -8,7 +8,7 @@ import groovy.json.*
 
 class commonPipelineLib implements Serializable {
 
-        static Map installControllerBinaries(def steps, Map testConfigs, String ctrlBinariesDir) {
+    static Map installControllerBinaries(def steps, Map testConfigs, String ctrlBinariesDir) {
 
         def copyArtifactsSuccess = true
         def controllerBinariesWorkspace = "${steps.env.WORKSPACE}/${steps.env.BUILD_NUMBER}/copied_controller_binaries"

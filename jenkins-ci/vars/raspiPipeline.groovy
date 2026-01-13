@@ -62,7 +62,8 @@ def buildAndinstallControllerBinaries(testConfigs, workSpace, raspiBinariesDir) 
                 git clone -b "${branch}" "${repoUrl}" --recurse-submodules
                 cd "\$WORKDIR"
                 # Auto-select option 1 (restart)
-                yes 1 | sudo ./scripts/pi-setup/auto-install.sh || true
+                yes 1 | ./scripts/pi-setup/auto-install.sh || true
+
                 """
 
                 status = sh(

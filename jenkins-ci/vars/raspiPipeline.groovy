@@ -54,7 +54,7 @@ def buildAndinstallControllerBinaries(testConfigs, workSpace, raspiBinariesDir) 
 
                 if [ -d "\$WORKDIR" ]; then
                     echo "Removing existing certification-tool directory"
-                    docker kill $(docker ps -q)
+                    sudo docker kill \$(docker ps -q)
                     sudo rm -rf "\$WORKDIR"
                 fi
                 cd "\$HOME"

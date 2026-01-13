@@ -62,6 +62,7 @@ def buildAndinstallControllerBinaries(testConfigs, workSpace, raspiBinariesDir) 
                 cd "\$WORKDIR"
                 # Auto-select option 1 (restart)
                 yes 1 | ./scripts/pi-setup/auto-install.sh || true
+                exit 0
                 """
 
                 status = sh(

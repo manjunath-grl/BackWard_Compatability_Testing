@@ -32,6 +32,7 @@ def buildAndinstallControllerBinaries(testConfigs, workSpace, raspiBinariesDir) 
         def sdkCfg  = testConfigs.ci_config?.clone_sdk_code_stage?.controller_sdk_config
         def repoUrl = sdkCfg?.repoUrl
         def branch  = sdkCfg?.branch
+        def WORKDIR = "/home/${hostname}/certification-tool"
 
         if (!repoUrl || !branch) {
             error("Repo URL or branch not defined in YAML (clone_sdk_code_stage.controller_sdk_config)")
@@ -63,27 +64,12 @@ def buildAndinstallControllerBinaries(testConfigs, workSpace, raspiBinariesDir) 
                 yes 1 | ./scripts/pi-setup/auto-install.sh || true
                 """
 
+                freshInstallCmd = 0
+
                 status = sh(
                     script: freshInstallCmd,
                     returnStatus: true
                 )
-
-                if (status == 0) {
-                    echo "Waiting for Raspberry Pi to reboot and come back online..."
-
-                    /* ---- Preferred: wait for SSH ---- */
-                    timeout(time: 10, unit: 'MINUTES') {
-                        waitUntil {
-                            sleep 10
-                            sh(
-                                script: "sudo ssh -o StrictHostKeyChecking=no -o ConnectTimeout=5 ${hostname}@${deviceIP} 'echo up'",
-                                returnStatus: true
-                            ) == 0
-                        }
-                    }
-
-                    echo "Raspberry Pi is back online"
-                }
             }
 
             /* ======================================================
@@ -126,7 +112,7 @@ def buildAndinstallControllerBinaries(testConfigs, workSpace, raspiBinariesDir) 
     return [
         success         : (status == 0),
         status          : status,
-        cntrlWorksSpace : workSpace
+        cntrlWorksSpace : WORKDIR
     ]
 }
 

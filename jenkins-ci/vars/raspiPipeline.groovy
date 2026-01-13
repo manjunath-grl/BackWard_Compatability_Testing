@@ -50,15 +50,15 @@ def buildAndinstallControllerBinaries(testConfigs, workSpace, raspiBinariesDir) 
                 def freshInstallCmd = """#!/bin/bash
                 set -ex
 
-                WORKDIR="\$HOME/certification-tool"
+                WORKDIR="$HOME/certification-tool"
 
-                if [ -d "\$WORKDIR" ]; then
+                if [ -d "$WORKDIR" ]; then
                     echo "Removing existing certification-tool directory"
-                    sudo docker kill \$(docker ps -q)
-                    sudo rm -rf "\$WORKDIR"
+                    sudo docker ps -q | xargs -r sudo docker kill
+                    sudo rm -rf "$WORKDIR"
                 fi
-                cd "\$HOME"
 
+                cd "\$HOME"
                 git clone -b "${branch}" "${repoUrl}" --recurse-submodules
                 cd "\$WORKDIR"
                 # Auto-select option 1 (restart)

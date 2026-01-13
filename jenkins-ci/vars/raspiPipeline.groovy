@@ -34,7 +34,7 @@ def buildAndinstallControllerBinaries(testConfigs, workSpace, raspiBinariesDir) 
             error("Repo URL or branch not defined in YAML (clone_sdk_code_stage.controller_sdk_config)")
         }
 
-        ws(${workSpace}) {
+        ws(workSpace) {
 
             /* ======================================================
              * Fresh Installation

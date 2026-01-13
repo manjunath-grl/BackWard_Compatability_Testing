@@ -64,12 +64,12 @@ def buildAndinstallControllerBinaries(testConfigs, workSpace, raspiBinariesDir) 
                 yes 1 | ./scripts/pi-setup/auto-install.sh || true
                 """
 
-                freshInstallCmd = 0
+                // freshInstallCmd = 0
 
-                status = sh(
-                    script: freshInstallCmd,
-                    returnStatus: true
-                )
+                // status = sh(
+                //     script: freshInstallCmd,
+                //     returnStatus: true
+                // )
             }
 
             /* ======================================================

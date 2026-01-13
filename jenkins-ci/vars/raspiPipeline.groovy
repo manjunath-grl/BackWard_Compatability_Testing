@@ -365,6 +365,8 @@ def call(testConfigs, testCasesList) {
             if (testConfigs?.ci_config?.clone_sdk_code_stage?.controller_sdk_config?.controller_repo == "certification-tool"){
                 stage ('Copy and install binaries into ON_NETWORK_RASPI_CONTROLLER_NODE'){
                     node("${cntrlNode}"){
+                        controllerBuildWorkSpace = "${env.WORKSPACE}/controller_sdk"
+                        echo "Controller build work space : ${controllerBuildWorkSpace}"
                         def result = buildAndinstallControllerBinaries(testConfigs, controllerBuildWorkSpace, raspiBinariesDirString)
                         if (!result.success)
                             error("Copy and install binaries into ON_NETWORK_RASPI_CONTROLLER_NODE failed")

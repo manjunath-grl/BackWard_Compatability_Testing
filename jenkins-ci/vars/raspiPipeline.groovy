@@ -76,7 +76,7 @@ def buildAndinstallControllerBinaries(testConfigs, workSpace, raspiBinariesDir) 
                         waitUntil {
                             sleep 10
                             sh(
-                                script: "ssh -o StrictHostKeyChecking=no -o ConnectTimeout=5 ${hostname}@${deviceIP} 'echo up'",
+                                script: "sudo ssh -o StrictHostKeyChecking=no -o ConnectTimeout=5 ${hostname}@${deviceIP} 'echo up'",
                                 returnStatus: true
                             ) == 0
                         }

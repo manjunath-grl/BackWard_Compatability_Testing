@@ -424,15 +424,14 @@ def call(testConfigs, testCasesList) {
                         }
                     }
             }
-            // stage ('Run Tests on ON_NETWORK_RASPI_CONTROLLER_NODE') {
-            //     echo "Run Tests"
-            //     node (cntrlNode) {
-            //         echo "on-network controller workspace is : ${cntlWorkSpace}"
-            //         def localTestParams = RaspiPipelineLib.initRaspiOnNetworkTestParams(this, testConfigs, cntlWorkSpace, deviceWorkSpace, deviceNodeIPAddress, env.appToTest)
-            //         def raspi_onnetwork = new RunTests()
-            //         raspi_onnetwork.runTests(this, cntlWorkSpace,localTestParams,testCasesList)
-            //     }
-            // }
+            stage ('Run Tests on ON_NETWORK_RASPI_CONTROLLER_NODE') {
+                echo "Run Tests"
+                node (cntrlNode) {
+                    echo "controller workspace is : ${cntlWorkSpace}"
+                    def raspi_onnetwork = new RunTests()
+                    raspi_onnetwork.runTests(this, cntlWorkSpace,localTestParams,testCasesList)
+                }
+            }
             if (logTransferConfig?.enableLogsTransfer && logTransferConfig?.storageServerNode && logTransferConfig?.storageServerPath) {
                 stage ('Transfer Logs to server storage') {
                     def verifySucessTransfer = commonPipelineLib.transferLogsToStorageServer(

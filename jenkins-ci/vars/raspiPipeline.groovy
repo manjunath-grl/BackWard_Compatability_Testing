@@ -69,7 +69,7 @@ def extractDockerArtifacts(String imageSha, String baseDir) {
 }
 
 
-def buildAndinstallControllerBinaries(testConfigs, workSpace, raspiBinariesDir) {
+def buildAndinstallControllerBinaries(def steps,testConfigs, workSpace, raspiBinariesDir) {
     boolean buildSuccess = false
     def status = 0
     def WORKDIR = ""
@@ -136,7 +136,7 @@ def buildAndinstallControllerBinaries(testConfigs, workSpace, raspiBinariesDir) 
                     buildSuccess = true
                     echo "Extracting docker artifacts"
                     extractDockerArtifacts(imageSha, raspiBinariesDirString)
-                    archiveArtifacts artifacts: "${homedir}/${raspiBinariesDirString}/**", fingerprint: true, allowEmptyArchive: true
+                    //archiveArtifacts artifacts: "${homedir}/${raspiBinariesDirString}/**", fingerprint: true, allowEmptyArchive: true
                 }
                 def matterCloneStatus = RepoUtils.cloneMatterQARepo(steps, testConfigs, "main", homedir, raspiBinariesDirString)
                 if (matterCloneStatus != 0) {
@@ -369,7 +369,7 @@ def call(testConfigs, testCasesList) {
         }
     }
     if (raspiStages.run_tests.enabled) {
-        stage('Run Automated Tests on Raspi') {
+        stage('Install binaries and Run tests on Raspi') {
             def cntlWorkSpace = ''
             def cntrlNode = ''
             def deviceNode = ''
@@ -390,7 +390,7 @@ def call(testConfigs, testCasesList) {
                     node("${cntrlNode}"){
                         controllerBuildWorkSpace = "${env.WORKSPACE}/controller_sdk"
                         echo "Controller build work space : ${controllerBuildWorkSpace}"
-                        def result = buildAndinstallControllerBinaries(testConfigs, controllerBuildWorkSpace, raspiBinariesDirString)
+                        def result = buildAndinstallControllerBinaries(this,testConfigs, controllerBuildWorkSpace, raspiBinariesDirString)
                         if (!result.success)
                             error("Copy and install binaries into RASPI_CONTROLLER_NODE failed")
                         else

@@ -66,7 +66,7 @@ def extractDockerArtifacts(String imageSha, String baseDir) {
 
 
 def buildAndinstallControllerBinaries(testConfigs, workSpace, raspiBinariesDir) {
-
+    boolean buildSuccess = false
     def status = 0
     def WORKDIR = ""
     def homedir = ""
@@ -86,7 +86,6 @@ def buildAndinstallControllerBinaries(testConfigs, workSpace, raspiBinariesDir) 
         def raspiBinariesDirString = raspiBinariesDir
         WORKDIR = "/home/${hostname}/certification-tool"
         homedir = "/home/${hostname}"
-        def buildSuccess = false
 
         def imageSha = raspiStages?.build_controller?.chip_cert_bins
         try {

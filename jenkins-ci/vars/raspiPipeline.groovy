@@ -429,7 +429,7 @@ def call(testConfigs, testCasesList) {
                 node (cntrlNode) {
                     echo "controller workspace is : ${cntlWorkSpace}"
                     def raspi_onnetwork = new RunTests()
-                    raspi_onnetwork.runTests(this, cntlWorkSpace,localTestParams,testCasesList)
+                    raspi_onnetwork.runTests(this, cntlWorkSpace, "${cntlWorkSpace}/runner_config.yaml", "${cntlWorkSpace}/Log_path")
                 }
             }
             if (logTransferConfig?.enableLogsTransfer && logTransferConfig?.storageServerNode && logTransferConfig?.storageServerPath) {

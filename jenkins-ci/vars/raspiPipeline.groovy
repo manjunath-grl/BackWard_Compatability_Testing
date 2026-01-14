@@ -37,7 +37,10 @@ def extractDockerArtifacts(String imageSha, String baseDir) {
     CONTAINER=chip-cert-temp
     BASE_DIR="\$HOME/${baseDir}"
 
-    # Clean existing dirs if present
+    # Remove container if it already exists (idempotent)
+    docker rm -f \$CONTAINER || true
+
+    # Clean existing dirs
     rm -rf "\$BASE_DIR"
 
     # Re-create clean directories
@@ -50,17 +53,18 @@ def extractDockerArtifacts(String imageSha, String baseDir) {
 
     # Copy controller wheels
     docker cp \$CONTAINER:/root/python_lib/controller/python/. \
-      \$BASE_DIR/ || true
+      "\$BASE_DIR/" || true
 
     # Copy matter-testing wheels
     docker cp \$CONTAINER:/root/python_lib/obj/src/python_testing/matter_testing_infrastructure/matter-testing._build_wheel/. \
-      \$BASE_DIR/ || true
-    # Copy python_testing folder
-    docker cp \$CONTAINER:/root/python_testing/scripts/sdk. \
-      \$BASE_DIR/python_scripts/ || true
+      "\$BASE_DIR/" || true
+
+    # Copy python_testing scripts
+    docker cp \$CONTAINER:/root/python_testing/scripts/sdk/. \
+      "\$BASE_DIR/python_scripts/" || true
 
     # Cleanup
-    docker rm -f \$CONTAINER
+    docker rm -f \$CONTAINER || true
     """
 }
 

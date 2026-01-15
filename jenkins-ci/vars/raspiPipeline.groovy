@@ -107,6 +107,7 @@ def buildAndinstallControllerBinaries(def steps,testConfigs, workSpace, raspiBin
                         sudo docker ps -q | xargs -r sudo docker kill
                         sudo rm -rf "\$WORKDIR"
                         cd "\$HOME"
+                        sudo rm -rf matter_qa
                         git clone -b "${branch}" "${repoUrl}" --recurse-submodules
                         cd "\$WORKDIR"
                         yes 1 | ./scripts/pi-setup/auto-install.sh || true
@@ -121,6 +122,8 @@ def buildAndinstallControllerBinaries(def steps,testConfigs, workSpace, raspiBin
                     status = sh(
                         script: """
                         set -ex
+                        cd "\$HOME"
+                        sudo rm -rf matter_qa
                         WORKDIR="\$HOME/certification-tool"
                         cd "\$WORKDIR"
                         git fetch

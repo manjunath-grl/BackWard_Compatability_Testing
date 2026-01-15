@@ -17,7 +17,11 @@ class RunTests {
                 // Clear the LOGS_date folder
                 steps.sh(script: "rm -rf ${dateLogPath}/*", returnStatus: true)
                 // Run the Python script
-                def status = steps.sh(script: "python3 \"\$HOME/testcase_runner.py\" --runner-test-config ${yamlPath} --log-path ${dateLogPath}", returnStatus: true)
+                def status = steps.sh(script: """
+                set -ex
+                source .venv/bin/activate
+                python3 \"\$HOME/testcase_runner.py\" --runner-test-config ${yamlPath} --log-path ${dateLogPath}", returnStatus: true)
+                """, returnStatus: true)
                 if (status != 0) {
                     hasFailures = true
                 }

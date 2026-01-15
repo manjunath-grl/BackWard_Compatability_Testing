@@ -185,6 +185,7 @@ class RepoUtils implements Serializable {
             }
 
             setupCommand = """#!/bin/bash
+                cd ${controllerDir}
                 source .venv/bin/activate
                 cd ./matter_qa/
                 pip install .

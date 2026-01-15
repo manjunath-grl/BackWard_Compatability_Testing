@@ -19,6 +19,7 @@ class RunTests {
                 // Run the Python script
                 def status = steps.sh(script: """
                 set -ex
+                cd "\$HOME"
                 source .venv/bin/activate
                 python3 \"\$HOME/testcase_runner.py\" --runner-test-config ${yamlPath} --log-path ${dateLogPath}", returnStatus: true)
                 """, returnStatus: true)

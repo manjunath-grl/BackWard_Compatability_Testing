@@ -193,7 +193,7 @@ class RepoUtils implements Serializable {
                 git clone --filter=blob:none --no-checkout --depth 1 --sparse git@github.com:project-chip/connectedhomeip.git connectedhomeip
                 cd connectedhomeip/
                 git sparse-checkout init
-                git sparse-checkout set credentials/ data_model/
+                git sparse-checkout set src/ scripts/ credentials/ data_model/
                 git checkout master
                 cd ..
             """

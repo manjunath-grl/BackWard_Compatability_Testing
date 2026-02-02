@@ -103,6 +103,9 @@ def buildAndinstallControllerBinaries(def steps,testConfigs, workSpace, raspiBin
                     status = sh(
                         script: """
                         set -ex
+
+                        export PATH="\$HOME/.local/bin:\$PATH"
+                        
                         WORKDIR="\$HOME/certification-tool"
                         sudo docker ps -q | xargs -r sudo docker kill
                         sudo rm -rf "\$WORKDIR"
@@ -122,6 +125,9 @@ def buildAndinstallControllerBinaries(def steps,testConfigs, workSpace, raspiBin
                     status = sh(
                         script: """
                         set -ex
+
+                        export PATH="\$HOME/.local/bin:\$PATH"
+
                         cd "\$HOME"
                         sudo rm -rf matter_qa
                         WORKDIR="\$HOME/certification-tool"

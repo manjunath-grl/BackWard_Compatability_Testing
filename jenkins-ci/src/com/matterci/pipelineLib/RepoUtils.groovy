@@ -184,6 +184,8 @@ class RepoUtils implements Serializable {
                 testConfigs.ci_config.qa_repo_git_sha = "${qaRepoSha}"
             }
 
+            def repoSha = testConfigs?.ci_config?.raspi_pipeline?.stages?.build_controller?.chip_cert_bins ?: 'master'
+
             setupCommand = """#!/bin/bash
                 cd ${controllerDir}
                 source .venv/bin/activate
@@ -194,7 +196,7 @@ class RepoUtils implements Serializable {
                 cd connectedhomeip/
                 git sparse-checkout init
                 git sparse-checkout set src/ scripts/ credentials/ data_model/
-                git checkout master
+                git checkout ${repoSha}
                 cd ..
             """
 

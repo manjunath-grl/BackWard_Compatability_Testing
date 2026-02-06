@@ -139,10 +139,10 @@ class RepoUtils implements Serializable {
                 rm -rf /tmp/chip*
                 python3 -m venv .venv
                 source .venv/bin/activate
-                pip3 install --no-cache-dir ${controllerDir}/${ctrlBinariesDir}/matter_clusters-*.whl
-                pip3 install --no-cache-dir ${controllerDir}/${ctrlBinariesDir}/matter_core-*.whl
-                pip3 install --no-cache-dir ${controllerDir}/${ctrlBinariesDir}/matter_testing-*.whl
-                pip3 install --no-cache-dir ${controllerDir}/${ctrlBinariesDir}/matter_repl-*.whl
+                for whl in ${controllerDir}/${ctrlBinariesDir}/*.whl
+                do
+                    pip3 install --no-cache-dir "$whl"
+                done
                 """
         cmdStatus = steps.sh(
                                 script: setupCommand,

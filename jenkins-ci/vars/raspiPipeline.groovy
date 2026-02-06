@@ -59,6 +59,16 @@ def extractDockerArtifacts(String imageSha, String baseDir) {
     docker cp \$CONTAINER:/root/python_lib/obj/src/python_testing/matter_testing_infrastructure/matter-testing._build_wheel/. \
       "\$BASE_DIR/" || true
 
+    # Copy YAML wheels
+    docker cp \$CONTAINER:/root/python_lib/python/obj/scripts/py_matter_idl/matter-idl._build_wheel/. \
+      "\$BASE_DIR/" || true
+
+    docker cp \$CONTAINER:/root/python_lib/python/obj/scripts/py_matter_yamltests/matter-yamltests._build_wheel/. \
+      "\$BASE_DIR/" || true
+    
+    docker cp \$CONTAINER:/root/python_lib/obj/scripts/matter_yamltests_distribution._build_wheel. \
+      "\$BASE_DIR/" || true
+
     # Copy python_testing scripts
     docker cp \$CONTAINER:/root/python_testing/scripts/sdk/. \
       "\$BASE_DIR/python_scripts/" || true

@@ -134,16 +134,21 @@ class RepoUtils implements Serializable {
         def cmdStatus
 
         def setupCommand = """#!/bin/bash
-                set -ex
-                cd ${controllerDir}
-                rm -rf /tmp/chip*
-                python3 -m venv .venv
-                source .venv/bin/activate
-                for whl in ${controllerDir}/${ctrlBinariesDir}/*.whl
-                do
-                    pip3 install --no-cache-dir "$whl"
-                done
-                """
+            set -ex
+            shopt -s nullglob
+
+            cd ${controllerDir}
+            rm -rf /tmp/chip*
+
+            python3 -m venv .venv
+            source .venv/bin/activate
+
+            for whl in ${controllerDir}/${ctrlBinariesDir}/*.whl
+            do
+                echo "Installing \$whl"
+                pip3 install --no-cache-dir "\$whl"
+            done
+        """
         cmdStatus = steps.sh(
                                 script: setupCommand,
                                 returnStatus: true

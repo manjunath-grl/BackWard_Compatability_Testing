@@ -135,6 +135,7 @@ class RepoUtils implements Serializable {
 
         def setupCommand = """#!/bin/bash
                 set -ex
+                cd ${controllerDir}
                 rm -rf /tmp/chip*
                 python3 -m venv .venv
                 source .venv/bin/activate

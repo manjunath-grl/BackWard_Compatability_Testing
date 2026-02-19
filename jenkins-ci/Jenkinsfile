@@ -8,11 +8,17 @@ import com.matterci.pipelineLib.ConfigLoader
 
 node {
 
+    // 1. Reference the Server ID you defined in the screenshot
+    def server = Artifactory.server('artifactory-oss') 
+    
     def jfHome = tool 'jfrog-cli'
     env.PATH = "${jfHome}:${env.PATH}"
-    sh 'jf -v'
-    sh 'jf rt ping'
-    sh 'jf c show'
+
+    // 2. Wrap your commands in the server context
+    server.configure {
+        sh 'jf rt ping'
+        sh 'jf c show'
+    }
 
     properties([
         parameters([

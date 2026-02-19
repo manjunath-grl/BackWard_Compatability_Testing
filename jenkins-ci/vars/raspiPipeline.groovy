@@ -348,6 +348,9 @@ def call(testConfigs, testCasesList) {
     if (raspiStages?.build_firmware?.enabled){
         stage('Build For Raspi inside Docker') {
             node(raspiStages.build_firmware.node) {
+                tools {
+                    jfrog 'jfrog-cli'
+                }
                 try {
                         def sdkFrmArtifactsResult = RepoUtils.getSDKCodeFromBuildArtifacts(this, raspiBinariesDirString)
                         if (sdkFrmArtifactsResult.success) {
@@ -376,36 +379,56 @@ def call(testConfigs, testCasesList) {
                         }
                         // just get into the parent directory of raspi_binaries and upload it.
                         ws("${sdkFrmArtifactsResult.workSpaceSDKCopied}") {
+                            // script {
+                            //     def repoName = testConfigs.ci_config.jfrog_repo_name
+                            //     def jobName  = env.JOB_NAME
+                            //     def buildNum = env.BUILD_NUMBER
+
+                            //     if (!repoName?.trim()) {
+                            //         error("JFrog Repo Name is EMPTY. Check Jfrog_Repo_Name config.")
+                            //     }
+                            //     if (!fileExists(raspiBinariesDirString)) {
+                            //         error("Binaries folder not found: ${raspiBinariesDirString}")
+                            //     }
+                            //     def targetPath = "${repoName}/${jobName}/${buildNum}/${raspiBinariesDirString}/"
+
+                            //     echo "Uploading binaries to: ${targetPath}"
+                            //     // ---------------- UPLOAD ----------------
+                            //     sh """
+                            //         set -e
+                            //         jf rt u \
+                            //         "${raspiBinariesDirString}/**" \
+                            //         "${targetPath}" \
+                            //         --flat=false \
+                            //         --build-name=${jobName} \
+                            //         --build-number=${buildNum}
+
+                            //         jf rt bp ${jobName} ${buildNum}
+                            //         """
+                            //     // ---------------- VERIFY ----------------
+                            //     sh """
+                            //     jf rt s "${targetPath}**"
+                            //     """
+                            //     echo "JFrog upload verified successfully."
+                            // }
                             script {
                                 def repoName = testConfigs.ci_config.jfrog_repo_name
                                 def jobName  = env.JOB_NAME
                                 def buildNum = env.BUILD_NUMBER
+                                def platform = raspiBinariesDirString
 
-                                if (!repoName?.trim()) {
-                                    error("JFrog Repo Name is EMPTY. Check Jfrog_Repo_Name config.")
-                                }
-                                if (!fileExists(raspiBinariesDirString)) {
-                                    error("Binaries folder not found: ${raspiBinariesDirString}")
-                                }
-                                def targetPath = "${repoName}/${jobName}/${buildNum}/${raspiBinariesDirString}/"
+                                def targetPath =
+                                "${repoName}/${jobName}/${buildNum}/${platform}/"
 
-                                echo "Uploading binaries to: ${targetPath}"
-                                // ---------------- UPLOAD ----------------
-                                sh """
-                                    set -e
-                                    jf rt u \
-                                    "${raspiBinariesDirString}/**" \
-                                    "${targetPath}" \
+                                echo "Uploading to ${targetPath}"
+
+                                jf """
+                                    rt u "${platform}/**" "${targetPath}" \
                                     --flat=false \
                                     --build-name=${jobName} \
                                     --build-number=${buildNum}
-
-                                    jf rt bp ${jobName} ${buildNum}
-                                    """
-                                // ---------------- VERIFY ----------------
-                                sh """
-                                jf rt s "${targetPath}**"
                                 """
+                                jf "rt bp"
                                 echo "JFrog upload verified successfully."
                             }
                         }

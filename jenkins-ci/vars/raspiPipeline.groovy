@@ -348,9 +348,6 @@ def call(testConfigs, testCasesList) {
     if (raspiStages?.build_firmware?.enabled){
         stage('Build For Raspi inside Docker') {
             node(raspiStages.build_firmware.node) {
-                tools {
-                    jfrog 'jfrog-cli'
-                }
                 try {
                         def sdkFrmArtifactsResult = RepoUtils.getSDKCodeFromBuildArtifacts(this, raspiBinariesDirString)
                         if (sdkFrmArtifactsResult.success) {

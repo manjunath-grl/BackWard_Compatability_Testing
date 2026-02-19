@@ -10,12 +10,9 @@ node {
 
     def jfHome = tool 'jfrog-cli'
     env.PATH = "${jfHome}:${env.PATH}"
-    withEnv(jfHome) {
-
-        jf '-v'
-        jf 'c show'
-        jf 'rt ping'
-    }
+    sh 'jf -v'
+    sh 'jf rt ping'
+    sh 'jf c show'
 
     properties([
         parameters([

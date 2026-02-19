@@ -153,13 +153,23 @@ class RaspiPipelineLib implements Serializable {
                     steps.sleep 2
                     steps.echo "raspi workspace on device node is ${deviceRaspiWorkspace}"
                     steps.ws("${deviceRaspiWorkspace}") {
-                        steps.step([
-                            $class: 'CopyArtifact',
-                            projectName: projectName,
-                            selector: steps.specific("${BUILD_NUMBER}"),
-                            filter: "${RaspiPipelineLib.raspiBinariesDirString}/**/*, !${RaspiPipelineLib.raspiBinariesDirString}/**/*.whl, UpdatedTestConfig.yaml", // Exclude .whl files
-                            target: '.'
-                        ])
+                        def jfrogRepoName = testConfigs.ci_config.jfrog_repo_name
+                        def sourcePath = "${jfrogRepoName}/${projectName}/${buildNumber}/${deviceRaspiWorkspace}/"
+                        steps.echo "Downloading from Artifactory path: ${sourcePath}"
+
+                        steps.jf """
+                        rt dl "${sourcePath}**" "./" \
+                        --flat=false \
+                        --exclude-patterns="*.whl,UpdatedTestConfig.yaml"
+                        """
+                        def fileCount = steps.sh(
+                            script: "find . -type f ! -name '*.whl' ! -name 'UpdatedTestConfig.yaml' | wc -l",
+                            returnStdout: true
+                        ).trim()
+                        if (fileCount == "0") {
+                            steps.error("No valid files downloaded from ${sourcePath}")
+                        }
+                        steps.echo "Downloaded ${fileCount} files successfully."
 
                         if ( copyBuildArtifact.enabled && !raspiStages.build_firmware.enabled) {
                             def configData = steps.readYaml(file: "UpdatedTestConfig.yaml")

@@ -8,13 +8,11 @@ import com.matterci.pipelineLib.ConfigLoader
 
 node {
 
-    def jfHome = tool name: 'jfrog-cli',
-                 type: 'org.jfrog.hudson.tools.JFrogInstallation'
+    def jfHome = tool 'jfrog-cli'
 
     env.PATH = "${jfHome}:${env.PATH}"
 
     sh 'jf -v'
-    sh 'jf rt ping'
 
     properties([
         parameters([

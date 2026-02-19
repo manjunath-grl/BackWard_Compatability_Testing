@@ -206,7 +206,7 @@ def buildController(testConfigs, testCasesList, workSpace, raspiBinariesDir){
                 pw cli-analytics --opt-out
                 source scripts/activate.sh
                 # TODO: -n false is a temporary workaround needs to be updated it to dynamic bases on the configuration.
-                scripts/build_python.sh -m platform -d true -i out/python_env -n false
+                scripts/build_python.sh -m platform -d true -i out/python_env -n false -M false
             \"
         """
         echo "Docker command used to build App ${dockerCommands}"
@@ -384,10 +384,10 @@ def call(testConfigs, testCasesList) {
                                 if (!repoName?.trim()) {
                                     error("JFrog Repo Name is EMPTY. Check Jfrog_Repo_Name config.")
                                 }
-                                if (!fileExists(platform)) {
+                                if (!fileExists(raspiBinariesDirString)) {
                                     error("Binaries folder not found: ${raspiBinariesDirString}")
                                 }
-                                def targetPath = "${repoName}/${jobName}/${buildNum}/${platform}/"
+                                def targetPath = "${repoName}/${jobName}/${buildNum}/${raspiBinariesDirString}/"
 
                                 echo "Uploading binaries to: ${targetPath}"
                                 // ---------------- UPLOAD ----------------

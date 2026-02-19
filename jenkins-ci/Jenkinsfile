@@ -8,21 +8,21 @@ import com.matterci.pipelineLib.ConfigLoader
 
 node {
 
-    // 1. Define the tool and add it to PATH so Jenkins finds 'jf'
+    // Define the tool globally for the workspace
     def jfHome = tool 'jfrog-cli'
     env.PATH = "${jfHome}:${env.PATH}"
 
-    // 2. Use matching names for the variables
-    withCredentials([usernamePassword(credentialsId: 'artifactory-jenkins-creds', 
-                                     passwordVariable: 'JF_PASSWORD', 
-                                     usernameVariable: 'JF_USER')]) {
+    // // 2. Use matching names for the variables
+    // withCredentials([usernamePassword(credentialsId: 'artifactory-jenkins-creds', 
+    //                                  passwordVariable: 'JF_PASSWORD', 
+    //                                  usernameVariable: 'JF_USER')]) {
         
-        // Use single quotes for the shell command to let the shell handle the variables,
-        // or ensure the Groovy variables match exactly.
-        sh "jf c add artifactory-oss --url=http://192.168.0.56:8082 --user=${JF_USER} --password=${JF_PASSWORD} --interactive=false"
-        sh "jf c use artifactory-oss"
-        sh "jf rt ping"
-    }
+    //     // Use single quotes for the shell command to let the shell handle the variables,
+    //     // or ensure the Groovy variables match exactly.
+    //     sh "jf c add artifactory-oss --url=http://192.168.0.56:8082 --user=${JF_USER} --password=${JF_PASSWORD} --interactive=false"
+    //     sh "jf c use artifactory-oss"
+    //     sh "jf rt ping"
+    // }
 
     properties([
         parameters([

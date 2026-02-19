@@ -344,6 +344,8 @@ def call(testConfigs, testCasesList) {
     def appsBuildWorkSpace = ''
     def logTransferConfig = testConfigs.execution_log_transfer_config
 
+    def server = Artifactory.server('artifactory-oss')
+
     //TODO: Not scalable, Fix this code to download cloned code in the above step
     if (raspiStages?.build_firmware?.enabled){
         stage('Build For Raspi inside Docker') {
@@ -376,60 +378,25 @@ def call(testConfigs, testCasesList) {
                         }
                         // just get into the parent directory of raspi_binaries and upload it.
                         ws("${sdkFrmArtifactsResult.workSpaceSDKCopied}") {
-                            // script {
-                            //     def repoName = testConfigs.ci_config.jfrog_repo_name
-                            //     def jobName  = env.JOB_NAME
-                            //     def buildNum = env.BUILD_NUMBER
-
-                            //     if (!repoName?.trim()) {
-                            //         error("JFrog Repo Name is EMPTY. Check Jfrog_Repo_Name config.")
-                            //     }
-                            //     if (!fileExists(raspiBinariesDirString)) {
-                            //         error("Binaries folder not found: ${raspiBinariesDirString}")
-                            //     }
-                            //     def targetPath = "${repoName}/${jobName}/${buildNum}/${raspiBinariesDirString}/"
-
-                            //     echo "Uploading binaries to: ${targetPath}"
-                            //     // ---------------- UPLOAD ----------------
-                            //     sh """
-                            //         set -e
-                            //         jf rt u \
-                            //         "${raspiBinariesDirString}/**" \
-                            //         "${targetPath}" \
-                            //         --flat=false \
-                            //         --build-name=${jobName} \
-                            //         --build-number=${buildNum}
-
-                            //         jf rt bp ${jobName} ${buildNum}
-                            //         """
-                            //     // ---------------- VERIFY ----------------
-                            //     sh """
-                            //     jf rt s "${targetPath}**"
-                            //     """
-                            //     echo "JFrog upload verified successfully."
-                            // }
                             script {
                                 def repoName = testConfigs.ci_config.jfrog_repo_name
                                 def jobName  = env.JOB_NAME
                                 def buildNum = env.BUILD_NUMBER
                                 def platform = raspiBinariesDirString
+                                def targetPath = "${repoName}/${jobName}/${buildNum}/${platform}/"
 
-                                def targetPath =
-                                    "${repoName}/${jobName}/${buildNum}/${platform}/"
+                                // 2. Wrap EVERYTHING in server.configure
+                                // This automatically performs the 'jf c add' logic for you securely
+                                server.configure {
+                                    echo "Uploading to ${targetPath} using Global Config"
 
-                                echo "Uploading to ${targetPath}"
-
-                                // Inject JFrog tool into PATH
-                                envVarsForTool('jfrog-cli') {
-
-                                    jf """
-                                    rt u "${platform}/**" "${targetPath}" \
+                                    // Use the 'jf' step provided by the plugin
+                                    jf """rt u "${platform}/**" "${targetPath}" \
                                     --flat=false \
                                     --build-name=${jobName} \
-                                    --build-number=${buildNum}
-                                    """
+                                    --build-number=${buildNum}"""
 
-                                    jf "rt bp"
+                                    jf "rt bp ${jobName} ${buildNum}"
                                 }
                             }
                         }

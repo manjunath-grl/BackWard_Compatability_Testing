@@ -415,18 +415,22 @@ def call(testConfigs, testCasesList) {
                                 def platform = raspiBinariesDirString
 
                                 def targetPath =
-                                "${repoName}/${jobName}/${buildNum}/${platform}/"
+                                    "${repoName}/${jobName}/${buildNum}/${platform}/"
 
                                 echo "Uploading to ${targetPath}"
 
-                                jf """
+                                // Inject JFrog tool into PATH
+                                envVarsForTool('jfrog-cli') {
+
+                                    jf """
                                     rt u "${platform}/**" "${targetPath}" \
                                     --flat=false \
                                     --build-name=${jobName} \
                                     --build-number=${buildNum}
-                                """
-                                jf "rt bp"
-                                echo "JFrog upload verified successfully."
+                                    """
+
+                                    jf "rt bp"
+                                }
                             }
                         }
                 }catch (Exception e) {

@@ -11,7 +11,7 @@ node {
     def jfHome = tool 'jfrog-cli'
     env.PATH = "${jfHome}:${env.PATH}"
     sh 'jf -v'
-    sh 'jf c show'
+    jf 'c show'
 
     properties([
         parameters([

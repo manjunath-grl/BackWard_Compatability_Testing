@@ -8,17 +8,13 @@ import com.matterci.pipelineLib.ConfigLoader
 
 node {
 
-    // 1. Reference the Server ID you defined in the screenshot
-    def server = Artifactory.server('artifactory-oss') 
-    
-    def jfHome = tool 'jfrog-cli'
-    env.PATH = "${jfHome}:${env.PATH}"
-
-    // 2. Wrap your commands in the server context
-    server.configure {
-        sh 'jf rt ping'
-        sh 'jf c show'
-    }
+    withCredentials([usernamePassword(credentialsId: 'artifactory-jenkins-creds', 
+                                 passwordVariable: 'password', 
+                                 usernameVariable: 'admin')]) {
+    sh "jf c add artifactory-oss --url=http://192.168.0.56:8082 --user=$JF_USER --password=$JF_PASSWORD --interactive=false"
+    sh "jf c use artifactory-oss"
+    sh "jf rt ping"
+}
 
     properties([
         parameters([

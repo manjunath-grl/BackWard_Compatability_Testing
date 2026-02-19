@@ -10,13 +10,8 @@ node {
 
     def jfHome = tool 'jfrog-cli'
     env.PATH = "${jfHome}:${env.PATH}"
-
     sh 'jf -v'
-
-    // Select server
     sh 'jf c show'
-    sh 'jf c use artifactory-oss'
-    sh 'jf rt ping'
 
     properties([
         parameters([

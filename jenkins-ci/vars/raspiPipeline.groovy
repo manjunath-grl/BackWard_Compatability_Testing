@@ -398,8 +398,7 @@ def call(testConfigs, testCasesList) {
                                     sh """
                                     jf rt s "${targetPath}**"
                                     """
-                                    echo "JFrog upload verified successfully."
-                                }
+                                echo "JFrog upload verified successfully."
                             }
                         }
                 }catch (Exception e) {

@@ -89,7 +89,7 @@ def buildAndinstallControllerBinaries(def steps,testConfigs, workSpace, raspiBin
 
         def raspiStages = testConfigs.ci_config?.raspi_pipeline?.stages
         echo "raspiStages : ${raspiStages}"
-        def isFreshInstall = raspiStages?.build_controller?.fresh_install ?: false
+        def isFreshInstall = raspiStages?.build_firmware?.fresh_install ?: false
         echo "isFreshInstall : ${isFreshInstall}"
         def sdkCfg  = testConfigs.ci_config?.clone_sdk_code_stage?.controller_sdk_config
         def repoUrl = sdkCfg?.repoUrl
@@ -101,7 +101,7 @@ def buildAndinstallControllerBinaries(def steps,testConfigs, workSpace, raspiBin
         WORKDIR = "/home/${hostname}/certification-tool"
         homedir = "/home/${hostname}"
 
-        def imageSha = raspiStages?.build_controller?.chip_cert_bins
+        def imageSha = raspiStages?.build_firmware?.chip_cert_bins
         try {
             ws(workSpace) {
 
@@ -376,8 +376,38 @@ def call(testConfigs, testCasesList) {
                         }
                         // just get into the parent directory of raspi_binaries and upload it.
                         ws("${sdkFrmArtifactsResult.workSpaceSDKCopied}") {
-                            // Archive all contents inside the current directory (which should be raspi_binaries)
-                            archiveArtifacts artifacts: "${raspiBinariesDirString}/**", fingerprint: true, allowEmptyArchive: true
+                            script {
+                                def repoName = testConfigs.ci_config.jfrog_repo_name
+                                def jobName  = env.JOB_NAME
+                                def buildNum = env.BUILD_NUMBER
+
+                                if (!repoName?.trim()) {
+                                    error("JFrog Repo Name is EMPTY. Check Jfrog_Repo_Name config.")
+                                }
+                                if (!fileExists(platform)) {
+                                    error("Binaries folder not found: ${raspiBinariesDirString}")
+                                }
+                                def targetPath = "${repoName}/${jobName}/${buildNum}/${platform}/"
+
+                                echo "Uploading binaries to: ${targetPath}"
+                                // ---------------- UPLOAD ----------------
+                                sh """
+                                    set -e
+                                    jf rt u \
+                                    "${raspiBinariesDirString}/**" \
+                                    "${targetPath}" \
+                                    --flat=false \
+                                    --build-name=${jobName} \
+                                    --build-number=${buildNum}
+
+                                    jf rt bp ${jobName} ${buildNum}
+                                    """
+                                // ---------------- VERIFY ----------------
+                                sh """
+                                jf rt s "${targetPath}**"
+                                """
+                                echo "JFrog upload verified successfully."
+                            }
                         }
                 }catch (Exception e) {
                     buildSuccess = false
@@ -447,8 +477,10 @@ def call(testConfigs, testCasesList) {
                 echo "Run Tests"
                 node (cntrlNode) {
                     echo "controller workspace is : ${cntlWorkSpace}"
+                    def localTestParams = RaspiPipelineLib.initRaspiOnNetworkTestParams(this, testConfigs, cntlWorkSpace, deviceWorkSpace, deviceNodeIPAddress, env.appToTest)
                     def raspi_onnetwork = new RunTests()
-                    raspi_onnetwork.runTests(this, cntlWorkSpace, "${cntlWorkSpace}/runner_config.yaml", "${cntlWorkSpace}/Log_path")
+                    raspi_onnetwork.runTests(this, cntlWorkSpace, localTestParams, "${cntlWorkSpace}/Log_path")
+                    //raspi_onnetwork.runTests(this, cntlWorkSpace, "${cntlWorkSpace}/runner_config.yaml", "${cntlWorkSpace}/Log_path")
                 }
             }
             if (logTransferConfig?.enableLogsTransfer && logTransferConfig?.storageServerNode && logTransferConfig?.storageServerPath) {

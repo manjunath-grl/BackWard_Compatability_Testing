@@ -12,60 +12,78 @@ class commonPipelineLib implements Serializable {
 
         def copyArtifactsSuccess = true
         def controllerBinariesWorkspace = "${steps.env.WORKSPACE}/${steps.env.BUILD_NUMBER}/copied_controller_binaries"
-        // Determine platform-specific pipeline stages and select appropriate build information.
-        // Identify which platform's configuration to use based on 'ctrlBinariesDir':
-        //        - "raspi_binaries" → Raspberry Pi pipeline stages
-        //        - "nordic_binaries" → Nordic device pipeline stages
-        //        - Any other value → throw an error
-        // Initialize 'projectName' and 'BUILD_NUMBER' from the current Jenkins environment variables.
+        def copyBuildArtifact = testConfigs.ci_config?.copy_build_artifact
+        def repoName = testConfigs.ci_config?.jfrog_repo_name ?: "Jenkins-Binaries"
+        def projectName = steps.env.JOB_NAME
+        def buildNumber = steps.env.BUILD_NUMBER
         def platformStages = ""
-        def copyBuildArtifact = testConfigs.ci_config.copy_build_artifact
-        // Use switch statement for platform selection
+
+        // -------- Platform Validation --------
         switch (ctrlBinariesDir) {
             case "raspi_binaries":
                 platformStages = testConfigs.ci_config.raspi_pipeline.stages
                 break
-
             default:
                 steps.error("Invalid ctrlBinariesDir: ${ctrlBinariesDir}. Must be 'raspi_binaries'")
         }
-        def projectName = steps.env.JOB_NAME
-        def BUILD_NUMBER = steps.env.BUILD_NUMBER
-        if (copyBuildArtifact.enabled && !platformStages.build_firmware.enabled) {
+
+        // -------- Handle copy_build_artifact --------
+        if (copyBuildArtifact?.enabled && !platformStages.build_firmware.enabled) {
+            if (!copyBuildArtifact?.job_name || !copyBuildArtifact?.build_number) {
+                steps.error("copy_build_artifact enabled but job_name/build_number missing")
+            }
+
             projectName = copyBuildArtifact.job_name
-            steps.echo "Selected project name from which artifacts will be copied: ${projectName}"
-            BUILD_NUMBER = copyBuildArtifact.build_number
-            steps.echo "Selected Build number from which artifacts will be copied: ${BUILD_NUMBER}"
+            buildNumber = copyBuildArtifact.build_number
+            steps.echo "Using configured job: ${projectName}"
+            steps.echo "Using configured build: ${buildNumber}"
         }
 
         steps.timeout(time: 60, unit: 'MINUTES') {
             try {
-
                 def hostname = steps.sh(script: "hostname", returnStdout: true).trim()
                 steps.echo "Hostname is: ${hostname}"
-
-                steps.echo "workspace for controller binaries is ${controllerBinariesWorkspace}"
+                steps.echo "Controller binaries workspace: ${controllerBinariesWorkspace}"
 
                 steps.ws("${controllerBinariesWorkspace}") {
 
-                    steps.step([
-                        $class: 'CopyArtifact',
-                        projectName: projectName,
-                        selector: steps.specific("${BUILD_NUMBER}"),
-                        filter: "${ctrlBinariesDir}/**/*.whl",
-                        target: '.'
-                    ])
+                    // -------- JFrog Source Path --------
+                    def sourcePath = "${repoName}/${projectName}/${buildNumber}/${ctrlBinariesDir}/"
 
-                    def status = RepoUtils.cloneMatterQARepo(steps, testConfigs, "main", controllerBinariesWorkspace, ctrlBinariesDir)
+                    steps.echo "Downloading from Artifactory path: ${sourcePath}"
+
+                    // -------- DOWNLOAD ONLY .whl --------
+                    steps.sh """
+                        set -e
+                        jf rt dl \
+                        "${sourcePath}**/*.whl" \
+                        "./" \
+                        --flat=false
+                    """
+
+                    // -------- VERIFY DOWNLOAD --------
+                    def fileCount = steps.sh(
+                        script: "find . -name '*.whl' | wc -l",
+                        returnStdout: true
+                    ).trim()
+
+                    if (fileCount == "0") {
+                        steps.error("No .whl files downloaded from ${sourcePath}")
+                    }
+                    steps.echo "Downloaded ${fileCount} .whl files successfully."
+
+                    // -------- Continue Existing Logic --------
+                    def status = RepoUtils.cloneMatterQARepo(steps,testConfigs,"main",controllerBinariesWorkspace,ctrlBinariesDir)
 
                     if (status != 0) {
                         copyArtifactsSuccess = false
-                        steps.echo("Error occurred in shell CMDs in 'Copy and install binaries into ON_NETWORK_CONTROLLER_NODE' stage.")
+                        steps.echo("Error during cloneMatterQARepo execution.")
                     }
                 }
-            } catch(Exception e) {
+
+            } catch (Exception e) {
                 copyArtifactsSuccess = false
-                steps.echo "Error occurred during 'Copy and install binaries into ON_NETWORK_CONTROLLER_NODE' stage: ${e.getMessage()}"
+                steps.echo "Error in 'installControllerBinaries': ${e.getMessage()}"
             }
             return [success: copyArtifactsSuccess, cntrlWorksSpace: "${controllerBinariesWorkspace}"]
         }

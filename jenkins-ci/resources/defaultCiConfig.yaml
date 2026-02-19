@@ -18,6 +18,7 @@ ci_config:
   raspi_controller_node: "raspi_controller_agent"
   raspi_device_node: "raspi_device_agent"
   workspace_base: "/mnt/tests"
+  jfrog_repo_name: "Jenkins-Binaries"
 
   #   clone_sdk_code_stage:        Configuration for cloning SDK and QA repositories.
   #     enabled:                   Flag to enable/disable SDK cloning.
@@ -51,13 +52,14 @@ ci_config:
     job_name: "Production" # - job_name: Name of the Jenkins job to copy artifacts from.
     build_number: 1 # - build_number: Specific build number to copy artifacts from.
 
-  # raspi_pipeline:              CI stages for Raspberry Pi platform.
+  # raspi_pipeline:
   raspi_pipeline:
     run: false
     stages:
-      build_controller:
+      build_firmware:
         fresh_install: true
         chip_cert_bins: ca9d1118e097fe947b2aec1ba84f265d6cf2447e
-      build_DUT:
+        docker_image: "chip_image"
+        node: "local_mac_node"
+      run_tests:
         enabled: true
-        docker_image: "testing_partof_chip_cert_bins_dockerfile"

@@ -5,7 +5,7 @@ import com.matterci.pipelineLib.TestUtils
 
 class RunTests {
 
-    def runTests(def steps, String workspace, String yamlPath, String logPath) {
+    def runTests(def steps, String workspace, Map testConfigs, String logPath) {
 
         def hasFailures = false
 
@@ -39,7 +39,7 @@ class RunTests {
                         source .venv/bin/activate
 
                         python3 "\$HOME/testcase_runner.py" \\
-                            --runner-test-config "${yamlPath}" \\
+                            --runner-test-config "${testConfigs.runner_test_config}" \\
                             --log-path "${dateLogPath}"
                     """,
                     returnStatus: true

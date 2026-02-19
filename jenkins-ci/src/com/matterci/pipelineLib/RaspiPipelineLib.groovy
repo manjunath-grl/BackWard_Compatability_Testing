@@ -219,4 +219,45 @@ class RaspiPipelineLib implements Serializable {
 
         return localTestParams
     }
+
+    static Map initRaspiBleWifiTestParams(def steps,Map testConfigs,String cntrlWorkSpace, String deviceWorkSpace, String deviceNodeIPAddress, String appToTest) {
+        // Files under vars/ (like vars/TestParamDefaults.groovy) are exposed as global script steps, not class methods.
+        // but I changed into seperate class , as calling jenkins throwing error when calling TestParamDefaults multiple times in same class
+
+        steps.echo "cntrl workspace passed : ${cntrlWorkSpace}"
+        steps.echo "device workspace passed : ${deviceWorkSpace}"
+
+        def localTestParams = TestUtils.deepCopy(testConfigs)
+        steps.echo "local Test Params before updating : ${localTestParams}"
+        steps.echo "TestConfigs : ${testConfigs}"
+        localTestParams.ci_config.ci_ws_path = "${cntrlWorkSpace}"
+        steps.echo "Discriminator used : ${testConfigs.dut_config.rpi.ble_wifi_discriminator}"
+
+        TestUtils.updateOrCreateKeyValue(localTestParams,"general_configs.platform_execution" ,"rpi")
+        TestUtils.updateOrCreateKeyValue(localTestParams, "dut_config.rpi.rpi_hostname",
+        "${deviceNodeIPAddress}")
+        TestUtils.updateOrCreateKeyValue(localTestParams, "dut_config.rpi.app_config.discriminator",
+        testConfigs.dut_config.rpi.ble_wifi_discriminator)
+        //TODO: Fix generic for any app
+        TestUtils.updateOrCreateKeyValue(localTestParams, "dut_config.rpi.app_config.matter_app",
+        "${deviceWorkSpace}/${RaspiPipelineLib.raspiBinariesDirString}/${appToTest} --wifi")
+
+        TestUtils.updateOrCreateKeyValue(localTestParams, "dut_config.rpi.commissioning_method",
+        ["ble-wifi", "--wifi-ssid", testConfigs.network_config.wifi_ssid, "--wifi-passphrase",
+        testConfigs.network_config.wifi_password])
+            //for now updating the manual code value per above discriminators
+        TestUtils.updateOrCreateKeyValue(localTestParams,"test_case_config.TC_Darwin_Pair.manual_code",
+        testConfigs.dut_config.rpi.ble_wifi_manual_code)
+        TestUtils.updateOrCreateKeyValue(localTestParams,"test_case_config.TC_Android_Pair.manual_code",
+        testConfigs.dut_config.rpi.ble_wifi_manual_code)
+
+
+        steps.echo "discriminator params ${localTestParams.dut_config.rpi.app_config.discriminator}"
+        steps.echo "updated local params ${localTestParams}"
+
+        def test_params_json = JsonOutput.toJson(localTestParams)
+        steps.echo "JSON params ${test_params_json}"
+
+        return localTestParams
+    }
 }

@@ -63,6 +63,6 @@ node {
     echo "Test Parameters: ${testConfigs}"
 
     if (testConfigs.ci_config?.raspi_pipeline?.run)
-        raspiPipeline(testConfigs, testCasesList)
+        raspiPipeline(this,testConfigs, testCasesList)
 
 }

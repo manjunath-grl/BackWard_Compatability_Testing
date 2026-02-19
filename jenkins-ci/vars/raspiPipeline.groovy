@@ -334,7 +334,7 @@ def buildApps(testConfigs, testCasesList, workSpace, raspiBinariesDir){
 
 }
 
-def call(testConfigs, testCasesList) {
+def call(steps, testConfigs, testCasesList) {
     def buildSuccess = true
     def raspiStages = testConfigs.ci_config?.raspi_pipeline?.stages
     def copyBuildArtifact = testConfigs.ci_config?.copy_build_artifact
@@ -344,7 +344,7 @@ def call(testConfigs, testCasesList) {
     def appsBuildWorkSpace = ''
     def logTransferConfig = testConfigs.execution_log_transfer_config
 
-    def server = Artifactory.server('artifactory-oss')
+    def server = steps.Artifactory.server('artifactory-oss')
 
     //TODO: Not scalable, Fix this code to download cloned code in the above step
     if (raspiStages?.build_firmware?.enabled){

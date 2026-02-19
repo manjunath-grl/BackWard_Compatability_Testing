@@ -331,7 +331,6 @@ def buildApps(testConfigs, testCasesList, workSpace, raspiBinariesDir){
 
         return [success: buildAppSucess, appToTest: "${appName}"]
     }
-
 }
 
 def call(testConfigs, testCasesList) {
@@ -383,18 +382,23 @@ def call(testConfigs, testCasesList) {
                                 def platform = raspiBinariesDirString
                                 def targetPath = "${repoName}/${jobName}/${buildNum}/${platform}/"
 
-                                // 2. Wrap EVERYTHING in server.configure
-                                // This automatically performs the 'jf c add' logic for you securely
-                                server.configure {
-                                    echo "Uploading to ${targetPath} using Global Config"
+                                echo "Uploading to ${targetPath}"
 
-                                    // Use the 'jf' step provided by the plugin
-                                    jf """rt u "${platform}/**" "${targetPath}" \
+                                sh """
+                                    set -e
+                                    jf rt u \
+                                    "${platform}/**" \
+                                    "${targetPath}" \
                                     --flat=false \
                                     --build-name=${jobName} \
-                                    --build-number=${buildNum}"""
+                                    --build-number=${buildNum}
 
-                                    jf "rt bp ${jobName} ${buildNum}"
+                                    jf rt bp ${jobName} ${buildNum}
+                                    """
+                                    sh """
+                                    jf rt s "${targetPath}**"
+                                    """
+                                    echo "JFrog upload verified successfully."
                                 }
                             }
                         }

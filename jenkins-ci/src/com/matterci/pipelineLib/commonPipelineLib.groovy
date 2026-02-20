@@ -54,6 +54,7 @@ class commonPipelineLib implements Serializable {
                     // -------- DOWNLOAD ONLY .whl --------
                     steps.sh """
                         set -e
+                        export PATH="\$HOME/.local/bin:\$PATH"
                         jf rt dl \
                         "${sourcePath}**/*.whl" \
                         "./" \

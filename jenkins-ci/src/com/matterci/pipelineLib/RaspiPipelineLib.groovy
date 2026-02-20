@@ -161,8 +161,10 @@ class RaspiPipelineLib implements Serializable {
                         def sourcePath = "${jfrogRepoName}/${projectName}/${BUILD_NUMBER}/${RaspiPipelineLib.raspiBinariesDirString}/"
                         steps.echo "Downloading from Artifactory path: ${sourcePath}"
 
-                        steps.jf """
-                            rt dl "${sourcePath}**" "./" \
+                        steps.sh """
+                            set -e
+                            export PATH="\$HOME/.local/bin:\$PATH"
+                            jf rt dl "${sourcePath}**" "./" \
                             --flat=false \
                             --exclude-patterns="*.whl,UpdatedTestConfig.yaml"
                             """

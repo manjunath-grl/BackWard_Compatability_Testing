@@ -39,7 +39,7 @@ class RunTests {
                         source .venv/bin/activate
 
                         python3 "\$HOME/testcase_runner.py" \\
-                            --runner-test-config "${testConfigs.runner_test_config}" \\
+                            --runner-test-config "${testConfigs.Testcase_runner_config}" \\
                             --log-path "${dateLogPath}"
                     """,
                     returnStatus: true

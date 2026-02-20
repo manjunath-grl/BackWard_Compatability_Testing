@@ -208,28 +208,23 @@ class RaspiPipelineLib implements Serializable {
         def localTestParams = TestUtils.deepCopy(testConfigs)
         steps.echo "local Test Params before updating : ${localTestParams}"
         steps.echo "TestConfigs : ${testConfigs}"
-        steps.echo "Discriminator used : ${testConfigs.dut_config.rpi.on_network_discriminator}"
+        steps.echo "Discriminator used : ${testConfigs.Testcase_runner_config.dut_config.rpi.on_network_discriminator}"
         // This will be used to append test_results folder in the run tests method
         localTestParams.ci_config.ci_ws_path = "${cntrlWorkSpace}"
 
-        TestUtils.updateOrCreateKeyValue(localTestParams,"general_configs.platform_execution" ,"rpi")
+        //TestUtils.updateOrCreateKeyValue(localTestParams,"testConfigs.Testcase_runner_config.platform" ,"rpi")
         //get the controller name from the Jenkins steps.
-        TestUtils.updateOrCreateKeyValue(localTestParams, "dut_config.rpi.rpi_hostname",
-        "${deviceNodeIPAddress}")
-        TestUtils.updateOrCreateKeyValue(localTestParams, "dut_config.rpi.app_config.discriminator",
-        testConfigs.dut_config.rpi.on_network_discriminator)
+        TestUtils.updateOrCreateKeyValue(localTestParams, "Testcase_runner_config.dut_config.rpi.rpi_hostname", "${deviceNodeIPAddress}")
+        TestUtils.updateOrCreateKeyValue(localTestParams, "Testcase_runner_config.dut_config.rpi.app_config.discriminator", testConfigs.Testcase_runner_config.dut_config.rpi.on_network_discriminator)
         //TODO:Fix it such that we can pass app also from the config
-        TestUtils.updateOrCreateKeyValue(localTestParams, "dut_config.rpi.app_config.matter_app",
-        "${deviceWorkSpace}/${RaspiPipelineLib.raspiBinariesDirString}/${appToTest}")
+        TestUtils.updateOrCreateKeyValue(localTestParams, "Testcase_runner_config.dut_config.rpi.app_config.matter_app", "${deviceWorkSpace}/${RaspiPipelineLib.raspiBinariesDirString}/${appToTest}")
 
-        TestUtils.updateOrCreateKeyValue(localTestParams, "dut_config.rpi.commissioning_method",["on-network"])
+        TestUtils.updateOrCreateKeyValue(localTestParams, "Testcase_runner_config.dut_config.rpi.commissioning_method",["on-network"])
 
-        TestUtils.updateOrCreateKeyValue(localTestParams,"test_case_config.TC_Darwin_Pair.manual_code",
-        testConfigs.dut_config.rpi.on_network_manual_code)
-        TestUtils.updateOrCreateKeyValue(localTestParams,"test_case_config.TC_Android_Pair.manual_code",
-        testConfigs.dut_config.rpi.on_network_manual_code)
+        //TestUtils.updateOrCreateKeyValue(localTestParams,"test_case_config.TC_Darwin_Pair.manual_code", testConfigs.Testcase_runner_config.dut_config.rpi.on_network_manual_code)
+        //TestUtils.updateOrCreateKeyValue(localTestParams,"test_case_config.TC_Android_Pair.manual_code", testConfigs.Testcase_runner_config.dut_config.rpi.on_network_manual_code)
 
-        steps.echo "discriminator params ${localTestParams.dut_config.rpi.app_config.discriminator}"
+        steps.echo "discriminator params ${localTestParams.Testcase_runner_config.dut_config.rpi.app_config.discriminator}"
         steps.echo "updated local params ${localTestParams}"
 
         def test_params_json = JsonOutput.toJson(localTestParams)
@@ -249,13 +244,13 @@ class RaspiPipelineLib implements Serializable {
         steps.echo "local Test Params before updating : ${localTestParams}"
         steps.echo "TestConfigs : ${testConfigs}"
         localTestParams.ci_config.ci_ws_path = "${cntrlWorkSpace}"
-        steps.echo "Discriminator used : ${testConfigs.dut_config.rpi.ble_wifi_discriminator}"
+        steps.echo "Discriminator used : ${testConfigs.Testcase_runner_config.dut_config.rpi.ble_wifi_discriminator}"
 
         TestUtils.updateOrCreateKeyValue(localTestParams,"general_configs.platform_execution" ,"rpi")
         TestUtils.updateOrCreateKeyValue(localTestParams, "dut_config.rpi.rpi_hostname",
         "${deviceNodeIPAddress}")
         TestUtils.updateOrCreateKeyValue(localTestParams, "dut_config.rpi.app_config.discriminator",
-        testConfigs.dut_config.rpi.ble_wifi_discriminator)
+        testConfigs.Testcase_runner_config.dut_config.rpi.ble_wifi_discriminator)
         //TODO: Fix generic for any app
         TestUtils.updateOrCreateKeyValue(localTestParams, "dut_config.rpi.app_config.matter_app",
         "${deviceWorkSpace}/${RaspiPipelineLib.raspiBinariesDirString}/${appToTest} --wifi")
@@ -265,9 +260,9 @@ class RaspiPipelineLib implements Serializable {
         testConfigs.network_config.wifi_password])
             //for now updating the manual code value per above discriminators
         TestUtils.updateOrCreateKeyValue(localTestParams,"test_case_config.TC_Darwin_Pair.manual_code",
-        testConfigs.dut_config.rpi.ble_wifi_manual_code)
+        testConfigs.Testcase_runner_config.dut_config.rpi.ble_wifi_manual_code)
         TestUtils.updateOrCreateKeyValue(localTestParams,"test_case_config.TC_Android_Pair.manual_code",
-        testConfigs.dut_config.rpi.ble_wifi_manual_code)
+        testConfigs.Testcase_runner_config.dut_config.rpi.ble_wifi_manual_code)
 
 
         steps.echo "discriminator params ${localTestParams.dut_config.rpi.app_config.discriminator}"

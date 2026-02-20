@@ -140,9 +140,9 @@ class RaspiPipelineLib implements Serializable {
         steps.node(nodeName) {
             def deviceIP=''
             def deviceRaspiWorkspace
-            def jfHome = steps.tool 'jfrog-cli'
+            //def jfHome = steps.tool 'jfrog-cli'
             commonPipelineLib.setupJfrog(steps, testConfigs)
-            steps.env.PATH = "${jfHome}:${steps.env.PATH}"
+            //steps.env.PATH = "${jfHome}:${steps.env.PATH}"
             steps.timeout(time: 60, unit: 'MINUTES') {
                 try {
                     steps.echo "Running on device node: ${nodeName}"

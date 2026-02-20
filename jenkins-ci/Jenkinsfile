@@ -16,16 +16,14 @@ node {
     sh 'jf rt ping'
 
     // 2. Use matching names for the variables
-    // withCredentials([usernamePassword(credentialsId: 'artifactory-jenkins-creds', 
-    //                                  passwordVariable: 'JF_PASSWORD', 
-    //                                  usernameVariable: 'JF_USER')]) {
+    withCredentials([usernamePassword(credentialsId: 'artifactory-jenkins-creds', 
+                                     passwordVariable: 'JF_PASSWORD', 
+                                     usernameVariable: 'JF_USER')]) {
         
-    //     // Use single quotes for the shell command to let the shell handle the variables,
-    //     // or ensure the Groovy variables match exactly.
-    //     sh "jf c add artifactory-oss --url=http://192.168.0.56:8082 --user=${JF_USER} --password=${JF_PASSWORD} --interactive=false"
-    //     sh "jf c use artifactory-oss"
-    //     sh "jf rt ping"
-    // }
+    // Add --insecure-tls=true to the config command
+        sh "jf c add artifactory-oss --url=http://192.168.0.56:8082 --user=$JF_USER --password=$JF_PASSWORD --insecure-tls=true --overwrite --interactive=false"
+        sh "jf c use artifactory-oss"
+    }
 
     properties([
         parameters([

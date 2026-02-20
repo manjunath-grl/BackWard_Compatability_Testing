@@ -54,11 +54,10 @@ class commonPipelineLib implements Serializable {
                     // -------- DOWNLOAD ONLY .whl --------
                     steps.sh """
                         set -e
-                        export PATH="\$HOME/.local/bin:\$PATH"
-                        jf rt dl \
-                        "${sourcePath}**/*.whl" \
-                        "./" \
-                        --flat=false
+                        export PATH="/opt/jfrog/bin:\$HOME/.local/bin:\$PATH"
+                        jf rt dl "${sourcePath}**/*.whl" "./" \
+                            --flat=false \
+                            --insecure-tls=true
                     """
                     // -------- VERIFY DOWNLOAD --------
                     def fileCount = steps.sh(

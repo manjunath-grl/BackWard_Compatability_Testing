@@ -141,7 +141,7 @@ class RaspiPipelineLib implements Serializable {
             def deviceIP=''
             def deviceRaspiWorkspace
             //def jfHome = steps.tool 'jfrog-cli'
-            commonPipelineLib.setupJfrog(steps, testConfigs)
+            //commonPipelineLib.setupJfrog(steps, testConfigs)
             //steps.env.PATH = "${jfHome}:${steps.env.PATH}"
             steps.timeout(time: 60, unit: 'MINUTES') {
                 try {
@@ -163,11 +163,13 @@ class RaspiPipelineLib implements Serializable {
 
                         steps.sh """
                             set -e
-                            export PATH="\$HOME/.local/bin:\$PATH"
-                            jf rt dl "${sourcePath}**" "./" \
-                            --flat=false \
-                            --exclude-patterns="*.whl,UpdatedTestConfig.yaml"
-                            """
+                            export PATH="\$HOME/.local/bin:/opt/jfrog/bin:\$PATH"
+                            
+                            jf rt dl "${sourcePath}*" "./" \
+                                --flat=false \
+                                --insecure-tls=true \
+                                --exclusions="*.whl;UpdatedTestConfig.yaml"
+                        """
                         def fileCount = steps.sh(
                             script: "find . -type f ! -name '*.whl' ! -name 'UpdatedTestConfig.yaml' | wc -l",
                             returnStdout: true

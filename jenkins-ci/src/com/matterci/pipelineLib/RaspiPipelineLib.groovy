@@ -168,10 +168,10 @@ class RaspiPipelineLib implements Serializable {
                             jf rt dl "${sourcePath}*" "./" \
                                 --flat=false \
                                 --insecure-tls=true \
-                                --exclusions="*.whl;UpdatedTestConfig.yaml"
+                                --exclusions="*.whl"
                         """
                         def fileCount = steps.sh(
-                            script: "find . -type f ! -name '*.whl' ! -name 'UpdatedTestConfig.yaml' | wc -l",
+                            script: "find . -type f ! -name '*.whl' | wc -l",
                             returnStdout: true
                         ).trim()
                         if (fileCount == "0") {

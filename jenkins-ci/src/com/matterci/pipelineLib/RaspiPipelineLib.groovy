@@ -208,18 +208,18 @@ class RaspiPipelineLib implements Serializable {
         def localTestParams = TestUtils.deepCopy(testConfigs)
         steps.echo "local Test Params before updating : ${localTestParams}"
         steps.echo "TestConfigs : ${testConfigs}"
-        steps.echo "Discriminator used : ${testConfigs.Testcase_runner_config.dut_config.rpi.on_network_discriminator}"
+        steps.echo "Discriminator used : ${testConfigs.Testcase_runner_config.dut_config.rpi.app_config.discriminator}"
         // This will be used to append test_results folder in the run tests method
         localTestParams.ci_config.ci_ws_path = "${cntrlWorkSpace}"
 
         //TestUtils.updateOrCreateKeyValue(localTestParams,"testConfigs.Testcase_runner_config.platform" ,"rpi")
         //get the controller name from the Jenkins steps.
         TestUtils.updateOrCreateKeyValue(localTestParams, "Testcase_runner_config.dut_config.rpi.rpi_hostname", "${deviceNodeIPAddress}")
-        TestUtils.updateOrCreateKeyValue(localTestParams, "Testcase_runner_config.dut_config.rpi.app_config.discriminator", testConfigs.Testcase_runner_config.dut_config.rpi.on_network_discriminator)
+        TestUtils.updateOrCreateKeyValue(localTestParams, "Testcase_runner_config.dut_config.rpi.app_config.discriminator", testConfigs.Testcase_runner_config.dut_config.rpi.app_config.discriminator)
         //TODO:Fix it such that we can pass app also from the config
         TestUtils.updateOrCreateKeyValue(localTestParams, "Testcase_runner_config.dut_config.rpi.app_config.matter_app", "${deviceWorkSpace}/${RaspiPipelineLib.raspiBinariesDirString}/${appToTest}")
 
-        TestUtils.updateOrCreateKeyValue(localTestParams, "Testcase_runner_config.dut_config.rpi.commissioning_method",["on-network"])
+        //TestUtils.updateOrCreateKeyValue(localTestParams, "Testcase_runner_config.dut_config.rpi.commissioning_method",["on-network"])
 
         //TestUtils.updateOrCreateKeyValue(localTestParams,"test_case_config.TC_Darwin_Pair.manual_code", testConfigs.Testcase_runner_config.dut_config.rpi.on_network_manual_code)
         //TestUtils.updateOrCreateKeyValue(localTestParams,"test_case_config.TC_Android_Pair.manual_code", testConfigs.Testcase_runner_config.dut_config.rpi.on_network_manual_code)

@@ -4,6 +4,7 @@ package com.matterci.pipelineLib
 import com.matterci.pipelineLib.TestUtils
 import com.matterci.pipelineLib.TestParamDefaults
 import com.matterci.pipelineLib.RepoUtils
+import com.matterci.pipelineLib.commonPipelineLib
 
 import groovy.json.*
 
@@ -139,7 +140,8 @@ class RaspiPipelineLib implements Serializable {
         steps.node(nodeName) {
             def deviceIP=''
             def deviceRaspiWorkspace
-            def jfHome = steps.tool 'jfrog-cli' 
+            def jfHome = steps.tool 'jfrog-cli'
+            commonPipelineLib.setupJfrog(steps, testConfigs)
             steps.env.PATH = "${jfHome}:${steps.env.PATH}"
             steps.timeout(time: 60, unit: 'MINUTES') {
                 try {
@@ -155,7 +157,7 @@ class RaspiPipelineLib implements Serializable {
                     steps.sleep 2
                     steps.echo "raspi workspace on device node is ${deviceRaspiWorkspace}"
                     steps.ws("${deviceRaspiWorkspace}") {
-                        def jfrogRepoName = testConfigs.ci_config.jfrog_repo_name
+                        def jfrogRepoName = testConfigs.ci_config.jfrog_config.jfrog_repo_name
                         def sourcePath = "${jfrogRepoName}/${projectName}/${BUILD_NUMBER}/${RaspiPipelineLib.raspiBinariesDirString}/"
                         steps.echo "Downloading from Artifactory path: ${sourcePath}"
 

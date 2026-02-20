@@ -376,7 +376,7 @@ def call(testConfigs, testCasesList) {
                         // just get into the parent directory of raspi_binaries and upload it.
                         ws("${sdkFrmArtifactsResult.workSpaceSDKCopied}") {
                             script {
-                                def jfrogRepoName = testConfigs.ci_config.jfrog_repo_name
+                                def jfrogRepoName = testConfigs.ci_config.jfrog_config.jfrog_repo_name
                                 def jobName  = env.JOB_NAME
                                 def buildNum = env.BUILD_NUMBER
                                 def platform = raspiBinariesDirString

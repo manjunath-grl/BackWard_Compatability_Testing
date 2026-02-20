@@ -13,7 +13,7 @@ class commonPipelineLib implements Serializable {
         def copyArtifactsSuccess = true
         def controllerBinariesWorkspace = "${steps.env.WORKSPACE}/${steps.env.BUILD_NUMBER}/copied_controller_binaries"
         def copyBuildArtifact = testConfigs.ci_config?.copy_build_artifact
-        def repoName = testConfigs.ci_config?.jfrog_repo_name ?: "Jenkins-Binaries"
+        def repoName = testConfigs.ci_config?.jfrog_config.jfrog_repo_name ?: "Jenkins-Binaries"
         def projectName = steps.env.JOB_NAME
         def buildNumber = steps.env.BUILD_NUMBER
         def platformStages = ""
@@ -47,11 +47,10 @@ class commonPipelineLib implements Serializable {
 
                 steps.ws("${controllerBinariesWorkspace}") {
 
+                    setupJfrog(steps, testConfigs)
                     // -------- JFrog Source Path --------
                     def sourcePath = "${repoName}/${projectName}/${buildNumber}/${ctrlBinariesDir}/"
-
                     steps.echo "Downloading from Artifactory path: ${sourcePath}"
-
                     // -------- DOWNLOAD ONLY .whl --------
                     steps.sh """
                         set -e
@@ -60,7 +59,6 @@ class commonPipelineLib implements Serializable {
                         "./" \
                         --flat=false
                     """
-
                     // -------- VERIFY DOWNLOAD --------
                     def fileCount = steps.sh(
                         script: "find . -name '*.whl' | wc -l",
@@ -216,5 +214,36 @@ class commonPipelineLib implements Serializable {
             }
         }
         return [success: transferSuccess, location: transferSuccess ? destPath : logDir]
+    }
+
+    /**
+    * One-time setup for JFrog CLI using YAML configs and System PATH.
+    */
+    static def setupJfrog(def steps, Map testConfigs) {
+        // 1. Force the manual installation path into the environment
+        steps.env.PATH = "/opt/jfrog/bin:${steps.env.PATH}"
+
+        // 2. Fetch arguments from YAML (with defaults as fallback)
+        def jfUrl    = testConfigs.ci_config?.jfrog_url ?: "http://192.168.0.56:8082"
+        def credId   = testConfigs.ci_config?.jfrog_creds_id ?: "artifactory-jenkins-creds"
+        def serverId = testConfigs.ci_config?.jfrog_server_id ?: "artifactory-oss"
+
+        steps.echo "Configuring JFrog CLI for server: ${serverId}"
+
+        // 3. Authenticate and Configure
+        steps.withCredentials([steps.usernamePassword(credentialsId: credId, 
+                                                    passwordVariable: 'JF_PASSWORD', 
+                                                    usernameVariable: 'JF_USER')]) {
+            steps.sh """
+                jf c add ${serverId} \
+                --url=${jfUrl} \
+                --user=${steps.env.JF_USER} \
+                --password=${steps.env.JF_PASSWORD} \
+                --insecure-tls=true \
+                --overwrite \
+                --interactive=false
+            """
+            steps.sh "jf c use ${serverId}"
+        }
     }
 }

@@ -18,7 +18,12 @@ ci_config:
   raspi_controller_node: "raspi_controller_agent"
   raspi_device_node: "raspi_device_agent"
   workspace_base: "/mnt/tests"
-  jfrog_repo_name: "Jenkins-Binaries"
+
+  jfrog_config:
+    jfrog_repo_name: "Jenkins-Binaries"
+    jfrog_server_id: "artifactory-oss"
+    jfrog_url: "http://192.168.0.56:8082"
+    jfrog_creds_id: "artifactory-jenkins-creds"
 
   #   clone_sdk_code_stage:        Configuration for cloning SDK and QA repositories.
   #     enabled:                   Flag to enable/disable SDK cloning.

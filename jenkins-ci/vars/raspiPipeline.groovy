@@ -471,7 +471,10 @@ def call(testConfigs, testCasesList) {
                     echo "controller workspace is : ${cntlWorkSpace}"
                     def localTestParams = RaspiPipelineLib.initRaspiOnNetworkTestParams(this, testConfigs, cntlWorkSpace, deviceWorkSpace, deviceNodeIPAddress, env.appToTest)
                     def raspi_onnetwork = new RunTests()
-                    raspi_onnetwork.runTests(this, cntlWorkSpace, localTestParams, "${cntlWorkSpace}/Log_path")
+                    def runnerConfigYaml = localTestParams.Testcase_runner_config
+                    def mergedYaml = writeYaml(returnText: true, data: runnerConfigYaml)
+                    writeFile(file: "${cntlWorkSpace}/runnerConfig.yaml",text: mergedYaml)
+                    raspi_onnetwork.runTests(this, cntlWorkSpace, "${cntlWorkSpace}/runnerConfig.yaml", "${cntlWorkSpace}/Log_path")
                     //raspi_onnetwork.runTests(this, cntlWorkSpace, "${cntlWorkSpace}/runner_config.yaml", "${cntlWorkSpace}/Log_path")
                 }
             }

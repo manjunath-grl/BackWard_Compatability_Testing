@@ -5,7 +5,7 @@ import com.matterci.pipelineLib.TestUtils
 
 class RunTests {
 
-    def runTests(def steps, String workspace, Map testConfigs, String logPath) {
+    def runTests(def steps, String workspace, String runnerConfigFile, String logPath) {
 
         def hasFailures = false
 
@@ -16,19 +16,10 @@ class RunTests {
                 def currentDate = new Date().format("dd_MM_yyyy")
                 def dateLogPath = "${logPath}/LOGS_${currentDate}"
 
-                def runnerConfigFile = "${workspace}/runner_config.yaml"
-
                 // Create base log path
                 steps.sh("mkdir -p ${logPath}")
                 steps.sh("mkdir -p ${dateLogPath}")
                 steps.sh("rm -rf ${dateLogPath}/*")
-
-                // def mergedYaml = writeYaml returnText: true, data: updatedTestConfigs
-                // writeFile file: 'UpdatedTestConfig.yaml', text: mergedYaml
-
-                // Create YAML config file
-                steps.writeFile( file: runnerConfigFile, text: testConfigs.Testcase_runner_config)
-                steps.echo "Runner config written to: ${runnerConfigFile}"
                 // Run Python test runner
                 def status = steps.sh(
                     script: """#!/bin/bash

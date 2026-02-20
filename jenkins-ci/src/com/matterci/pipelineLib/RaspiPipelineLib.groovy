@@ -154,7 +154,7 @@ class RaspiPipelineLib implements Serializable {
                     steps.echo "raspi workspace on device node is ${deviceRaspiWorkspace}"
                     steps.ws("${deviceRaspiWorkspace}") {
                         def jfrogRepoName = testConfigs.ci_config.jfrog_repo_name
-                        def sourcePath = "${jfrogRepoName}/${projectName}/${BUILD_NUMBER}/${deviceRaspiWorkspace}/"
+                        def sourcePath = "${jfrogRepoName}/${projectName}/${BUILD_NUMBER}/${RaspiPipelineLib.raspiBinariesDirString}/"
                         steps.echo "Downloading from Artifactory path: ${sourcePath}"
 
                         steps.jf """

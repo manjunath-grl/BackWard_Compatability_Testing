@@ -139,6 +139,8 @@ class RaspiPipelineLib implements Serializable {
         steps.node(nodeName) {
             def deviceIP=''
             def deviceRaspiWorkspace
+            def jfHome = steps.tool 'jfrog-cli' 
+            steps.env.PATH = "${jfHome}:${steps.env.PATH}"
             steps.timeout(time: 60, unit: 'MINUTES') {
                 try {
                     steps.echo "Running on device node: ${nodeName}"
@@ -158,10 +160,10 @@ class RaspiPipelineLib implements Serializable {
                         steps.echo "Downloading from Artifactory path: ${sourcePath}"
 
                         steps.jf """
-                        rt dl "${sourcePath}**" "./" \
-                        --flat=false \
-                        --exclude-patterns="*.whl,UpdatedTestConfig.yaml"
-                        """
+                            rt dl "${sourcePath}**" "./" \
+                            --flat=false \
+                            --exclude-patterns="*.whl,UpdatedTestConfig.yaml"
+                            """
                         def fileCount = steps.sh(
                             script: "find . -type f ! -name '*.whl' ! -name 'UpdatedTestConfig.yaml' | wc -l",
                             returnStdout: true

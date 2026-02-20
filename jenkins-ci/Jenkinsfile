@@ -15,7 +15,7 @@ node {
     sh 'jf c show'
     sh 'jf rt ping'
 
-    // // 2. Use matching names for the variables
+    // 2. Use matching names for the variables
     // withCredentials([usernamePassword(credentialsId: 'artifactory-jenkins-creds', 
     //                                  passwordVariable: 'JF_PASSWORD', 
     //                                  usernameVariable: 'JF_USER')]) {

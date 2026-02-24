@@ -55,7 +55,7 @@ class commonPipelineLib implements Serializable {
                     steps.sh """
                         set -e
                         export PATH="/opt/jfrog/bin:\$HOME/.local/bin:\$PATH"
-                        jf rt dl "${sourcePath}**/*.whl" "./" \
+                        jf rt dl "${sourcePath}/*.whl" "./" \
                             --flat=false \
                             --insecure-tls=true
                     """

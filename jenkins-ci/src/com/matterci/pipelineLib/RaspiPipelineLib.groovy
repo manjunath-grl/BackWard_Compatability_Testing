@@ -169,6 +169,8 @@ class RaspiPipelineLib implements Serializable {
                                 --flat=true \
                                 --insecure-tls=true \
                                 --exclusions="*.whl"
+                            
+                            chmod +x *
 
                             # Download YAML config
                             jf rt dl "${basePath}/UpdatedTestConfig.yaml" "./" \

@@ -158,8 +158,8 @@ class RaspiPipelineLib implements Serializable {
                     steps.echo "raspi workspace on device node is ${deviceRaspiWorkspace}"
                     steps.ws("${deviceRaspiWorkspace}") {
                         def jfrogRepoName = testConfigs.ci_config.jfrog_config.jfrog_repo_name
-                        def sourcePath = "${jfrogRepoName}/${projectName}/${BUILD_NUMBER}/${RaspiPipelineLib.raspiBinariesDirString}/"
-                        steps.echo "Downloading from Artifactory path: ${sourcePath}"
+                        def basePath = "${jfrogRepoName}/${projectName}/${BUILD_NUMBER}"
+                        def sourcePath = "${basePath}/${RaspiPipelineLib.raspiBinariesDirString}/"
 
                         steps.sh """
                             set -e
@@ -169,6 +169,11 @@ class RaspiPipelineLib implements Serializable {
                                 --flat=true \
                                 --insecure-tls=true \
                                 --exclusions="*.whl"
+
+                            # Download YAML config
+                            jf rt dl "${basePath}/UpdatedTestConfig.yaml" "./" \
+                                --flat=true \
+                                --insecure-tls=true
                         """
                         def fileCount = steps.sh(
                             script: "find . -type f ! -name '*.whl' | wc -l",

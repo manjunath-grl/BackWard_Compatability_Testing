@@ -21,7 +21,9 @@ class RunTests {
                 steps.sh("mkdir -p ${dateLogPath}")
                 steps.sh("rm -rf ${dateLogPath}/*")
                 def configData = steps.readYaml(file: runnerConfigFile)
-                steps.echo "Matter-QA Path: ${configData.Testcase_runner_config.dut_config.rpi.app_config.matter_ap}"
+                steps.echo "Test Runner Config: ${configData}"
+                def checkMatterQa = configData.Testcase_runner_config.dut_config.rpi.app_config.matter_app
+                steps.echo "Matter-QA Path: ${checkMatterQa}"
                 // Run Python test runner
                 def status = steps.sh(
                     script: """#!/bin/bash

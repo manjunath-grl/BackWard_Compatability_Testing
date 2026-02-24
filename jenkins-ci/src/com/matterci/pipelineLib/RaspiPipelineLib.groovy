@@ -163,7 +163,7 @@ class RaspiPipelineLib implements Serializable {
 
                         steps.sh """
                             set -e
-                            export PATH="\\$HOME/.local/bin:/opt/jfrog/bin:\\$PATH"
+                            export PATH="\$HOME/.local/bin:/opt/jfrog/bin:\$PATH"
 
                             jf rt dl "${sourcePath}/*" "./" \
                                 --flat=true \

@@ -165,7 +165,7 @@ class RaspiPipelineLib implements Serializable {
                             set -e
                             export PATH="\$HOME/.local/bin:/opt/jfrog/bin:\$PATH"
 
-                            jf rt dl "${sourcePath}/*" "./" \
+                            jf rt dl "${sourcePath}*" "./" \
                                 --flat=true \
                                 --insecure-tls=true \
                                 --exclusions="*.whl"

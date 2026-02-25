@@ -159,13 +159,13 @@ class RaspiPipelineLib implements Serializable {
                     steps.ws("${deviceRaspiWorkspace}") {
                         def jfrogRepoName = testConfigs.ci_config.jfrog_config.jfrog_repo_name
                         def basePath = "${jfrogRepoName}/${projectName}/${BUILD_NUMBER}"
-                        def sourcePath = "${basePath}/${RaspiPipelineLib.raspiBinariesDirString}/"
+                        def sourcePath = "${basePath}/${RaspiPipelineLib.raspiBinariesDirString}"
 
                         steps.sh """
                             set -e
                             export PATH="\$HOME/.local/bin:/opt/jfrog/bin:\$PATH"
 
-                            jf rt dl "${sourcePath}**/*" "./" \
+                            jf rt dl "${sourcePath}/*" "./" \
                                 --flat=true \
                                 --insecure-tls=true \
                                 --exclusions="*.whl"

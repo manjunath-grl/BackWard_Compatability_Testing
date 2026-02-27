@@ -380,7 +380,7 @@ def call(testConfigs, testCasesList) {
                         }
                         // just get into the parent directory of raspi_binaries and upload it.
                         ws("${sdkFrmArtifactsResult.workSpaceSDKCopied}") {
-                            def decision = commonPipelineLib.resolveArtifactAndBuildDecision(this, testConfigs)
+                            //def decision = commonPipelineLib.resolveArtifactAndBuildDecision(this, testConfigs)
                             commonPipelineLib.uploadPlatformBinaries(
                                 this,
                                 testConfigs,

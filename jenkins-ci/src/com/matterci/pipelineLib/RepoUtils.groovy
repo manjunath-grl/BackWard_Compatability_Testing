@@ -118,7 +118,8 @@ class RepoUtils implements Serializable {
         // Determine the cumulative clone success (AND of both flags)
         cloneSuccess = cloneControllerSuccess && cloneAppSuccess
 
-        if (cloneSuccess && !cloneController && !cloneApps) {
+        //if (cloneSuccess && !cloneController && !cloneApps) {
+        if (cloneSuccess) {
             // Clean up and archive
             def isConnectedHomeIp = testConfigs?.ci_config?.clone_sdk_code_stage?.controller_sdk_config?.controller_repo == "connectedhomeip"
             steps.sh """

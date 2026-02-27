@@ -191,6 +191,12 @@ def buildController(testConfigs, testCasesList, workSpace, raspiBinariesDir){
         // TODO add swapfile to docker arguments
         def dockerCommands = """#!/bin/bash
             set -ex
+
+            export PATH=/usr/local/bin:$PATH
+            echo "PATH=$PATH"
+            which docker
+            docker --version
+
             docker run --rm --user root --platform=${dockerPlatform} -v ${workSpace}:/home/connectedhome \\
             -w /home/connectedhome ${docker_image}:latest \\
             /bin/bash -c \"
@@ -289,6 +295,12 @@ def buildApps(testConfigs, testCasesList, workSpace, raspiBinariesDir){
         // TODO add swapfile to docker arguments
         def dockerCommands = """#!/bin/bash
             set -ex
+
+            export PATH=/usr/local/bin:$PATH
+            echo "PATH=$PATH"
+            which docker
+            docker --version
+            
             docker run --rm --user root --platform=${dockerPlatform} -v ${workSpace}:/home/connectedhome \\
             -w /home/connectedhome ${docker_image}:latest \\
             /bin/bash -c \"
@@ -357,20 +369,20 @@ def call(testConfigs, testCasesList) {
                         }else{
                             error(" getSDKCodeFromArtifacts failed. Build stopped.")
                         }
-                        if (env.CONTROLLER_MISSING == "true") {
+                        if (decision.controllerMissing) {
                         //only runs if it is connectedhomeip repo
-                            if (testConfigs?.ci_config?.clone_sdk_code_stage?.controller_sdk_config?.controller_repo == "connectedhomeip") {
-                                def buildCntrlResult = buildController(testConfigs, testCasesList, controllerBuildWorkSpace,raspiBinariesDirString)
-                                if (buildCntrlResult != 0) {
-                                    buildSuccess = false
-                                    error("Building Controller failed with status ${status}")
-                                }
+                            //if (testConfigs?.ci_config?.clone_sdk_code_stage?.controller_sdk_config?.controller_repo == "connectedhomeip") {
+                            def buildCntrlResult = buildController(testConfigs, testCasesList, controllerBuildWorkSpace,raspiBinariesDirString)
+                            if (buildCntrlResult != 0) {
+                                buildSuccess = false
+                                error("Building Controller failed with status ${buildCntrlResult}")
                             }
+                            //}
                         }
-                        if(decision.platforms["raspi"].appsMissing) {
+                        if(decision.platforms["raspi"]?.appsMissing) {
                             def buildAppResult = buildApps(testConfigs, testCasesList, appsBuildWorkSpace, raspiBinariesDirString)
                             if (!buildAppResult.success)
-                                error("Building Apps failed with status ${status}")
+                                error("Building Apps failed with status ${buildAppResult}")
                             else {
                                 appToTest = buildAppResult.appToTest
                                 //looks like we need to store appToTest in env to access it parallel block otherwise its having null value

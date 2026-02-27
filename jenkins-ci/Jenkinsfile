@@ -42,6 +42,8 @@ node {
     testConfigs = commonPipelineLib.resolveBranchSHA(this, testConfigs)
 
     def decision = commonPipelineLib.resolveArtifactAndBuildDecision(this, testConfigs)
+    // store globally
+    testConfigs.ci_config.artifactDecision = decision
     env.CONTROLLER_MISSING = decision.controllerMissing.toString()
     env.APPS_MISSING = decision.appsMissing.toString()
     env.CLONE_REQUIRED = decision.cloneRequired.toString()

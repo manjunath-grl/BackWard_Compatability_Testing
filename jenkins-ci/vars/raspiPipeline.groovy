@@ -342,10 +342,11 @@ def call(testConfigs, testCasesList) {
     def controllerBuildWorkSpace = ''
     def appsBuildWorkSpace = ''
     def logTransferConfig = testConfigs.execution_log_transfer_config
+    def decision = testConfigs.ci_config.artifactDecision
 
     //TODO: Not scalable, Fix this code to download cloned code in the above step
     //if (raspiStages?.build_firmware?.enabled){
-    if (env.CONTROLLER_MISSING == "true" && decision.platforms["raspi"].appsMissing == "true") {
+    if (decision.controllerMissing && decision.platforms["raspi"]?.appsMissing) {
         stage('Build For Raspi inside Docker') {
             node(raspiStages.build_firmware.node) {
                 try {

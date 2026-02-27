@@ -1,4 +1,5 @@
 import com.matterci.pipelineLib.RepoUtils
+import com.matterci.pipelineLib.commonPipelineLib
 
 /* design decision: Jenkins file code is expected to handle jenkins
 stages, steps.. etc core logic is in shared lib.

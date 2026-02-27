@@ -1,6 +1,7 @@
 package com.matterci.pipelineLib
 
 import com.matterci.pipelineLib.TestUtils
+import com.matterci.pipelineLib.commonPipelineLib
 
 class ConfigLoader {
 

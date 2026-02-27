@@ -271,20 +271,36 @@ class commonPipelineLib implements Serializable {
         basePath += "/${ctx.os}"
         steps.echo "Artifact Base Path: ${basePath}"
 
-        // ENABLED PLATFORMS
+        // ENABLED PLATFORM RESOLUTION
         def enabledPlatforms = []
-        ctx.platforms.each { name, cfg ->
-            if (name == "esp32" && cfg.enabled) {
-                cfg.variants.each { v, vcfg ->
-                    if (vcfg.enabled)
-                        enabledPlatforms << v
+        def platformsCfg =
+            testConfigs.ci_config
+                .clone_sdk_code_stage
+                .artifact_context
+                .platforms ?: [:]
+        platformsCfg.each { pname, pcfg ->
+            if (!(pcfg instanceof Map))
+                return
+
+            boolean runPlatform =
+                pcfg.get("run") ?: false
+
+            if (!runPlatform)
+                return
+
+            // ESP WITH VARIANTS
+            if (pname == "esp32") {
+                def variants = pcfg.get("variants") ?: [:]
+                variants.each { vname, vcfg ->
+                    if (vcfg?.get("run"))
+                        enabledPlatforms << vname
                 }
-            }
-            else if (cfg.enabled) {
-                enabledPlatforms << name
+            } else {
+                enabledPlatforms << pname
             }
         }
-        steps.echo "Enabled Platforms: ${enabledPlatforms}"
+
+        steps.echo "Enabled Platforms FINAL = ${enabledPlatforms}"
 
         // CONTROLLER CHECK
         boolean controllerExists =

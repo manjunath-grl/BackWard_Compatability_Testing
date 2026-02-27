@@ -104,7 +104,7 @@ class RepoUtils implements Serializable {
                             throw new Exception("cloning app SDK repo ailed")
                         }
                         // save apps sdk SHA
-                        testConfigs.ci_config.apps_sdk_sha = "${app_sdk_sha}"
+                        //testConfigs.ci_config.apps_sdk_sha = "${app_sdk_sha}"
                     }
                 }
             } catch (Exception e) {

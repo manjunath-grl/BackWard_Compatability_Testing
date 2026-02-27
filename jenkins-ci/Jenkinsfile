@@ -57,7 +57,7 @@ node {
     env.testConfigs = testConfigs
     echo "Test Parameters: ${testConfigs}"
 
-    if (testConfigs.ci_config?.clone_sdk_code_stage?.artifact_context?.raspi.run)
+    if (testConfigs.ci_config?.clone_sdk_code_stage?.artifact_context?.platforms?.raspi?.run)
         raspiPipeline(testConfigs, testCasesList)
 
 }

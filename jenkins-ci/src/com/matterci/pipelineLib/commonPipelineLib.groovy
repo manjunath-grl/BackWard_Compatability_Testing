@@ -255,25 +255,26 @@ class commonPipelineLib implements Serializable {
 
     static Map resolveArtifactAndBuildDecision(def steps, Map testConfigs) {
         setupJfrog(steps, testConfigs)
-        def ctx = testConfigs.ci_config.clone_sdk_code_stage.artifact_context
-        def appsCfg = testConfigs.ci_config.clone_sdk_code_stage.apps_sdk_config
+        def ctx      = testConfigs.ci_config.clone_sdk_code_stage.artifact_context
+        def appsCfg  = testConfigs.ci_config.clone_sdk_code_stage.apps_sdk_config
         def branch = appsCfg.branch
-        def sha = appsCfg.sha
+        def sha    = appsCfg.sha
+        def app    = testConfigs.ci_config.app_to_test
 
         boolean isRelease = isReleaseBranch(branch)
-
+        // BASE PATH
         def basePath = "${ctx.repo}/branches/${branch}"
 
         if (!isRelease && sha)
             basePath += "/${sha}"
 
         basePath += "/${ctx.os}"
-        // PLATFORM LIST
+        steps.echo "Artifact Base Path: ${basePath}"
+
+        // ENABLED PLATFORMS
         def enabledPlatforms = []
-
         ctx.platforms.each { name, cfg ->
-
-            if (name == "esp32") {
+            if (name == "esp32" && cfg.enabled) {
                 cfg.variants.each { v, vcfg ->
                     if (vcfg.enabled)
                         enabledPlatforms << v
@@ -283,26 +284,45 @@ class commonPipelineLib implements Serializable {
                 enabledPlatforms << name
             }
         }
+        steps.echo "Enabled Platforms: ${enabledPlatforms}"
+
         // CONTROLLER CHECK
-        def controllerExists = jfrogPathExists(steps,"${basePath}/controller")
+        boolean controllerExists =
+            jfrogPathExists(steps, "${basePath}/controller")
 
         // PLATFORM APP CHECK
         def platformDecision = [:]
+        boolean anyAppMissing = false
 
         enabledPlatforms.each { platform ->
-            def exists = jfrogPathExists( steps,"${basePath}/${testConfigs.ci_config.app_to_test}/${platform}/apps")
+            def appPath =
+                "${basePath}/${app}/${platform}/apps"
+
+            boolean exists =
+                jfrogPathExists(steps, appPath)
+
             platformDecision[platform] = [
-                appsMissing: !exists
+                appsMissing : !exists,
+                artifactPath: appPath
             ]
+
+            if (!exists)
+                anyAppMissing = true
         }
 
-        // FINAL DECISION
+        // FINAL GLOBAL DECISION
         def decision = [
             controllerMissing : !controllerExists,
+            appsMissing       : anyAppMissing,
             platforms         : platformDecision
         ]
 
-        steps.echo "Artifact Decision -> ${decision}"
+        decision.cloneRequired =
+                decision.controllerMissing ||
+                decision.appsMissing
+
+        steps.echo "FINAL Artifact Decision:"
+        steps.echo "${decision}"
 
         return decision
     }

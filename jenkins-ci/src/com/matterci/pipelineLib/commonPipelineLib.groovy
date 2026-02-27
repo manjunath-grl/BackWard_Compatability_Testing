@@ -410,4 +410,36 @@ class commonPipelineLib implements Serializable {
 
         return basePath
     }
+
+    static boolean jfrogPathExists(def steps, String path) {
+        steps.echo "Checking JFrog path existence: ${path}"
+        try {
+            def status = steps.sh(
+                script: """
+                    set +e
+                    export PATH="/opt/jfrog/bin:\$HOME/.local/bin:\$PATH"
+
+                    jf rt s "${path}" \
+                        --count=true \
+                        --insecure-tls=true > result.txt 2>/dev/null
+
+                    COUNT=\$(cat result.txt | grep -o '[0-9]*' | head -1)
+
+                    if [ -z "\$COUNT" ] || [ "\$COUNT" = "0" ]; then
+                        exit 1
+                    fi
+                """,
+                returnStatus: true
+            )
+            if (status == 0) {
+                steps.echo "Artifact FOUND: ${path}"
+                return true
+            }
+            steps.echo "Artifact NOT FOUND: ${path}"
+            return false
+        } catch (Exception e) {
+            steps.echo "JFrog check failed: ${e.message}"
+            return false
+        }
+    }
 }

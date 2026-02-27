@@ -117,19 +117,31 @@ class RepoUtils implements Serializable {
         }
         // Determine the cumulative clone success (AND of both flags)
         cloneSuccess = cloneControllerSuccess && cloneAppSuccess
+        steps.echo "cloneControllerSuccess: ${cloneControllerSuccess}, cloneAppSuccess: ${cloneAppSuccess}, cumulative cloneSuccess: ${cloneSuccess}"
+
+         // Determine if the cloned repos are from connectedhomeip to decide the content of the archive
 
         //if (cloneSuccess && !cloneController && !cloneApps) {
-        if (cloneSuccess) {
+        // if (cloneSuccess) {
+        //     // Clean up and archive
+        //     //def isConnectedHomeIp = testConfigs?.ci_config?.clone_sdk_code_stage?.controller_sdk_config?.controller_repo == "connectedhomeip"
+        //     steps.sh """
+        //         set -ex
+        //         rm -f ${archivePath}
+        //         if [ "${isConnectedHomeIp}" = "true" ]; then
+        //             tar -czvf ${archivePath} -C ${buildIDWorkspace} ${controllerGitCloneDirectory} ${appGitCloneDirectory}
+        //         else
+        //             tar -czvf ${archivePath} -C ${buildIDWorkspace} ${appGitCloneDirectory}
+        //         fi
+        //     """
+        // }
+
+        if (cloneSuccess){
             // Clean up and archive
-            def isConnectedHomeIp = testConfigs?.ci_config?.clone_sdk_code_stage?.controller_sdk_config?.controller_repo == "connectedhomeip"
             steps.sh """
                 set -ex
                 rm -f ${archivePath}
-                if [ "${isConnectedHomeIp}" = "true" ]; then
-                    tar -czvf ${archivePath} -C ${buildIDWorkspace} ${controllerGitCloneDirectory} ${appGitCloneDirectory}
-                else
-                    tar -czvf ${archivePath} -C ${buildIDWorkspace} ${appGitCloneDirectory}
-                fi
+                tar -czvf ${archivePath} -C ${buildIDWorkspace} ${controllerGitCloneDirectory} ${appGitCloneDirectory}
             """
         }
 

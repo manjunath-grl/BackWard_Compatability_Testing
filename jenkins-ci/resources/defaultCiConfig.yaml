@@ -20,19 +20,37 @@ ci_config:
   workspace_base: "/mnt/tests"
 
   jfrog_config:
-    jfrog_repo_name: "Jenkins-Binaries"
     jfrog_server_id: "artifactory-oss"
     jfrog_url: "http://192.168.0.56:8082"
     jfrog_creds_id: "artifactory-jenkins-creds"
 
-  #   clone_sdk_code_stage:        Configuration for cloning SDK and QA repositories.
-  #     enabled:                   Flag to enable/disable SDK cloning.
   clone_sdk_code_stage:
-    enabled: true
     node_to_clone_code: "node_to_clone_code"
+
+    # ARTIFACT STRUCTURE CONTEXT
+    artifact_context:
+      repo: "matter-Binaries"
+      os: "linux"
+      platforms:
+        raspi:
+          run: true
+        nordic:
+          run: true
+        silabs:
+          run: true
+        esp32:
+          run: false
+          variants:
+            esp32c3:
+              run: false
+            esp32c6:
+              run: false
+            esp32h2:
+              run: false
+
     controller_sdk_config:
-      controller_repo: "certification-tool"
-      repoUrl: "git@github.com:project-chip/certification-tool.git"
+      controller_repo: "connectedhomeip"
+      repoUrl: "git@github.com:project-chip/connectedhomeip.git"
       branch: "v2.14+fall2025"
       sha: ""
       tag: ""
@@ -52,14 +70,13 @@ ci_config:
 
   app_to_test: "all-clusters-app"
 
-  copy_build_artifact: # - Configuration for copying build artifacts from a specific Jenkins job.
-    enabled: false # - enabled: Set to true to enable artifact copying, false to skip.
-    job_name: "Production" # - job_name: Name of the Jenkins job to copy artifacts from.
-    build_number: 1 # - build_number: Specific build number to copy artifacts from.
+  # copy_build_artifact: # - Configuration for copying build artifacts from a specific Jenkins job.
+  #   enabled: false # - enabled: Set to true to enable artifact copying, false to skip.
+  #   job_name: "Production" # - job_name: Name of the Jenkins job to copy artifacts from.
+  #   build_number: 1 # - build_number: Specific build number to copy artifacts from.
 
   # raspi_pipeline:
   raspi_pipeline:
-    run: false
     stages:
       build_firmware:
         fresh_install: true

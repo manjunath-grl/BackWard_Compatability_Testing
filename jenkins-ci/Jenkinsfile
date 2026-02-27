@@ -1,5 +1,6 @@
 @Library('jenkins-ci-lib') _
 import com.matterci.pipelineLib.ConfigLoader
+import com.matterci.pipelineLib.commonPipelineLib
 
 /**
  * Main Jenkins pipeline for Matter QA testing across platforms (Raspi, Nordic, Silabs).
@@ -7,24 +8,6 @@ import com.matterci.pipelineLib.ConfigLoader
  */
 
 node {
-
-    // Define the tool globally for the workspace
-    def jfHome = tool 'jfrog-cli'
-    env.PATH = "${jfHome}:${env.PATH}"
-    sh 'jf -v'
-    sh 'jf c show'
-    sh 'jf rt ping'
-
-    // 2. Use matching names for the variables
-    // withCredentials([usernamePassword(credentialsId: 'artifactory-jenkins-creds', 
-    //                                  passwordVariable: 'JF_PASSWORD', 
-    //                                  usernameVariable: 'JF_USER')]) {
-        
-    // // Add --insecure-tls=true to the config command
-    //     sh "jf c add artifactory-oss --url=http://192.168.0.56:8082 --user=$JF_USER --password=$JF_PASSWORD --insecure-tls=true --overwrite --interactive=false"
-    //     sh "jf c use artifactory-oss"
-    // }
-
     properties([
         parameters([
             string(name: 'ci_config_file', defaultValue: '~/jenkins-config/ci_config.yaml', description: 'Path to CI configuration YAML file'),
@@ -53,17 +36,28 @@ node {
 
     //assign these before starting the test so that python runner has this info to store in DB.
 
-    if (testConfigs.ci_config?.clone_sdk_code_stage?.enabled){
-        testConfigs = cloneRepo(testConfigs)
-    }
-    else{
-        echo "do nothing, need to fix this to load the binaries from artifactory server"
+    commonPipelineLib.setupJfrog(this, testConfigs)
+
+    // Resolve SHA automatically
+    testConfigs = commonPipelineLib.resolveBranchSHA(this, testConfigs)
+
+    def decision =commonPipelineLib.resolveArtifactAndBuildDecision(this,testConfigs)
+
+    env.CONTROLLER_MISSING = decision.controllerMissing.toString()
+    env.APPS_MISSING = decision.appsMissing.toString()
+    env.CLONE_REQUIRED = decision.cloneRequired.toString()
+
+    // Clone ONLY if required
+    if (decision.cloneRequired) {
+        testConfigs = cloneRepo(testConfigs, decision)
+    } else {
+        echo "Artifacts fully available → skipping SDK clone"
     }
     //store the configs in the env after updating with SDK SHA
     env.testConfigs = testConfigs
     echo "Test Parameters: ${testConfigs}"
 
-    if (testConfigs.ci_config?.raspi_pipeline?.run)
+    if (testConfigs.ci_config?.clone_sdk_code_stage?.artifact_context?.raspi.run)
         raspiPipeline(testConfigs, testCasesList)
 
 }

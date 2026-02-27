@@ -220,8 +220,8 @@ def buildController(testConfigs, testCasesList, workSpace, raspiBinariesDir){
             ws("${workSpace}")
             {
                 def copyCommand = """#!/bin/bash
-                    mv out/python_lib/controller/python/*.whl ../${raspiBinariesDir}
-                    mv out/python_lib/obj/src/python_testing/matter_testing_infrastructure/matter-testing._build_wheel/matter_testing-*.whl ../${raspiBinariesDir}
+                    mv out/python_lib/controller/python/*.whl ../${raspiBinariesDir}/controller
+                    mv out/python_lib/obj/src/python_testing/matter_testing_infrastructure/matter-testing._build_wheel/matter_testing-*.whl ../${raspiBinariesDir}/controller
                 """
                 def cmdStatus = sh(
                     script: copyCommand,
@@ -318,7 +318,7 @@ def buildApps(testConfigs, testCasesList, workSpace, raspiBinariesDir){
                 // since outputpath is not available inside ws block, using the env var app_output_path here.
                 ////TODO: we may need to fix this .. path in the below command
                 def copyCommand = """#!/bin/bash
-                    mv ${env.app_output_path} ../${raspiBinariesDir}
+                    mv ${env.app_output_path} ../${raspiBinariesDir}/apps
                 """
                 status = sh(
                     script: copyCommand,
@@ -344,7 +344,8 @@ def call(testConfigs, testCasesList) {
     def logTransferConfig = testConfigs.execution_log_transfer_config
 
     //TODO: Not scalable, Fix this code to download cloned code in the above step
-    if (raspiStages?.build_firmware?.enabled){
+    //if (raspiStages?.build_firmware?.enabled){
+    if (env.CONTROLLER_MISSING == "true" && decision.platforms["raspi"].appsMissing == "true") {
         stage('Build For Raspi inside Docker') {
             node(raspiStages.build_firmware.node) {
                 try {
@@ -355,51 +356,38 @@ def call(testConfigs, testCasesList) {
                         }else{
                             error(" getSDKCodeFromArtifacts failed. Build stopped.")
                         }
+                        if (env.CONTROLLER_MISSING == "true") {
                         //only runs if it is connectedhomeip repo
-                        if (testConfigs?.ci_config?.clone_sdk_code_stage?.controller_sdk_config?.controller_repo == "connectedhomeip") {
-                            def buildCntrlResult = buildController(testConfigs, testCasesList, controllerBuildWorkSpace,raspiBinariesDirString)
-                            if (buildCntrlResult != 0) {
-                                buildSuccess = false
-                                error("Building Controller failed with status ${status}")
+                            if (testConfigs?.ci_config?.clone_sdk_code_stage?.controller_sdk_config?.controller_repo == "connectedhomeip") {
+                                def buildCntrlResult = buildController(testConfigs, testCasesList, controllerBuildWorkSpace,raspiBinariesDirString)
+                                if (buildCntrlResult != 0) {
+                                    buildSuccess = false
+                                    error("Building Controller failed with status ${status}")
+                                }
                             }
                         }
-
-                        def buildAppResult = buildApps(testConfigs, testCasesList, appsBuildWorkSpace, raspiBinariesDirString)
-                        if (!buildAppResult.success)
-                            error("Building Apps failed with status ${status}")
-                        else {
-                            appToTest = buildAppResult.appToTest
-                            //looks like we need to store appToTest in env to access it parallel block otherwise its having null value
-                            env.appToTest = buildAppResult.appToTest
-                            echo "app to test : ${appToTest}"
+                        if(decision.platforms["raspi"].appsMissing) {
+                            def buildAppResult = buildApps(testConfigs, testCasesList, appsBuildWorkSpace, raspiBinariesDirString)
+                            if (!buildAppResult.success)
+                                error("Building Apps failed with status ${status}")
+                            else {
+                                appToTest = buildAppResult.appToTest
+                                //looks like we need to store appToTest in env to access it parallel block otherwise its having null value
+                                env.appToTest = buildAppResult.appToTest
+                                echo "app to test : ${appToTest}"
+                            }
                         }
                         // just get into the parent directory of raspi_binaries and upload it.
                         ws("${sdkFrmArtifactsResult.workSpaceSDKCopied}") {
-                            script {
-                                def jfrogRepoName = testConfigs.ci_config.jfrog_config.jfrog_repo_name
-                                def jobName  = env.JOB_NAME
-                                def buildNum = env.BUILD_NUMBER
-                                def platform = raspiBinariesDirString
-                                def targetPath = "${jfrogRepoName}/${jobName}/${buildNum}/"
-
-                                echo "Uploading to ${targetPath}"
-
-                                sh """
-                                    set -e
-                                    jf rt u \
-                                    "${platform}/**" \
-                                    "${targetPath}" \
-                                    --flat=false \
-                                    --build-name=${jobName} \
-                                    --build-number=${buildNum}
-
-                                    jf rt bp ${jobName} ${buildNum}
-                                    """
-                                    sh """
-                                    jf rt s "${targetPath}**"
-                                    """
-                                echo "JFrog upload verified successfully."
-                            }
+                            def decision = commonPipelineLib.resolveArtifactAndBuildDecision(this, testConfigs)
+                            commonPipelineLib.uploadPlatformBinaries(
+                                this,
+                                testConfigs,
+                                "raspi",
+                                raspiBinariesDirString,
+                                decision.controllerMissing,
+                                decision.appsMissing
+                            )
                         }
                 }catch (Exception e) {
                     buildSuccess = false

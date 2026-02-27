@@ -48,27 +48,26 @@ class commonPipelineLib implements Serializable {
                 steps.ws("${controllerBinariesWorkspace}") {
 
                     setupJfrog(steps, testConfigs)
-                    // -------- JFrog Source Path --------
-                    def sourcePath = "${repoName}/${projectName}/${buildNumber}/${ctrlBinariesDir}/"
-                    steps.echo "Downloading from Artifactory path: ${sourcePath}"
-                    // -------- DOWNLOAD ONLY .whl --------
+                    def basePath = getResolvedArtifactBasePath(testConfigs)
+                    def controllerPath = "${basePath}/controller"
+
                     steps.sh """
                         set -e
-                        export PATH="/opt/jfrog/bin:\$HOME/.local/bin:\$PATH"
-                        jf rt dl "${sourcePath}/*.whl" "./" \
-                            --flat=true \
-                            --insecure-tls=true
+                        jf rt dl \
+                        "${controllerPath}/*.whl" \
+                        "./" \
+                        --flat=true \
+                        --insecure-tls=true
                     """
-                    // -------- VERIFY DOWNLOAD --------
-                    def fileCount = steps.sh(
-                        script: "find . -name '*.whl' | wc -l",
-                        returnStdout: true
+                    def count = steps.sh(
+                        script: "ls *.whl 2>/dev/null | wc -l",
+                        returnStdout:true
                     ).trim()
 
-                    if (fileCount == "0") {
-                        steps.error("No .whl files downloaded from ${sourcePath}")
-                    }
-                    steps.echo "Downloaded ${fileCount} .whl files successfully."
+                    if(count=="0")
+                        steps.error("No .whl files downloaded from ${controllerPath}")
+
+                    steps.echo "Controller binaries downloaded"
 
                     // -------- Continue Existing Logic --------
                     def status = RepoUtils.cloneMatterQARepo(steps,testConfigs,"main",controllerBinariesWorkspace,ctrlBinariesDir)
@@ -222,6 +221,8 @@ class commonPipelineLib implements Serializable {
     static def setupJfrog(def steps, Map testConfigs) {
         // 1. Force the manual installation path into the environment
         steps.env.PATH = "/opt/jfrog/bin:${steps.env.PATH}"
+        def jfHome = tool 'jfrog-cli'
+        env.PATH = "${jfHome}:${env.PATH}"
 
         // 2. Fetch arguments from YAML (with defaults as fallback)
         def jfUrl    = testConfigs.ci_config?.jfrog_url ?: "http://192.168.0.56:8082"
@@ -245,5 +246,168 @@ class commonPipelineLib implements Serializable {
             """
             steps.sh "jf c use ${serverId}"
         }
+    }
+
+    static boolean isReleaseBranch(String branch) {
+        if (!branch) return false
+        return branch ==~ /^v.*(-branch|-sve|-sve-branch)$/
+    }
+
+    static Map resolveArtifactAndBuildDecision(def steps, Map testConfigs) {
+        setupJfrog(steps, testConfigs)
+        def ctx = testConfigs.ci_config.clone_sdk_code_stage.artifact_context
+        def appsCfg = testConfigs.ci_config.clone_sdk_code_stage.apps_sdk_config
+        def branch = appsCfg.branch
+        def sha = appsCfg.sha
+
+        boolean isRelease = isReleaseBranch(branch)
+
+        def basePath = "${ctx.repo}/branches/${branch}"
+
+        if (!isRelease && sha)
+            basePath += "/${sha}"
+
+        basePath += "/${ctx.os}"
+        // PLATFORM LIST
+        def enabledPlatforms = []
+
+        ctx.platforms.each { name, cfg ->
+
+            if (name == "esp32") {
+                cfg.variants.each { v, vcfg ->
+                    if (vcfg.enabled)
+                        enabledPlatforms << v
+                }
+            }
+            else if (cfg.enabled) {
+                enabledPlatforms << name
+            }
+        }
+        // CONTROLLER CHECK
+        def controllerExists = jfrogPathExists(steps,"${basePath}/controller")
+
+        // PLATFORM APP CHECK
+        def platformDecision = [:]
+
+        enabledPlatforms.each { platform ->
+            def exists = jfrogPathExists( steps,"${basePath}/${testConfigs.ci_config.app_to_test}/${platform}/apps")
+            platformDecision[platform] = [
+                appsMissing: !exists
+            ]
+        }
+
+        // FINAL DECISION
+        def decision = [
+            controllerMissing : !controllerExists,
+            platforms         : platformDecision
+        ]
+
+        steps.echo "Artifact Decision -> ${decision}"
+
+        return decision
+    }
+
+    static void uploadPlatformBinaries(def steps, Map testConfigs, String platform, String binariesDir, boolean uploadController, boolean uploadApps) {
+        def ctx = testConfigs.ci_config.clone_sdk_code_stage.artifact_context
+        def appName = testConfigs.ci_config.app_to_test
+        def appsCfg = testConfigs.ci_config.clone_sdk_code_stage.apps_sdk_config
+        def branch = appsCfg.branch
+        def sha = appsCfg.sha
+
+        boolean isRelease =
+            branch ==~ /^v.*-branch$/ ||
+            branch ==~ /^v.*-sve$/ ||
+            branch ==~ /^v.*-sve-branch$/
+
+        // BUILD BASE PATH
+        def basePath = "${ctx.repo}/branches/${branch}"
+        if (!isRelease && sha)
+            basePath += "/${sha}"
+
+        basePath += "/${ctx.os}"
+        steps.echo "Uploading binaries to ${basePath}"
+
+        // CONTROLLER UPLOAD
+        if (uploadController) {
+            steps.echo "Uploading Controller binaries"
+            steps.sh """
+                jf rt u \
+                "${binariesDir}/controller/*" \
+                "${basePath}/controller/" \
+                --flat=true
+            """
+        }
+
+        // APPS UPLOAD
+        if (uploadApps) {
+            steps.echo "Uploading App binaries for ${platform}"
+            steps.sh """
+                jf rt u \
+                "${binariesDir}/apps/*" \
+                "${basePath}/${appName}/${platform}/apps/" \
+                --flat=true
+            """
+        }
+        steps.echo "Upload completed for ${platform}"
+    }
+
+    static Map resolveBranchSHA(def steps, Map testConfigs) {
+        def cloneCfg =testConfigs.ci_config.clone_sdk_code_stage
+        def controllerCfg = cloneCfg.controller_sdk_config
+        def appsCfg = cloneCfg.apps_sdk_config
+
+        // Helper Closure
+        def resolveSHA = { cfg, name ->
+            if (!cfg?.branch)
+                return
+            def branch = cfg.branch
+
+            // RELEASE BRANCH CHECK
+            if (isReleaseBranch(branch)) {
+                steps.echo "${name}: Release branch detected (${branch}) → SHA not required"
+                return
+            }
+
+            // SHA already provided
+            if (cfg.sha?.trim()) {
+                steps.echo "${name}: SHA already provided → ${cfg.sha}"
+                return
+            }
+
+            // Resolve SHA using git ls-remote
+            steps.echo "${name}: Resolving SHA for branch ${branch}"
+            def repoUrl = cfg.repoUrl
+            def sha = steps.sh(
+                script: """
+                    git ls-remote ${repoUrl} refs/heads/${branch} | awk '{print \$1}'
+                """,
+                returnStdout: true
+            ).trim()
+
+            if (!sha) {
+                steps.error("Failed resolving SHA for ${name}")
+            }
+            cfg.sha = sha
+            steps.echo "${name}: Resolved SHA = ${sha}"
+        }
+        resolveSHA(controllerCfg, "Controller SDK")
+        resolveSHA(appsCfg, "Apps SDK")
+
+        return testConfigs
+    }
+
+    static String getResolvedArtifactBasePath(Map testConfigs) {
+        def ctx = testConfigs.ci_config.clone_sdk_code_stage.artifact_context
+        def branch = testConfigs.ci_config.clone_sdk_code_stage.apps_sdk_config.branch
+        def sha =testConfigs.ci_config.clone_sdk_code_stage.apps_sdk_config.sha
+        def os = ctx.os
+        boolean isRelease = isReleaseBranch(branch)
+
+        def basePath ="${ctx.repo}/branches/${branch}"
+        if (!isRelease)
+            basePath += "/${sha}"
+        basePath += "/${os}"
+
+        return basePath
     }
 }

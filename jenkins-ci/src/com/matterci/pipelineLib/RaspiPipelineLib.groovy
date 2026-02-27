@@ -140,9 +140,7 @@ class RaspiPipelineLib implements Serializable {
         steps.node(nodeName) {
             def deviceIP=''
             def deviceRaspiWorkspace
-            //def jfHome = steps.tool 'jfrog-cli'
-            //commonPipelineLib.setupJfrog(steps, testConfigs)
-            //steps.env.PATH = "${jfHome}:${steps.env.PATH}"
+            commonPipelineLib.setupJfrog(steps, testConfigs)
             steps.timeout(time: 60, unit: 'MINUTES') {
                 try {
                     steps.echo "Running on device node: ${nodeName}"
@@ -158,43 +156,40 @@ class RaspiPipelineLib implements Serializable {
                     steps.echo "raspi workspace on device node is ${deviceRaspiWorkspace}"
                     steps.ws("${deviceRaspiWorkspace}") {
                         def jfrogRepoName = testConfigs.ci_config.jfrog_config.jfrog_repo_name
-                        def basePath = "${jfrogRepoName}/${projectName}/${BUILD_NUMBER}"
-                        def sourcePath = "${basePath}/${RaspiPipelineLib.raspiBinariesDirString}"
+                        setupJfrog(steps,testConfigs)
+                        def basePath = commonPipelineLib.getResolvedArtifactBasePath(testConfigs)
+                        def app = testConfigs.ci_config.app_to_test
+                        def path = "${basePath}/${app}/${platform}/apps"
 
                         steps.sh """
                             set -e
-                            export PATH="\$HOME/.local/bin:/opt/jfrog/bin:\$PATH"
-
-                            jf rt dl "${sourcePath}/*" "./" \
-                                --flat=true \
-                                --insecure-tls=true \
-                                --exclusions="*.whl"
-                            
+                            jf rt dl \
+                            "${path}/*" \
+                            "./" \
+                            --flat=true \
+                            --insecure-tls=true
                             chmod +x *
-
-                            # Download YAML config
-                            jf rt dl "${basePath}/UpdatedTestConfig.yaml" "./" \
-                                --flat=true \
-                                --insecure-tls=true
                         """
-                        def fileCount = steps.sh(
-                            script: "find . -type f ! -name '*.whl' | wc -l",
-                            returnStdout: true
-                        ).trim()
-                        if (fileCount == "0") {
-                            steps.error("No valid files downloaded from ${sourcePath}")
+                        def files =
+                            steps.sh(
+                            script:"ls | wc -l",
+                            returnStdout:true
+                            ).trim()
+                        
+                        if(files=="0"){
+                            steps.echo "Apps missing for ${platform}"
+                            return false
                         }
-                        steps.echo "Downloaded ${fileCount} files successfully."
 
-                        if ( copyBuildArtifact.enabled && !raspiStages.build_firmware.enabled) {
-                            def configData = steps.readYaml(file: "UpdatedTestConfig.yaml")
-                            def selectedApp = configData?.ci_config.app_to_test ?: testConfigs.ci_config.app_to_test
-                            appToTest = "chip-${selectedApp}"
-                            steps.echo "App to test updated from copied config: ${appToTest}"
-                            //Update controller/apps sdk sha from Previous job yaml file
-                            testConfigs.ci_config.apps_sdk_sha = configData?.ci_config.apps_sdk_sha
-                            testConfigs.ci_config.controller_sdk_sha = configData?.ci_config.controller_sdk_sha
-                        }
+                        // if ( copyBuildArtifact.enabled && !raspiStages.build_firmware.enabled) {
+                        //     def configData = steps.readYaml(file: "UpdatedTestConfig.yaml")
+                        //     def selectedApp = configData?.ci_config.app_to_test ?: testConfigs.ci_config.app_to_test
+                        //     appToTest = "chip-${selectedApp}"
+                        //     steps.echo "App to test updated from copied config: ${appToTest}"
+                        //     //Update controller/apps sdk sha from Previous job yaml file
+                        //     testConfigs.ci_config.apps_sdk_sha = configData?.ci_config.apps_sdk_sha
+                        //     testConfigs.ci_config.controller_sdk_sha = configData?.ci_config.controller_sdk_sha
+                        // }
                     }
                 }catch (Exception e) {
                     copyArtifactsSuccess = false

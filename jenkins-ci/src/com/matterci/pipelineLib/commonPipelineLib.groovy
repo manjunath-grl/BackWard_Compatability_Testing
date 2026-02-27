@@ -221,7 +221,7 @@ class commonPipelineLib implements Serializable {
     static def setupJfrog(def steps, Map testConfigs) {
         // 1. Force the manual installation path into the environment
         steps.env.PATH = "/opt/jfrog/bin:${steps.env.PATH}"
-        def jfHome = stwps.tool 'jfrog-cli'
+        def jfHome = steps.tool 'jfrog-cli'
         steps.env.PATH = "${jfHome}:${steps.env.PATH}"
 
         // 2. Fetch arguments from YAML (with defaults as fallback)

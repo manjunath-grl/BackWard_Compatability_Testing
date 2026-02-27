@@ -9,6 +9,8 @@ def call (testConfigs, decision) {
     stage ("clone code") {
         //TODO: Fix the naming to come from config
         node(testConfigs.ci_config.clone_sdk_code_stage.node_to_clone_code) {
+            echo "decision controllerMissing: ${decision.controllerMissing}"
+            echo "decision appsMissing: ${decision.appsMissing}"
             def result = RepoUtils.cloneSDKRepo(this, testConfigs, decision.controllerMissing, decision.appsMissing)
 
             if (result.success) {

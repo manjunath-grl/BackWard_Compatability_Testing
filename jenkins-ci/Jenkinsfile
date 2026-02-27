@@ -41,17 +41,16 @@ node {
     // Resolve SHA automatically
     testConfigs = commonPipelineLib.resolveBranchSHA(this, testConfigs)
 
-    def decision =commonPipelineLib.resolveArtifactAndBuildDecision(this,testConfigs)
-
+    def decision = commonPipelineLib.resolveArtifactAndBuildDecision(this, testConfigs)
     env.CONTROLLER_MISSING = decision.controllerMissing.toString()
     env.APPS_MISSING = decision.appsMissing.toString()
     env.CLONE_REQUIRED = decision.cloneRequired.toString()
 
-    // Clone ONLY if required
     if (decision.cloneRequired) {
+        echo "SDK Clone Required"
         testConfigs = cloneRepo(testConfigs, decision)
     } else {
-        echo "Artifacts fully available → skipping SDK clone"
+        echo "All artifacts available → skipping clone"
     }
     //store the configs in the env after updating with SDK SHA
     env.testConfigs = testConfigs

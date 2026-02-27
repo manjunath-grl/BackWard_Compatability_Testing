@@ -25,6 +25,8 @@ class RepoUtils implements Serializable {
     static Map cloneSDKRepo(def steps, Map testConfigs, boolean cloneController, boolean cloneApps) {
         def cloneSuccess = true
         steps.echo "Clone stage running on: ${steps.env.NODE_NAME}"
+        steps.echo "cloneController cloneSDK : ${cloneController}"
+        steps.echo "cloneApps cloneSDK : ${cloneApps}"
 
         def nodeWorkspace = "${steps.env.WORKSPACE}"
         def buildIDWorkspace = "${nodeWorkspace}/${steps.env.BUILD_ID}"
@@ -60,7 +62,7 @@ class RepoUtils implements Serializable {
                                     throw new Exception("cloning controller SDK failed")
                                 }
                                 // save controller SDK SHA
-                                testConfigs.ci_config.controller_sdk_sha = "${controller_sdk_sha}"
+                                //testConfigs.ci_config.controller_sdk_sha = "${controller_sdk_sha}"
                             }
                         }
                     } catch (Exception e) {
@@ -85,7 +87,7 @@ class RepoUtils implements Serializable {
         steps.echo "ci_config : ${testConfigs.ci_config}"
         //def appsNeeded = decision.platforms.values().any { it.appsMissing }
         // Clone the app SDK
-        if (cloneApps && appConfig) {
+        if (cloneApps) {
             def appGitRef = appConfig?.branch ?: 'master'
             def appShaRef = appConfig?.sha
             def appTagRef = appConfig?.tag

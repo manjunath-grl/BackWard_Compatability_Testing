@@ -184,6 +184,8 @@ def buildController(testConfigs, testCasesList, workSpace, raspiBinariesDir){
         echo "This stage Build For Raspi inside Docker is running on: ${env.NODE_NAME}"
         echo "Work space to build controller : ${workSpace}"
         echo "raspi binaries copied into ${raspiBinariesDir}"
+        def binariesStorePath = raspiBinariesDir + "/controller"
+        echo "Controller binaries will be stored in ${binariesStorePath}"
 
         def raspiStages = testConfigs.ci_config?.raspi_pipeline?.stages
         def docker_image = raspiStages.build_firmware?.docker_image ?:"testing_partof_chip_cert_bins_dockerfile"
@@ -226,8 +228,8 @@ def buildController(testConfigs, testCasesList, workSpace, raspiBinariesDir){
             ws("${workSpace}")
             {
                 def copyCommand = """#!/bin/bash
-                    mv out/python_lib/controller/python/*.whl ../${raspiBinariesDir}/controller
-                    mv out/python_lib/obj/src/python_testing/matter_testing_infrastructure/matter-testing._build_wheel/matter_testing-*.whl ../${raspiBinariesDir}/controller
+                    mv out/python_lib/controller/python/*.whl ../${binariesStorePath}
+                    mv out/python_lib/obj/src/python_testing/matter_testing_infrastructure/matter-testing._build_wheel/matter_testing-*.whl ../${binariesStorePath}
                 """
                 def cmdStatus = sh(
                     script: copyCommand,
@@ -269,6 +271,8 @@ def buildApps(testConfigs, testCasesList, workSpace, raspiBinariesDir){
     def buildApp = appMapping[appToTest]?.build_app
     def outputPath = appMapping[appToTest]?.output_path
     def appName = appMapping[appToTest]?.app_name
+    def appStorePath = raspiBinariesDir + "/apps"
+    echo "Build app to be stored in: ${appStorePath}"
 
     stage ('build Apps on raspi'){
 
@@ -330,7 +334,7 @@ def buildApps(testConfigs, testCasesList, workSpace, raspiBinariesDir){
                 // since outputpath is not available inside ws block, using the env var app_output_path here.
                 ////TODO: we may need to fix this .. path in the below command
                 def copyCommand = """#!/bin/bash
-                    mv ${env.app_output_path} ../${raspiBinariesDir}/apps
+                    mv ${env.app_output_path} ../${appStorePath}
                 """
                 status = sh(
                     script: copyCommand,

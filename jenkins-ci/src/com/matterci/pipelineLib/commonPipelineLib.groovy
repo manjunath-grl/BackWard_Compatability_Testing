@@ -49,12 +49,12 @@ class commonPipelineLib implements Serializable {
 
                     setupJfrog(steps, testConfigs)
                     def basePath = getResolvedArtifactBasePath(testConfigs)
-                    def controllerPath = "${basePath}/controller"
+                    def controllerPath = "${basePath}/controller/"
 
                     steps.sh """
                         set -e
                         jf rt dl \
-                        "${controllerPath}/*.whl" \
+                        "${controllerPath}*.whl" \
                         "./" \
                         --flat=true \
                         --insecure-tls=true

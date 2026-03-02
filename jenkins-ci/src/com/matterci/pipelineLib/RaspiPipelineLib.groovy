@@ -159,12 +159,12 @@ class RaspiPipelineLib implements Serializable {
                         setupJfrog(steps,testConfigs)
                         def basePath = commonPipelineLib.getResolvedArtifactBasePath(testConfigs)
                         def app = testConfigs.ci_config.app_to_test
-                        def path = "${basePath}/${app}/${platform}/apps"
+                        def path = "${basePath}/${app}/${platform}/apps/"
 
                         steps.sh """
                             set -e
                             jf rt dl \
-                            "${path}/*" \
+                            "${path}*" \
                             "./" \
                             --flat=true \
                             --insecure-tls=true

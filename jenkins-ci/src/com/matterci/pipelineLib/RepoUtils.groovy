@@ -160,7 +160,7 @@ class RepoUtils implements Serializable {
             shopt -s nullglob
 
             cd ${controllerDir}
-            rm -rf /tmp/chip*
+            sudo rm -rf /tmp/chip* || true
 
             python3 -m venv .venv
             source .venv/bin/activate

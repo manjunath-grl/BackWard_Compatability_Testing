@@ -256,7 +256,7 @@ class commonPipelineLib implements Serializable {
 
     static Map resolveArtifactAndBuildDecision(def steps, Map testConfigs) {
         setupJfrog(steps, testConfigs)
-        def jfRepo =testConfigs.ci_config.jfrog_config.jfrog-repo
+        def jfRepo =testConfigs.ci_config.jfrog_config.jfrog_repo ?: "matter-binaries"
         def cloneCfg = testConfigs.ci_config.clone_sdk_code_stage
         def platformsCfg = cloneCfg.platforms ?: [:]
 
@@ -328,7 +328,7 @@ class commonPipelineLib implements Serializable {
 
     static void uploadPlatformBinaries(def steps,Map testConfigs,String platform,String binariesDir,boolean uploadController,boolean uploadApps) {
         setupJfrog(steps, testConfigs)
-        def jfRepo =testConfigs.ci_config.jfrog_config.jfrog-repo
+        def jfRepo =testConfigs.ci_config.jfrog_config.jfrog_repo ?: "matter-binaries"
         def cloneCfg =testConfigs.ci_config.clone_sdk_code_stage
         def branch =cloneCfg.apps_sdk_config.branch
         def sha =cloneCfg.apps_sdk_config.sha

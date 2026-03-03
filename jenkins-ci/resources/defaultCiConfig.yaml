@@ -20,7 +20,7 @@ ci_config:
   workspace_base: "/mnt/tests"
 
   jfrog_config:
-    jfrog-repo: "matter-Binaries"
+    jfrog_repo: "matter-Binaries"
     jfrog_server_id: "artifactory-oss"
     jfrog_url: "http://192.168.0.56:8082"
     jfrog_creds_id: "artifactory-jenkins-creds"

@@ -159,7 +159,7 @@ class RaspiPipelineLib implements Serializable {
                         def basePath = commonPipelineLib.getResolvedArtifactBasePath(testConfigs)
                         def platformCfg = testConfigs.ci_config.clone_sdk_code_stage.platforms.raspi
                         def appName = platformCfg.app_to_test ?: testConfigs.ci_config.app_to_test
-                        def appPath ="${basePath}/apps/${appName}/${platform}/"
+                        def appPath ="${basePath}/apps/${appName}/raspi/"
 
                         steps.echo "Downloading App binaries from ${appPath}"
                         steps.sh """
@@ -177,7 +177,7 @@ class RaspiPipelineLib implements Serializable {
                         ).trim()
 
                         if (chipBinaryCount == "0")
-                            steps.error("App binary missing for ${platform}")
+                            steps.error("App binary missing for raspi")
 
                         steps.echo "App binaries downloaded"
 

@@ -154,7 +154,7 @@ class RaspiPipelineLib implements Serializable {
                     steps.sh 'rm -rf /tmp/chip*'
                     steps.sleep 2
                     steps.echo "raspi workspace on device node is ${deviceRaspiWorkspace}"
-                    steps.ws("${deviceWorkspace}") {
+                    steps.ws("${deviceRaspiWorkspace}") {
                         //commonPipelineLib.setupJfrog(steps, testConfigs)
                         def basePath = commonPipelineLib.getResolvedArtifactBasePath(testConfigs)
                         def platformCfg = testConfigs.ci_config.clone_sdk_code_stage.platforms.raspi

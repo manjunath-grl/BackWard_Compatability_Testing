@@ -364,6 +364,8 @@ def call(testConfigs, testCasesList) {
     def logTransferConfig = testConfigs.execution_log_transfer_config
     def decision = testConfigs.ci_config.artifactDecision
     def raspiDecision = decision.platforms["raspi"]
+    def platformCfg = testConfigs.ci_config.clone_sdk_code_stage.platforms.raspi
+    def appName = platformCfg.app_to_test ?: testConfigs.ci_config.app_to_test
 
     //TODO: Not scalable, Fix this code to download cloned code in the above step
     //if (raspiStages?.build_firmware?.enabled){
@@ -480,7 +482,7 @@ def call(testConfigs, testCasesList) {
                 echo "Run Tests"
                 node (cntrlNode) {
                     echo "controller workspace is : ${cntlWorkSpace}"
-                    def localTestParams = RaspiPipelineLib.initRaspiOnNetworkTestParams(this, testConfigs, cntlWorkSpace, deviceWorkSpace, deviceNodeIPAddress, env.appToTest)
+                    def localTestParams = RaspiPipelineLib.initRaspiOnNetworkTestParams(this, testConfigs, cntlWorkSpace, deviceWorkSpace, deviceNodeIPAddress, "chip-${appName}")
                     def raspi_onnetwork = new RunTests()
                     def runnerConfigYaml = localTestParams
                     def mergedYaml = writeYaml(returnText: true, data: runnerConfigYaml)

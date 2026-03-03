@@ -156,7 +156,7 @@ class RaspiPipelineLib implements Serializable {
                     steps.echo "raspi workspace on device node is ${deviceRaspiWorkspace}"
                     steps.ws("${deviceRaspiWorkspace}") {
                         //commonPipelineLib.setupJfrog(steps, testConfigs)
-                        def basePath = commonPipelineLib.getResolvedArtifactBasePath(testConfigs)
+                        def basePath = commonPipelineLib.getResolvedArtifactBasePath(testConfigs, "apps")
                         def platformCfg = testConfigs.ci_config.clone_sdk_code_stage.platforms.raspi
                         def appName = platformCfg.app_to_test ?: testConfigs.ci_config.app_to_test
                         def appPath ="${basePath}/apps/${appName}/raspi/"

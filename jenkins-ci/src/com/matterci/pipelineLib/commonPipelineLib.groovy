@@ -47,7 +47,7 @@ class commonPipelineLib implements Serializable {
 
                 steps.ws("${controllerBinariesWorkspace}") {
                     setupJfrog(steps, testConfigs)
-                    def basePath = commonPipelineLib.getResolvedArtifactBasePath(testConfigs)
+                    def basePath = commonPipelineLib.getResolvedArtifactBasePath(testConfigs, "controller")
                     def platformCfg = testConfigs.ci_config.clone_sdk_code_stage.platforms[platform]
                     def controllerPath = "${basePath}/controller/${platformCfg.controller_os}/${platformCfg.controller_type}/"
 
@@ -260,16 +260,31 @@ class commonPipelineLib implements Serializable {
         def cloneCfg = testConfigs.ci_config.clone_sdk_code_stage
         def platformsCfg = cloneCfg.platforms ?: [:]
 
+        def controllerCfg = cloneCfg.controller_sdk_config
         def appsCfg = cloneCfg.apps_sdk_config
-        def branch  = appsCfg.branch
-        def sha     = appsCfg.sha
 
-        boolean isRelease = isReleaseBranch(branch)
+        // CONTROLLER BASE PATH
+        def controllerBasePath
+        if (isReleaseBranch(controllerCfg.branch)) {
+            controllerBasePath =
+                "${jfRepo}/releases/${controllerCfg.branch}"
+        } else {
+            controllerBasePath =
+                "${jfRepo}/branches/${controllerCfg.branch}/${controllerCfg.sha}"
+        }
 
-        // BASE PATH
-        def basePath = "${jfRepo}/branches/${branch}"
-        if (!isRelease && sha)
-            basePath += "/${sha}"
+        // APPS BASE PATH
+        def appsBasePath
+        if (isReleaseBranch(appsCfg.branch)) {
+            appsBasePath =
+                "${jfRepo}/releases/${appsCfg.branch}"
+        } else {
+            appsBasePath =
+                "${jfRepo}/branches/${appsCfg.branch}/${appsCfg.sha}"
+        }
+
+        steps.echo "Controller BasePath = ${controllerBasePath}"
+        steps.echo "Apps BasePath       = ${appsBasePath}"
 
         steps.echo "JFrog BasePath = ${basePath}"
 
@@ -280,11 +295,11 @@ class commonPipelineLib implements Serializable {
         // INTERNAL CHECK FUNCTION
         def checkPlatform = { String platformName, Map cfg ->
             // CONTROLLER CHECK
-            def controllerPath = "${basePath}/controller/${cfg.controller_os}/${cfg.controller_type}/*.whl"
+            def controllerPath = "${controllerBasePath}/controller/${cfg.controller_os}/${cfg.controller_type}/*.whl"
+            def appPath ="${appsBasePath}/apps/${appName}/${platformName}/chip-${appName}*"
             boolean controllerExists = jfrogFileExists(steps, controllerPath)
             // APP CHECK
             def appName = cfg.app_to_test ?: testConfigs.ci_config.app_to_test
-            def appPath = "${basePath}/apps/${appName}/${platformName}/chip-${appName}*"
             boolean appExists = jfrogFileExists(steps, appPath)
             if (!controllerExists || !appExists)
                 cloneRequired = true
@@ -440,20 +455,27 @@ class commonPipelineLib implements Serializable {
         return status == 0
     }
 
-    static String getResolvedArtifactBasePath(Map testConfigs) {
-        def jfRepo =testConfigs.ci_config.jfrog_config.jfrog_repo ?: "matter-binaries"
-        def cloneCfg =testConfigs.ci_config.clone_sdk_code_stage
-        def branch = cloneCfg.apps_sdk_config.branch
-        def sha    = cloneCfg.apps_sdk_config.sha
-
-        boolean isRelease = isReleaseBranch(branch)
-        def basePath
-        if (isRelease) {
-            basePath = "${jfRepo}/releases/${branch}"
-        } else {
-            basePath = "${jfRepo}/branches/${branch}/${sha}"
+    static String getResolvedArtifactBasePath(Map testConfigs, String component) {
+        def jfRepo = testConfigs.ci_config.jfrog_config.jfrog_repo ?: "matter-binaries"
+        def cloneCfg = testConfigs.ci_config.clone_sdk_code_stage
+        def branch
+        def sha
+        if (component == "controller") {
+            branch = cloneCfg.controller_sdk_config.branch
+            sha    = cloneCfg.controller_sdk_config.sha
         }
-        return basePath
+        else if (component == "apps") {
+            branch = cloneCfg.apps_sdk_config.branch
+            sha    = cloneCfg.apps_sdk_config.sha
+        }
+        else {
+            throw new IllegalArgumentException("Invalid component: ${component}")
+        }
+        if (isReleaseBranch(branch)) {
+            return "${jfRepo}/releases/${branch}"
+        }
+
+        return "${jfRepo}/branches/${branch}/${sha}"
     }
 
     static boolean jfrogPathExists(def steps, String path) {

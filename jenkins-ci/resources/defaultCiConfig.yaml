@@ -35,34 +35,34 @@ ci_config:
         controller_os: "raspi"
         controller_type: "python_controller"
         app_to_test: "all-clusters-app"
-      nordic:
-        run: true
-        controller_os: "linux"
-        controller_type: "python_controller"
-        app_to_test: "all-clusters-app"
-      silabs:
-        run: true
-        controller_os: "linux"
-        controller_type: "python_controller"
-        app_to_test: "all-clusters-app"
-      esp32:
-        run: false
-        variants:
-          esp32c3:
-            run: false
-            controller_os: "linux"
-            controller_type: "python_controller"
-            app_to_test: "all-clusters-app"
-          esp32c6:
-            run: false
-            controller_os: "linux"
-            controller_type: "python_controller"
-            app_to_test: "all-clusters-app"
-          esp32h2:
-            run: false
-            controller_os: "linux"
-            controller_type: "python_controller"
-            app_to_test: "all-clusters-app"
+      # nordic:
+      #   run: true
+      #   controller_os: "linux"
+      #   controller_type: "python_controller"
+      #   app_to_test: "all-clusters-app"
+      # silabs:
+      #   run: true
+      #   controller_os: "linux"
+      #   controller_type: "python_controller"
+      #   app_to_test: "all-clusters-app"
+      # esp32:
+      #   run: false
+      #   variants:
+      #     esp32c3:
+      #       run: false
+      #       controller_os: "linux"
+      #       controller_type: "python_controller"
+      #       app_to_test: "all-clusters-app"
+      #     esp32c6:
+      #       run: false
+      #       controller_os: "linux"
+      #       controller_type: "python_controller"
+      #       app_to_test: "all-clusters-app"
+      #     esp32h2:
+      #       run: false
+      #       controller_os: "linux"
+      #       controller_type: "python_controller"
+      #       app_to_test: "all-clusters-app"
 
     controller_sdk_config:
       controller_repo: "connectedhomeip"

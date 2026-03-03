@@ -441,17 +441,18 @@ class commonPipelineLib implements Serializable {
     }
 
     static String getResolvedArtifactBasePath(Map testConfigs) {
-        def ctx = testConfigs.ci_config.clone_sdk_code_stage.artifact_context
-        def branch = testConfigs.ci_config.clone_sdk_code_stage.apps_sdk_config.branch
-        def sha =testConfigs.ci_config.clone_sdk_code_stage.apps_sdk_config.sha
-        def os = ctx.os
+        def jfRepo =testConfigs.ci_config.jfrog_configjfrog-repo ?: "matter-binaries"
+        def cloneCfg =testConfigs.ci_config.clone_sdk_code_stage
+        def branch = cloneCfg.apps_sdk_config.branch
+        def sha    = cloneCfg.apps_sdk_config.sha
+
         boolean isRelease = isReleaseBranch(branch)
-
-        def basePath ="${ctx.repo}/branches/${branch}"
-        if (!isRelease)
-            basePath += "/${sha}"
-        basePath += "/${os}"
-
+        def basePath
+        if (isRelease) {
+            basePath = "${jfRepo}/releases/${branch}"
+        } else {
+            basePath = "${jfRepo}/branches/${branch}/${sha}"
+        }
         return basePath
     }
 

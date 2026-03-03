@@ -137,13 +137,36 @@ class RepoUtils implements Serializable {
         // }
 
         if (cloneSuccess){
-            // Clean up and archive
-            steps.sh """
-                set -ex
-                rm -f ${archivePath}
-                tar -czvf ${archivePath} -C ${buildIDWorkspace} ${controllerGitCloneDirectory} ${appGitCloneDirectory}
-            """
-        }
+        steps.sh """
+            set -e
+            rm -f ${archivePath}
+            cd ${buildIDWorkspace}
+
+            dirs=""
+            if [ -d "${controllerGitCloneDirectory}" ]; then
+                echo "Including ${controllerGitCloneDirectory}"
+                dirs="$dirs ${controllerGitCloneDirectory}"
+            else
+                echo "${controllerGitCloneDirectory} not found, skipping"
+            fi
+
+            if [ -d "${appGitCloneDirectory}" ]; then
+                echo "Including ${appGitCloneDirectory}"
+                dirs="$dirs ${appGitCloneDirectory}"
+            else
+                echo "${appGitCloneDirectory} not found, skipping"
+            fi
+
+            if [ -n "$dirs" ]; then
+                tar -czvf ${archivePath} $dirs
+            else
+                echo "No directories found. Creating empty archive."
+                tar -czvf ${archivePath} --files-from /dev/null
+            fi
+
+            echo "Archive creation completed."
+        """
+    }
 
         return [success: cloneSuccess, archivePath: "${nodeWorkspace}", updatedTestConfigs: testConfigs]
     }

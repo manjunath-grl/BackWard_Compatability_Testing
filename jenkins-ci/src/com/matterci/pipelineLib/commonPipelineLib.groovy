@@ -284,7 +284,7 @@ class commonPipelineLib implements Serializable {
             boolean controllerExists = jfrogFileExists(steps, controllerPath)
             // APP CHECK
             def appName = cfg.app_to_test ?: testConfigs.ci_config.app_to_test
-            def appPath = "${basePath}/apps/${appName}/${platformName}/Chip-${appName}*"
+            def appPath = "${basePath}/apps/${appName}/${platformName}/chip-${appName}*"
             boolean appExists = jfrogFileExists(steps, appPath)
             if (!controllerExists || !appExists)
                 cloneRequired = true

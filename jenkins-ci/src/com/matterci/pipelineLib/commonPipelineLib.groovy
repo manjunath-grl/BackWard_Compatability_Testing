@@ -28,16 +28,16 @@ class commonPipelineLib implements Serializable {
         }
 
         // -------- Handle copy_build_artifact --------
-        if (copyBuildArtifact?.enabled && !platformStages.build_firmware.enabled) {
-            if (!copyBuildArtifact?.job_name || !copyBuildArtifact?.build_number) {
-                steps.error("copy_build_artifact enabled but job_name/build_number missing")
-            }
+        // if (copyBuildArtifact?.enabled && !platformStages.build_firmware.enabled) {
+        //     if (!copyBuildArtifact?.job_name || !copyBuildArtifact?.build_number) {
+        //         steps.error("copy_build_artifact enabled but job_name/build_number missing")
+        //     }
 
-            projectName = copyBuildArtifact.job_name
-            buildNumber = copyBuildArtifact.build_number
-            steps.echo "Using configured job: ${projectName}"
-            steps.echo "Using configured build: ${buildNumber}"
-        }
+        //     projectName = copyBuildArtifact.job_name
+        //     buildNumber = copyBuildArtifact.build_number
+        //     steps.echo "Using configured job: ${projectName}"
+        //     steps.echo "Using configured build: ${buildNumber}"
+        // }
 
         steps.timeout(time: 60, unit: 'MINUTES') {
             try {

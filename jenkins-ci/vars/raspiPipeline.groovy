@@ -425,6 +425,7 @@ def call(testConfigs, testCasesList) {
             def cntrlNode = ''
             def deviceNode = ''
             def deviceNodeIPAddress = ''
+            def deviceWorkSpace = ''
 
             stage ('Get nodes of controller and device raspi') {
                 def result = RaspiPipelineLib.getCntrlDeviceRaspiNodes(this, "On-Network", testConfigs)
@@ -468,11 +469,11 @@ def call(testConfigs, testCasesList) {
                 else {
                         deviceNodeIPAddress = result.deviceIPAddress
                         deviceWorkSpace = result.deviceWorksSpace
-                        if (copyBuildArtifact.enabled && !raspiStages.build_firmware.enabled) {
-                            env.appToTest = result.appToTest
-                            testConfigs = result.updatedTestConfig
-                            echo "Updated testConfigs : ${testConfigs}"
-                        }
+                        // if (copyBuildArtifact.enabled && !raspiStages.build_firmware.enabled) {
+                        //     env.appToTest = result.appToTest
+                        //     testConfigs = result.updatedTestConfig
+                        //     echo "Updated testConfigs : ${testConfigs}"
+                        // }
                     }
             }
             stage ('Run Tests on ON_NETWORK_RASPI_CONTROLLER_NODE') {

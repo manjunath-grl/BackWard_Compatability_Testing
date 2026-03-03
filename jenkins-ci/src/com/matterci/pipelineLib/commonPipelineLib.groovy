@@ -256,51 +256,38 @@ class commonPipelineLib implements Serializable {
 
     static Map resolveArtifactAndBuildDecision(def steps, Map testConfigs) {
         setupJfrog(steps, testConfigs)
-        def jfRepo =testConfigs.ci_config.jfrog_config.jfrog_repo ?: "matter-binaries"
+        def jfRepo = testConfigs.ci_config.jfrog_config.jfrog_repo ?: "matter-binaries"
         def cloneCfg = testConfigs.ci_config.clone_sdk_code_stage
         def platformsCfg = cloneCfg.platforms ?: [:]
-
         def controllerCfg = cloneCfg.controller_sdk_config
         def appsCfg = cloneCfg.apps_sdk_config
 
         // CONTROLLER BASE PATH
-        def controllerBasePath
-        if (isReleaseBranch(controllerCfg.branch)) {
-            controllerBasePath =
-                "${jfRepo}/releases/${controllerCfg.branch}"
-        } else {
-            controllerBasePath =
-                "${jfRepo}/branches/${controllerCfg.branch}/${controllerCfg.sha}"
-        }
+        def controllerBasePath =
+            isReleaseBranch(controllerCfg.branch)
+            ? "${jfRepo}/releases/${controllerCfg.branch}"
+            : "${jfRepo}/branches/${controllerCfg.branch}/${controllerCfg.sha}"
 
         // APPS BASE PATH
-        def appsBasePath
-        if (isReleaseBranch(appsCfg.branch)) {
-            appsBasePath =
-                "${jfRepo}/releases/${appsCfg.branch}"
-        } else {
-            appsBasePath =
-                "${jfRepo}/branches/${appsCfg.branch}/${appsCfg.sha}"
-        }
+        def appsBasePath =
+            isReleaseBranch(appsCfg.branch)
+            ? "${jfRepo}/releases/${appsCfg.branch}"
+            : "${jfRepo}/branches/${appsCfg.branch}/${appsCfg.sha}"
 
         steps.echo "Controller BasePath = ${controllerBasePath}"
         steps.echo "Apps BasePath       = ${appsBasePath}"
 
-        steps.echo "JFrog BasePath = ${basePath}"
-
-        // RESULT OBJECT
         boolean cloneRequired = false
         def platformDecision = [:]
 
-        // INTERNAL CHECK FUNCTION
         def checkPlatform = { String platformName, Map cfg ->
-            // CONTROLLER CHECK
-            def controllerPath = "${controllerBasePath}/controller/${cfg.controller_os}/${cfg.controller_type}/*.whl"
-            def appPath ="${appsBasePath}/apps/${appName}/${platformName}/chip-${appName}*"
-            boolean controllerExists = jfrogFileExists(steps, controllerPath)
-            // APP CHECK
             def appName = cfg.app_to_test ?: testConfigs.ci_config.app_to_test
+            def controllerPath ="${controllerBasePath}/controller/${cfg.controller_os}/${cfg.controller_type}/*.whl"
+            def appPath ="${appsBasePath}/apps/${appName}/${platformName}/chip-${appName}*"
+
+            boolean controllerExists = jfrogFileExists(steps, controllerPath)
             boolean appExists = jfrogFileExists(steps, appPath)
+
             if (!controllerExists || !appExists)
                 cloneRequired = true
 
@@ -310,34 +297,25 @@ class commonPipelineLib implements Serializable {
             ]
         }
 
-        // MAIN LOOP
         platformsCfg.each { pname, pcfg ->
+            if (!pcfg?.run) return
 
-            if (!pcfg?.run)
-                return
-
-            // NORMAL PLATFORM
             if (!pcfg.variants) {
                 checkPlatform(pname, pcfg)
-            }
-            // ESP PLATFORM WITH VARIANTS
-            else {
+            } else {
                 pcfg.variants.each { vname, vcfg ->
-                    if (vcfg?.run) {
+                    if (vcfg?.run)
                         checkPlatform(vname, vcfg)
-                    }
                 }
             }
         }
 
-        // FINAL DECISION
         def decision = [
             platforms     : platformDecision,
             cloneRequired : cloneRequired
         ]
 
         steps.echo "Artifact Decision = ${decision}"
-
         return decision
     }
 

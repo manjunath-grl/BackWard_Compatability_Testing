@@ -163,20 +163,20 @@ class RepoUtils implements Serializable {
             set -e
             shopt -s nullglob
             echo "ControllerDir: ${controllerDir}"
-            echo "CtrlBinariesDir: ${ctrlBinariesDir}"
-            WHEEL_PATH="${controllerDir}/${ctrlBinariesDir}"
+            WHEEL_PATH="${controllerDir}"
             echo "Looking for wheels in: \$WHEEL_PATH"
-            ls -la "\$WHEEL_PATH" || true
+            ls -la "\$WHEEL_PATH"
 
             sudo rm -rf /tmp/chip* || true
             python3 -m venv .venv
             source .venv/bin/activate
-            wheels=( "\$WHEEL_PATH"/*.whl )
 
+            wheels=( "\$WHEEL_PATH"/*.whl )
             if [ \${#wheels[@]} -eq 0 ]; then
                 echo "ERROR: No wheel files found in \$WHEEL_PATH"
                 exit 1
             fi
+
             echo "Installing wheels..."
             pip3 install --no-cache-dir "\${wheels[@]}"
             """

@@ -441,7 +441,7 @@ class commonPipelineLib implements Serializable {
     }
 
     static String getResolvedArtifactBasePath(Map testConfigs) {
-        def jfRepo =testConfigs.ci_config.jfrog_configjfrog-repo ?: "matter-binaries"
+        def jfRepo =testConfigs.ci_config.jfrog_config.jfrog_repo ?: "matter-binaries"
         def cloneCfg =testConfigs.ci_config.clone_sdk_code_stage
         def branch = cloneCfg.apps_sdk_config.branch
         def sha    = cloneCfg.apps_sdk_config.sha

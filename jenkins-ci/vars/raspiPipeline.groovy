@@ -267,7 +267,7 @@ def buildApps(testConfigs, testCasesList, workSpace, raspiBinariesDir){
         // Add more app mappings as needed
     ]
     // Get 'app_to_test' is provided from the YAML config
-    def appToTest = testConfigs.ci_config.platforms.raspi.app_to_test
+    def appToTest = testConfigs.ci_config.clone_sdk_code_stage.platforms?.raspi?.app_to_test ?: testConfigs.ci_config.app_to_test
 
     // Retrieve the build app and output path from the map
     def buildApp = appMapping[appToTest]?.build_app

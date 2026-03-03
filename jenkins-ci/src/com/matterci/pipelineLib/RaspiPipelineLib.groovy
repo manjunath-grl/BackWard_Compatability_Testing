@@ -131,7 +131,7 @@ class RaspiPipelineLib implements Serializable {
         def copyBuildArtifact = testConfigs.ci_config.copy_build_artifact
         def projectName= steps.env.JOB_NAME
         def BUILD_NUMBER = steps.env.BUILD_NUMBER
-        def appToTest = testConfigs.ci_config.platforms.raspi.app_to_test
+        def appToTest = testConfigs.ci_config.clone_sdk_code_stage.platforms.raspi.app_to_test
         // if ( copyBuildArtifact.enabled && !raspiStages.build_firmware.enabled) {
         //     projectName = copyBuildArtifact.job_name
         //     BUILD_NUMBER = copyBuildArtifact.build_number

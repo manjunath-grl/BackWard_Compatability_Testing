@@ -160,21 +160,25 @@ class RepoUtils implements Serializable {
         def cmdStatus
 
         def setupCommand = """#!/bin/bash
-            set -ex
+            set -e
             shopt -s nullglob
 
             cd ${controllerDir}
             sudo rm -rf /tmp/chip* || true
-
             python3 -m venv .venv
             source .venv/bin/activate
 
-            for whl in ${controllerDir}/${ctrlBinariesDir}/*.whl
+            wheels=(${ctrlBinariesDir}/*.whl)
+            if [ \${#wheels[@]} -eq 0 ]; then
+                echo "ERROR: No wheel files found!"
+                exit 1
+            fi
+            for whl in "\${wheels[@]}"
             do
                 echo "Installing \$whl"
                 pip3 install --no-cache-dir "\$whl"
             done
-        """
+            """
         cmdStatus = steps.sh(
                                 script: setupCommand,
                                 returnStatus: true

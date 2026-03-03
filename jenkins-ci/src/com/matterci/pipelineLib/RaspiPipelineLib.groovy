@@ -126,7 +126,6 @@ class RaspiPipelineLib implements Serializable {
     }
 
     static installDeviceBinaries(def steps, Map testConfigs, String nodeName, String stageName){
-        commonPipelineLib.setupJfrog(steps, testConfigs)
         def copyArtifactsSuccess = true
         def raspiStages = testConfigs.ci_config.raspi_pipeline.stages
         def copyBuildArtifact = testConfigs.ci_config.copy_build_artifact
@@ -156,7 +155,7 @@ class RaspiPipelineLib implements Serializable {
                     steps.sleep 2
                     steps.echo "raspi workspace on device node is ${deviceRaspiWorkspace}"
                     steps.ws("${deviceWorkspace}") {
-                        commonPipelineLib.setupJfrog(steps, testConfigs)
+                        //commonPipelineLib.setupJfrog(steps, testConfigs)
                         def basePath = commonPipelineLib.getResolvedArtifactBasePath(testConfigs)
                         def platformCfg = testConfigs.ci_config.clone_sdk_code_stage.platforms.raspi
                         def appName = platformCfg.app_to_test ?: testConfigs.ci_config.app_to_test

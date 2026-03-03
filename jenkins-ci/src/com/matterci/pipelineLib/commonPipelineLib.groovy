@@ -8,7 +8,7 @@ import groovy.json.*
 
 class commonPipelineLib implements Serializable {
 
-    static Map installControllerBinaries(def steps, Map testConfigs, String ctrlBinariesDir) {
+    static Map installControllerBinaries(def steps, Map testConfigs, String platform, String ctrlBinariesDir) {
 
         def copyArtifactsSuccess = true
         def controllerBinariesWorkspace = "${steps.env.WORKSPACE}/${steps.env.BUILD_NUMBER}/copied_controller_binaries"
@@ -46,11 +46,12 @@ class commonPipelineLib implements Serializable {
                 steps.echo "Controller binaries workspace: ${controllerBinariesWorkspace}"
 
                 steps.ws("${controllerBinariesWorkspace}") {
-
                     setupJfrog(steps, testConfigs)
-                    def basePath = getResolvedArtifactBasePath(testConfigs)
-                    def controllerPath = "${basePath}/controller/"
+                    def basePath = commonPipelineLib.getResolvedArtifactBasePath(testConfigs)
+                    def platformCfg = testConfigs.ci_config.clone_sdk_code_stage.platforms[platform]
+                    def controllerPath = "${basePath}/controller/${platformCfg.controller_os}/${platformCfg.controller_type}/"
 
+                    steps.echo "Downloading Controller from ${controllerPath}"
                     steps.sh """
                         set -e
                         jf rt dl \
@@ -59,16 +60,16 @@ class commonPipelineLib implements Serializable {
                         --flat=true \
                         --insecure-tls=true
                     """
+
                     def count = steps.sh(
                         script: "ls *.whl 2>/dev/null | wc -l",
-                        returnStdout:true
+                        returnStdout: true
                     ).trim()
 
-                    if(count=="0")
-                        steps.error("No .whl files downloaded from ${controllerPath}")
+                    if (count == "0")
+                        steps.error("No controller wheel files found in ${controllerPath}")
 
                     steps.echo "Controller binaries downloaded"
-
                     // -------- Continue Existing Logic --------
                     def status = RepoUtils.cloneMatterQARepo(steps,testConfigs,"main",controllerBinariesWorkspace,ctrlBinariesDir)
 
@@ -225,9 +226,9 @@ class commonPipelineLib implements Serializable {
         steps.env.PATH = "${jfHome}:${steps.env.PATH}"
 
         // 2. Fetch arguments from YAML (with defaults as fallback)
-        def jfUrl    = testConfigs.ci_config?.jfrog_url ?: "http://192.168.0.56:8082"
-        def credId   = testConfigs.ci_config?.jfrog_creds_id ?: "artifactory-jenkins-creds"
-        def serverId = testConfigs.ci_config?.jfrog_server_id ?: "artifactory-oss"
+        def jfUrl    = testConfigs.ci_config?.jfrog_config?.jfrog_url ?: "http://192.168.0.56:8082"
+        def credId   = testConfigs.ci_config?.jfrog_config?.jfrog_creds_id ?: "artifactory-jenkins-creds"
+        def serverId = testConfigs.ci_config?.jfrog_config?.jfrog_server_id ?: "artifactory-oss"
 
         steps.echo "Configuring JFrog CLI for server: ${serverId}"
 
@@ -255,136 +256,123 @@ class commonPipelineLib implements Serializable {
 
     static Map resolveArtifactAndBuildDecision(def steps, Map testConfigs) {
         setupJfrog(steps, testConfigs)
-        def ctx      = testConfigs.ci_config.clone_sdk_code_stage.artifact_context
-        def appsCfg  = testConfigs.ci_config.clone_sdk_code_stage.apps_sdk_config
-        def branch = appsCfg.branch
-        def sha    = appsCfg.sha
-        def app    = testConfigs.ci_config.app_to_test
+        def jfRepo =testConfigs.ci_config.jfrog_config.jfrog-repo
+        def cloneCfg = testConfigs.ci_config.clone_sdk_code_stage
+        def platformsCfg = cloneCfg.platforms ?: [:]
+
+        def appsCfg = cloneCfg.apps_sdk_config
+        def branch  = appsCfg.branch
+        def sha     = appsCfg.sha
 
         boolean isRelease = isReleaseBranch(branch)
-        // BASE PATH
-        def basePath = "${ctx.repo}/branches/${branch}"
 
+        // BASE PATH
+        def basePath = "${jfRepo}/branches/${branch}"
         if (!isRelease && sha)
             basePath += "/${sha}"
 
-        basePath += "/${ctx.os}"
-        steps.echo "Artifact Base Path: ${basePath}"
+        steps.echo "JFrog BasePath = ${basePath}"
 
-        // ENABLED PLATFORM RESOLUTION
-        def enabledPlatforms = []
-        def platformsCfg =
-            testConfigs.ci_config
-                .clone_sdk_code_stage
-                .artifact_context
-                .platforms ?: [:]
+        // RESULT OBJECT
+        boolean cloneRequired = false
+        def platformDecision = [:]
+
+        // INTERNAL CHECK FUNCTION
+        def checkPlatform = { String platformName, Map cfg ->
+            // CONTROLLER CHECK
+            def controllerPath = "${basePath}/controller/${cfg.controller_os}/${cfg.controller_type}/*.whl"
+            boolean controllerExists = jfrogFileExists(steps, controllerPath)
+            // APP CHECK
+            def appName = cfg.app_to_test ?: testConfigs.ci_config.app_to_test
+            def appPath = "${basePath}/apps/${appName}/${platformName}/Chip-${appName}*"
+            boolean appExists = jfrogFileExists(steps, appPath)
+            if (!controllerExists || !appExists)
+                cloneRequired = true
+
+            platformDecision[platformName] = [
+                controllerMissing : !controllerExists,
+                appsMissing       : !appExists
+            ]
+        }
+
+        // MAIN LOOP
         platformsCfg.each { pname, pcfg ->
-            if (!(pcfg instanceof Map))
+
+            if (!pcfg?.run)
                 return
 
-            boolean runPlatform =
-                pcfg.get("run") ?: false
-
-            if (!runPlatform)
-                return
-
-            // ESP WITH VARIANTS
-            if (pname == "esp32") {
-                def variants = pcfg.get("variants") ?: [:]
-                variants.each { vname, vcfg ->
-                    if (vcfg?.get("run"))
-                        enabledPlatforms << vname
+            // NORMAL PLATFORM
+            if (!pcfg.variants) {
+                checkPlatform(pname, pcfg)
+            }
+            // ESP PLATFORM WITH VARIANTS
+            else {
+                pcfg.variants.each { vname, vcfg ->
+                    if (vcfg?.run) {
+                        checkPlatform(vname, vcfg)
+                    }
                 }
-            } else {
-                enabledPlatforms << pname
             }
         }
 
-        steps.echo "Enabled Platforms FINAL = ${enabledPlatforms}"
-
-        // CONTROLLER CHECK
-        boolean controllerExists =
-            jfrogPathExists(steps, "${basePath}/controller")
-
-        // PLATFORM APP CHECK
-        def platformDecision = [:]
-        boolean anyAppMissing = false
-
-        enabledPlatforms.each { platform ->
-            def appPath =
-                "${basePath}/${app}/${platform}/apps"
-
-            boolean exists =
-                jfrogPathExists(steps, appPath)
-
-            platformDecision[platform] = [
-                appsMissing : !exists,
-                artifactPath: appPath
-            ]
-
-            if (!exists)
-                anyAppMissing = true
-        }
-
-        // FINAL GLOBAL DECISION
+        // FINAL DECISION
         def decision = [
-            controllerMissing : !controllerExists,
-            appsMissing       : anyAppMissing,
-            platforms         : platformDecision
+            platforms     : platformDecision,
+            cloneRequired : cloneRequired
         ]
 
-        decision.cloneRequired =
-                decision.controllerMissing ||
-                decision.appsMissing
-
-        steps.echo "FINAL Artifact Decision:"
-        steps.echo "${decision}"
+        steps.echo "Artifact Decision = ${decision}"
 
         return decision
     }
 
-    static void uploadPlatformBinaries(def steps, Map testConfigs, String platform, String binariesDir, boolean uploadController, boolean uploadApps) {
-        def ctx = testConfigs.ci_config.clone_sdk_code_stage.artifact_context
-        def appName = testConfigs.ci_config.app_to_test
-        def appsCfg = testConfigs.ci_config.clone_sdk_code_stage.apps_sdk_config
-        def branch = appsCfg.branch
-        def sha = appsCfg.sha
+    static void uploadPlatformBinaries(def steps,Map testConfigs,String platform,String binariesDir,boolean uploadController,boolean uploadApps) {
+        setupJfrog(steps, testConfigs)
+        def jfRepo =testConfigs.ci_config.jfrog_config.jfrog-repo
+        def cloneCfg =testConfigs.ci_config.clone_sdk_code_stage
+        def branch =cloneCfg.apps_sdk_config.branch
+        def sha =cloneCfg.apps_sdk_config.sha
 
-        boolean isRelease =
-            branch ==~ /^v.*-branch$/ ||
-            branch ==~ /^v.*-sve$/ ||
-            branch ==~ /^v.*-sve-branch$/
+        boolean isRelease = isReleaseBranch(branch)
 
-        // BUILD BASE PATH
-        def basePath = "${ctx.repo}/branches/${branch}"
-        if (!isRelease && sha)
-            basePath += "/${sha}"
+        // BASE PATH
+        def basePath = isRelease ?"${jfRepo}/releases/${branch}" : "${jfRepo}/branches/${branch}/${sha}"
 
-        basePath += "/${ctx.os}"
-        steps.echo "Uploading binaries to ${basePath}"
+        // PLATFORM CONFIG RESOLUTION
+        def platformCfg = cloneCfg.platforms[platform]
+
+        // Handle ESP variants
+        if (!platformCfg) {
+            cloneCfg.platforms.each { p, cfg ->
+                if (cfg.variants?.containsKey(platform)) {
+                    platformCfg = cfg.variants[platform]
+                }
+            }
+        }
 
         // CONTROLLER UPLOAD
         if (uploadController) {
-            steps.echo "Uploading Controller binaries"
+            steps.echo "Uploading controller for ${platform}"
             steps.sh """
                 jf rt u \
-                "${binariesDir}/controller/*" \
-                "${basePath}/controller/" \
+                "${binariesDir}/controller/*.whl" \
+                "${basePath}/controller/${platformCfg.controller_os}/${platformCfg.controller_type}/" \
                 --flat=true
             """
         }
 
-        // APPS UPLOAD
+        // APP UPLOAD
         if (uploadApps) {
-            steps.echo "Uploading App binaries for ${platform}"
+            def appName =platformCfg.app_to_test?: testConfigs.ci_config.app_to_test
+
+            steps.echo "Uploading app ${appName} for ${platform}"
             steps.sh """
                 jf rt u \
                 "${binariesDir}/apps/*" \
-                "${basePath}/${appName}/${platform}/apps/" \
+                "${basePath}/apps/${appName}/${platform}/" \
                 --flat=true
             """
         }
-        steps.echo "Upload completed for ${platform}"
     }
 
     static Map resolveBranchSHA(def steps, Map testConfigs) {
@@ -430,6 +418,26 @@ class commonPipelineLib implements Serializable {
         resolveSHA(appsCfg, "Apps SDK")
 
         return testConfigs
+    }
+
+    static boolean jfrogFileExists(def steps, String pattern) {
+        steps.echo "Checking artifact: ${pattern}"
+        def status = steps.sh(
+            script: """
+                set +e
+                jf rt s "${pattern}" \
+                --count=true \
+                --insecure-tls=true > result.txt 2>/dev/null
+
+                COUNT=\$(grep -o '[0-9]*' result.txt | head -1)
+
+                if [ "\$COUNT" = "0" ] || [ -z "\$COUNT" ]; then
+                    exit 1
+                fi
+            """,
+            returnStatus: true
+        )
+        return status == 0
     }
 
     static String getResolvedArtifactBasePath(Map testConfigs) {

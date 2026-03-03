@@ -20,6 +20,7 @@ ci_config:
   workspace_base: "/mnt/tests"
 
   jfrog_config:
+    jfrog-repo: "matter-Binaries"
     jfrog_server_id: "artifactory-oss"
     jfrog_url: "http://192.168.0.56:8082"
     jfrog_creds_id: "artifactory-jenkins-creds"
@@ -27,26 +28,41 @@ ci_config:
   clone_sdk_code_stage:
     node_to_clone_code: "node_to_clone_code"
 
-    # ARTIFACT STRUCTURE CONTEXT
-    artifact_context:
-      repo: "matter-Binaries"
-      os: "linux"
-      platforms:
-        raspi:
-          run: true
-        nordic:
-          run: true
-        silabs:
-          run: true
-        esp32:
-          run: false
-          variants:
-            esp32c3:
-              run: false
-            esp32c6:
-              run: false
-            esp32h2:
-              run: false
+    # ARTIFACT STRUCTURE platform
+    platforms:
+      raspi:
+        run: true
+        controller_os: "raspi"
+        controller_type: "python_controller"
+        app_to_test: "all-clusters-app"
+      nordic:
+        run: true
+        controller_os: "linux"
+        controller_type: "python_controller"
+        app_to_test: "all-clusters-app"
+      silabs:
+        run: true
+        controller_os: "linux"
+        controller_type: "python_controller"
+        app_to_test: "all-clusters-app"
+      esp32:
+        run: false
+        variants:
+          esp32c3:
+            run: false
+            controller_os: "linux"
+            controller_type: "python_controller"
+            app_to_test: "all-clusters-app"
+          esp32c6:
+            run: false
+            controller_os: "linux"
+            controller_type: "python_controller"
+            app_to_test: "all-clusters-app"
+          esp32h2:
+            run: false
+            controller_os: "linux"
+            controller_type: "python_controller"
+            app_to_test: "all-clusters-app"
 
     controller_sdk_config:
       controller_repo: "connectedhomeip"
@@ -67,13 +83,6 @@ ci_config:
       sha: ""
       tag: ""
       pr: ""
-
-  app_to_test: "all-clusters-app"
-
-  # copy_build_artifact: # - Configuration for copying build artifacts from a specific Jenkins job.
-  #   enabled: false # - enabled: Set to true to enable artifact copying, false to skip.
-  #   job_name: "Production" # - job_name: Name of the Jenkins job to copy artifacts from.
-  #   build_number: 1 # - build_number: Specific build number to copy artifacts from.
 
   # raspi_pipeline:
   raspi_pipeline:

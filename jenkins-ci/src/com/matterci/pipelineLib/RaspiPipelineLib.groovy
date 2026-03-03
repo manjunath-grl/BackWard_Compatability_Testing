@@ -131,11 +131,11 @@ class RaspiPipelineLib implements Serializable {
         def copyBuildArtifact = testConfigs.ci_config.copy_build_artifact
         def projectName= steps.env.JOB_NAME
         def BUILD_NUMBER = steps.env.BUILD_NUMBER
-        def appToTest = testConfigs.ci_config.app_to_test
-        if ( copyBuildArtifact.enabled && !raspiStages.build_firmware.enabled) {
-            projectName = copyBuildArtifact.job_name
-            BUILD_NUMBER = copyBuildArtifact.build_number
-        }
+        def appToTest = testConfigs.ci_config.platforms.raspi.app_to_test
+        // if ( copyBuildArtifact.enabled && !raspiStages.build_firmware.enabled) {
+        //     projectName = copyBuildArtifact.job_name
+        //     BUILD_NUMBER = copyBuildArtifact.build_number
+        // }
 
         steps.node(nodeName) {
             def deviceIP=''
@@ -154,32 +154,32 @@ class RaspiPipelineLib implements Serializable {
                     steps.sh 'rm -rf /tmp/chip*'
                     steps.sleep 2
                     steps.echo "raspi workspace on device node is ${deviceRaspiWorkspace}"
-                    steps.ws("${deviceRaspiWorkspace}") {
-                        def jfrogRepoName = testConfigs.ci_config.jfrog_config.jfrog_repo_name
-                        setupJfrog(steps,testConfigs)
+                    steps.ws("${deviceWorkspace}") {
+                        setupJfrog(steps, testConfigs)
                         def basePath = commonPipelineLib.getResolvedArtifactBasePath(testConfigs)
-                        def app = testConfigs.ci_config.app_to_test
-                        def path = "${basePath}/${app}/${platform}/apps/"
+                        def platformCfg = testConfigs.ci_config.clone_sdk_code_stage.platforms.raspi
+                        def appName = platformCfg.app_to_test ?: testConfigs.ci_config.app_to_test
+                        def appPath ="${basePath}/apps/${appName}/${platform}/"
 
+                        steps.echo "Downloading App binaries from ${appPath}"
                         steps.sh """
                             set -e
                             jf rt dl \
-                            "${path}*" \
+                            "${appPath}*" \
                             "./" \
                             --flat=true \
                             --insecure-tls=true
-                            chmod +x *
+                            chmod +x * || true
                         """
-                        def files =
-                            steps.sh(
-                            script:"ls | wc -l",
-                            returnStdout:true
-                            ).trim()
-                        
-                        if(files=="0"){
-                            steps.echo "Apps missing for ${platform}"
-                            return false
-                        }
+                        def chipBinaryCount = steps.sh(
+                            script: "ls Chip-${appName}* 2>/dev/null | wc -l",
+                            returnStdout: true
+                        ).trim()
+
+                        if (chipBinaryCount == "0")
+                            steps.error("App binary missing for ${platform}")
+
+                        steps.echo "App binaries downloaded"
 
                         // if ( copyBuildArtifact.enabled && !raspiStages.build_firmware.enabled) {
                         //     def configData = steps.readYaml(file: "UpdatedTestConfig.yaml")

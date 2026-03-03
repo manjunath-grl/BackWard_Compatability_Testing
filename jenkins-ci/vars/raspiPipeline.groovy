@@ -267,7 +267,7 @@ def buildApps(testConfigs, testCasesList, workSpace, raspiBinariesDir){
         // Add more app mappings as needed
     ]
     // Get 'app_to_test' is provided from the YAML config
-    def appToTest = testConfigs.ci_config.app_to_test
+    def appToTest = testConfigs.ci_config.platforms.raspi.app_to_test
 
     // Retrieve the build app and output path from the map
     def buildApp = appMapping[appToTest]?.build_app
@@ -452,7 +452,7 @@ def call(testConfigs, testCasesList) {
             else{
                 stage ('Copy and install binaries into RASPI_CONTROLLER_NODE'){
                     node("${cntrlNode}"){
-                        def result = commonPipelineLib.installControllerBinaries(this, testConfigs, raspiBinariesDirString)
+                        def result = commonPipelineLib.installControllerBinaries(this, testConfigs, "raspi", raspiBinariesDirString)
                         if (!result.success)
                             error("Copy and install binaries into RASPI_CONTROLLER_NODE failed")
                         else

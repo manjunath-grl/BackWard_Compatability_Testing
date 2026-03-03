@@ -172,7 +172,7 @@ class RaspiPipelineLib implements Serializable {
                             chmod +x * || true
                         """
                         def chipBinaryCount = steps.sh(
-                            script: "ls Chip-${appName}* 2>/dev/null | wc -l",
+                            script: "ls chip-${appName}* 2>/dev/null | wc -l",
                             returnStdout: true
                         ).trim()
 

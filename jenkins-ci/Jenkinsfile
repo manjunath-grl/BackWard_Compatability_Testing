@@ -36,12 +36,17 @@ node {
     // Resolve SHA automatically
     testConfigs = commonPipelineLib.resolveBranchSHA(this, testConfigs)
 
+    // Resolve artifact decision
     def decision = commonPipelineLib.resolveArtifactAndBuildDecision(this, testConfigs)
-    // store globally
+
+    // Store inside config (GLOBAL ACCESS)
     testConfigs.ci_config.artifactDecision = decision
-    env.CONTROLLER_MISSING = decision.controllerMissing.toString()
-    env.APPS_MISSING = decision.appsMissing.toString()
-    env.CLONE_REQUIRED = decision.cloneRequired.toString()
+
+    // Compute cloneRequired dynamically
+    decision.cloneRequired =
+        decision.platforms.values().any {
+            it.controllerMissing || it.appsMissing
+        }
 
     if (decision.cloneRequired) {
         echo "SDK Clone Required"
@@ -51,9 +56,33 @@ node {
     }
     //store the configs in the env after updating with SDK SHA
     env.testConfigs = testConfigs
-    echo "Test Parameters: ${testConfigs}"
 
-    if (testConfigs.ci_config?.clone_sdk_code_stage?.artifact_context?.platforms?.raspi?.run)
-        raspiPipeline(testConfigs, testCasesList)
+    // PLATFORM EXECUTION (dynamic)
+    def platforms =
+        testConfigs.ci_config.clone_sdk_code_stage.platforms
 
+    platforms.each { platformName, cfg ->
+
+        if (!cfg.run) return
+
+        if (platformName == "raspi") {
+            raspiPipeline(testConfigs, testCasesList)
+        }
+
+        if (platformName == "nordic") {
+            nordicPipeline(testConfigs, testCasesList)
+        }
+
+        if (platformName == "silabs") {
+            silabsPipeline(testConfigs, testCasesList)
+        }
+
+        if (platformName == "esp32" && cfg.variants) {
+            cfg.variants.each { variantName, vcfg ->
+                if (vcfg.run) {
+                    espPipeline(testConfigs, testCasesList, variantName)
+                }
+            }
+        }
+    }
 }

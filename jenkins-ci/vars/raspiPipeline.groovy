@@ -363,10 +363,11 @@ def call(testConfigs, testCasesList) {
     def appsBuildWorkSpace = ''
     def logTransferConfig = testConfigs.execution_log_transfer_config
     def decision = testConfigs.ci_config.artifactDecision
+    def raspiDecision = decision.platforms["raspi"]
 
     //TODO: Not scalable, Fix this code to download cloned code in the above step
     //if (raspiStages?.build_firmware?.enabled){
-    if (decision.controllerMissing && decision.platforms["raspi"]?.appsMissing) {
+    if (raspiDecision?.controllerMissing || raspiDecision?.appsMissing) {
         stage('Build For Raspi inside Docker') {
             node(raspiStages.build_firmware.node) {
                 try {
@@ -377,7 +378,7 @@ def call(testConfigs, testCasesList) {
                         }else{
                             error(" getSDKCodeFromArtifacts failed. Build stopped.")
                         }
-                        if (decision.controllerMissing) {
+                        if (raspiDecision.controllerMissing) {
                         //only runs if it is connectedhomeip repo
                             //if (testConfigs?.ci_config?.clone_sdk_code_stage?.controller_sdk_config?.controller_repo == "connectedhomeip") {
                             def buildCntrlResult = buildController(testConfigs, testCasesList, controllerBuildWorkSpace,raspiBinariesDirString)
@@ -387,7 +388,7 @@ def call(testConfigs, testCasesList) {
                             }
                             //}
                         }
-                        if(decision.platforms["raspi"]?.appsMissing) {
+                        if (raspiDecision.appsMissing) {
                             def buildAppResult = buildApps(testConfigs, testCasesList, appsBuildWorkSpace, raspiBinariesDirString)
                             if (!buildAppResult.success)
                                 error("Building Apps failed with status ${buildAppResult}")
@@ -406,8 +407,8 @@ def call(testConfigs, testCasesList) {
                                 testConfigs,
                                 "raspi",
                                 raspiBinariesDirString,
-                                decision.controllerMissing,
-                                decision.appsMissing
+                                raspiDecision.controllerMissing,
+                                raspiDecision.appsMissing
                             )
                         }
                 }catch (Exception e) {

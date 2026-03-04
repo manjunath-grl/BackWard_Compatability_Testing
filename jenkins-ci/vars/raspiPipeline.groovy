@@ -449,7 +449,7 @@ def call(testConfigs, testCasesList) {
                     }
                 }
             }
-            if(!raspiDecision.controllerMissing){
+            else{
                 stage ('Copy and install binaries into RASPI_CONTROLLER_NODE'){
                     node("${cntrlNode}"){
                         def result = commonPipelineLib.installControllerBinaries(this, testConfigs, "raspi", raspiBinariesDirString)

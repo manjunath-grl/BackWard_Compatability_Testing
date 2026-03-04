@@ -62,7 +62,7 @@ class commonPipelineLib implements Serializable {
                     """
 
                     def count = steps.sh(
-                        script: "ls *.whl 2>/dev/null | wc -l",
+                        script: "cd ${ctrlBinariesDir} && ls *.whl 2>/dev/null | wc -l",
                         returnStdout: true
                     ).trim()
 

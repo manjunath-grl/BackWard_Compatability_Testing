@@ -146,17 +146,20 @@ class RepoUtils implements Serializable {
                 fi
 
                 cd ${buildIDWorkspace}
-                files=""
-                [ -d "${controllerGitCloneDirectory}" ] && files="$files ${controllerGitCloneDirectory}"
-                [ -d "${appGitCloneDirectory}" ] && files="$files ${appGitCloneDirectory}"
 
-                if [ -z "$files" ]; then
+                files=""
+                [ -d "${controllerGitCloneDirectory}" ] && files="\$files ${controllerGitCloneDirectory}"
+                [ -d "${appGitCloneDirectory}" ] && files="\$files ${appGitCloneDirectory}"
+
+                if [ -z "\$files" ]; then
                     echo "No directories found to archive. Skipping tar."
                     exit 0
                 fi
+
                 rm -f ${archivePath}
-                echo "Creating archive with: $files"
-                tar -czvf ${archivePath} $files
+
+                echo "Creating archive with: \$files"
+                tar -czvf ${archivePath} \$files
             """
         }
 

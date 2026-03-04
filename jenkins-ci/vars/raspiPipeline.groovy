@@ -35,7 +35,7 @@ def extractDockerArtifacts(String imageSha, String baseDir) {
     set -ex
 
     CONTAINER=chip-cert-temp
-    BASE_DIR="\$HOME/${baseDir}"
+    BASE_DIR="\$HOME/${baseDir}/controller"
 
     # Remove container if it already exists (idempotent)
     docker rm -f \$CONTAINER || true
@@ -156,6 +156,7 @@ def buildAndinstallControllerBinaries(def steps,testConfigs, workSpace, raspiBin
                     echo "Extracting docker artifacts"
                     extractDockerArtifacts(imageSha, raspiBinariesDirString)
                     //archiveArtifacts artifacts: "${homedir}/${raspiBinariesDirString}/**", fingerprint: true, allowEmptyArchive: true
+                    commonPipelineLib.uploadPlatformBinaries(this,testConfigs,"raspi",raspiBinariesDirString,raspiDecision.controllerMissing,raspiDecision.appsMissing)
                 }
                 def matterCloneStatus = RepoUtils.cloneMatterQARepo(steps, testConfigs, "main", homedir, raspiBinariesDirString)
                 if (matterCloneStatus != 0) {

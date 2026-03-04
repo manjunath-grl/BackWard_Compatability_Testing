@@ -36,6 +36,9 @@ node {
     // Resolve SHA automatically
     testConfigs = commonPipelineLib.resolveBranchSHA(this, testConfigs)
 
+    commonPipelineLib.validateSdkConfig(this, testConfigs)
+    commonPipelineLib.overrideDockerImageForRelease(testConfigs)
+
     // Resolve artifact decision
     def decision = commonPipelineLib.resolveArtifactAndBuildDecision(this, testConfigs)
 

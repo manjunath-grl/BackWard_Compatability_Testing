@@ -251,9 +251,13 @@ class commonPipelineLib implements Serializable {
 
     static boolean isReleaseBranch(String branch) {
         if (!branch) return false
-        return branch ==~ /^v.*(-branch|-sve|-sve-branch)$/
+        return (
+            branch ==~ /^v.*(-branch|-sve|-sve-branch)$/ ||   // connectedhomeIp
+            branch ==~ /^v[0-9].*/ ||                         // v2.15-beta2 etc
+            branch ==~ /.*v[0-9]+\.[0-9]+.*\+.*.*/            // contains vX.Y+season
+        )
     }
-
+    
     static Map resolveArtifactAndBuildDecision(def steps, Map testConfigs) {
         setupJfrog(steps, testConfigs)
         def jfRepo = testConfigs.ci_config.jfrog_config.jfrog_repo ?: "matter-binaries"
@@ -485,6 +489,51 @@ class commonPipelineLib implements Serializable {
         } catch (Exception e) {
             steps.echo "JFrog check failed: ${e.message}"
             return false
+        }
+    }
+
+    static void validateSdkConfig(def steps, Map testConfigs) {
+        def cloneCfg = testConfigs.ci_config.clone_sdk_code_stage
+        def ctrl = cloneCfg.controller_sdk_config
+        def apps = cloneCfg.apps_sdk_config
+
+        if (ctrl.branch == apps.branch && ctrl.sha == apps.sha) {
+            steps.error("""
+                Controller SDK and Apps SDK cannot use the same branch and SHA.
+                Controller:
+                branch: ${ctrl.branch}
+                sha:    ${ctrl.sha}
+
+                Apps:
+                branch: ${apps.branch}
+                sha:    ${apps.sha}
+
+                Please provide different sources for controller and apps.
+                """)
+        }
+    }
+
+    static Map RELEASE_DOCKER_MAP = [
+        "v2.14+fall2025" : "ca9d1118e097fe947b2aec1ba84f265d6cf2447e",
+        "v2.15-beta2.1+spring2026" : "ead81748828787a656ae05c7d980f908f09ea751",
+        "v2.14.1-beta2+winter2026" : "4564cd2e0a0c7059bb99719cfc3de50cefac5d10",
+        "v2.15-beta2+spring2026" : "9b1078da4307f98d362a0b44625a94d649bc1e77",
+    ]
+
+    static void overrideDockerImageForRelease(Map testConfigs) {
+        def cloneCfg = testConfigs.ci_config.clone_sdk_code_stage
+        def branch = cloneCfg.apps_sdk_config.branch
+
+        if (!isReleaseBranch(branch))
+            return
+
+        def imageSha = RELEASE_DOCKER_MAP[branch]
+        if (!imageSha)
+            return
+
+        def raspiStages = testConfigs.ci_config?.raspi_pipeline?.stages
+        if (raspiStages?.build_firmware) {
+            raspiStages.build_firmware.chip_cert_bins = imageSha
         }
     }
 }

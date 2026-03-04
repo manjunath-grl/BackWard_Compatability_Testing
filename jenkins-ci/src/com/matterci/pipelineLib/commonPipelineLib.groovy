@@ -294,7 +294,6 @@ class commonPipelineLib implements Serializable {
 
             def controllerRepo = testConfigs.ci_config.clone_sdk_code_stage.controller_sdk_config.controller_repo
             steps.echo "Controller Repo = ${controllerRepo}"
-            def controllerMissing = !controllerExists
 
             // override rule
             boolean controllerMissing = !controllerExists

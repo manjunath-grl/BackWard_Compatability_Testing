@@ -56,7 +56,7 @@ class commonPipelineLib implements Serializable {
                         set -e
                         jf rt dl \
                         "${controllerPath}*.whl" \
-                        "./" \
+                        "${ctrlBinariesDir}/" \
                         --flat=true \
                         --insecure-tls=true
                     """

@@ -119,23 +119,6 @@ class RepoUtils implements Serializable {
         cloneSuccess = cloneControllerSuccess && cloneAppSuccess
         steps.echo "cloneControllerSuccess: ${cloneControllerSuccess}, cloneAppSuccess: ${cloneAppSuccess}, cumulative cloneSuccess: ${cloneSuccess}"
 
-         // Determine if the cloned repos are from connectedhomeip to decide the content of the archive
-
-        //if (cloneSuccess && !cloneController && !cloneApps) {
-        // if (cloneSuccess) {
-        //     // Clean up and archive
-        //     //def isConnectedHomeIp = testConfigs?.ci_config?.clone_sdk_code_stage?.controller_sdk_config?.controller_repo == "connectedhomeip"
-        //     steps.sh """
-        //         set -ex
-        //         rm -f ${archivePath}
-        //         if [ "${isConnectedHomeIp}" = "true" ]; then
-        //             tar -czvf ${archivePath} -C ${buildIDWorkspace} ${controllerGitCloneDirectory} ${appGitCloneDirectory}
-        //         else
-        //             tar -czvf ${archivePath} -C ${buildIDWorkspace} ${appGitCloneDirectory}
-        //         fi
-        //     """
-        // }
-
         if (cloneSuccess){
             steps.sh """
                 set +e
@@ -172,12 +155,20 @@ class RepoUtils implements Serializable {
 
         def qaRepoSha = ''
         def cmdStatus
+        def decision = testConfigs.ci_config.artifactDecision
+        def raspiDecision = decision.platforms["raspi"]
+        if (testConfigs?.ci_config?.clone_sdk_code_stage?.controller_sdk_config?.controller_repo == "certification-tool" && raspiDecision.controllerMissing){
+            wheelsDir = "${controllerDir}/${ctrlBinariesDir}/controller"
+        }
+        else{
+            wheelsDir = "${controllerDir}/${ctrlBinariesDir}"
+        }
 
         def setupCommand = """#!/bin/bash
             set -e
             shopt -s nullglob
-            echo "ControllerDir: ${controllerDir}"
-            WHEEL_PATH="${controllerDir}"
+            echo "ControllerDir: ${wheelsDir}"
+            WHEEL_PATH="${wheelsDir}"
             echo "Looking for wheels in: \$WHEEL_PATH"
             ls -la "\$WHEEL_PATH"
 

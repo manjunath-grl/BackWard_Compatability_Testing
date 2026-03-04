@@ -449,8 +449,7 @@ def call(testConfigs, testCasesList) {
                     }
                 }
             }
-            //else runs if it is connectedhomeip repo
-            else{
+            if(!raspiDecision.controllerMissing){
                 stage ('Copy and install binaries into RASPI_CONTROLLER_NODE'){
                     node("${cntrlNode}"){
                         def result = commonPipelineLib.installControllerBinaries(this, testConfigs, "raspi", raspiBinariesDirString)

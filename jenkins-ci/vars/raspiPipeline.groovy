@@ -380,7 +380,7 @@ def call(testConfigs, testCasesList) {
 
     //TODO: Not scalable, Fix this code to download cloned code in the above step
     //if (raspiStages?.build_firmware?.enabled){
-    if (raspiDecision?.controllerMissing || raspiDecision?.appsMissing) {
+    if (repo == "connectedhomeip" && ( controllerMissing || raspiDecision?.appsMissing) ) {
         stage('Build For Raspi inside Docker') {
             node(raspiStages.build_firmware.node) {
                 try {

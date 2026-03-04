@@ -291,16 +291,43 @@ class commonPipelineLib implements Serializable {
 
             boolean controllerExists = jfrogFileExists(steps, controllerPath)
             boolean appExists = jfrogFileExists(steps, appPath)
+
+            def controllerRepo = testConfigs.ci_config.clone_sdk_code_stage.controller_sdk_config.controller_repo
+            steps.echo "Controller Repo = ${controllerRepo}"
             def controllerMissing = !controllerExists
 
             // override rule
-            if (controllerMissing && testConfigs.ci_config.clone_sdk_code_stage.controller_sdk_config.controller_repo != "connectedhomeip") {
-                steps.echo "Controller repo is not connectedhomeip → ignoring controller binary requirement"
-                controllerMissing = false
+            boolean controllerMissing = !controllerExists
+            if (controllerRepo == "certification-tool") {
+                // certification-tool never requires connectedhomeip clone
+                steps.echo "Certification tool repo detected"
+                if (controllerExists) {
+                    controllerMissing = false
+                } else {
+                    controllerMissing = true
+                }
             }
 
-            if (controllerMissing || !appExists)
-                cloneRequired = true
+            if (controllerRepo == "connectedhomeip") {
+                steps.echo "ConnectedHomeIP repo detected"
+                if (controllerExists) {
+                    controllerMissing = false
+                } else {
+                    controllerMissing = true
+                }
+            }
+
+            if (controllerRepo == "connectedhomeip") {
+                if (controllerMissing || !appExists) {
+                    cloneRequired = true
+                }
+            }
+
+            if (controllerRepo == "certification-tool") {
+                if (controllerMissing) {
+                    cloneRequired = false   // build only certification-tool
+                }
+            }
 
             platformDecision[platformName] = [
                 controllerMissing : controllerMissing,
@@ -330,50 +357,50 @@ class commonPipelineLib implements Serializable {
         return decision
     }
 
-    static void uploadPlatformBinaries(def steps,Map testConfigs,String platform,String binariesDir,boolean uploadController,boolean uploadApps) {
+    static void uploadPlatformBinaries(def steps, Map testConfigs, String platform, String binariesDir, boolean uploadController, boolean uploadApps) {
         setupJfrog(steps, testConfigs)
-        def jfRepo =testConfigs.ci_config.jfrog_config.jfrog_repo ?: "matter-binaries"
-        def cloneCfg =testConfigs.ci_config.clone_sdk_code_stage
-        def branch =cloneCfg.apps_sdk_config.branch
-        def sha =cloneCfg.apps_sdk_config.sha
 
-        boolean isRelease = isReleaseBranch(branch)
+        def jfRepo = testConfigs.ci_config.jfrog_config.jfrog_repo ?: "matter-binaries"
+        def cloneCfg = testConfigs.ci_config.clone_sdk_code_stage
+        def controllerBranch = cloneCfg.controller_sdk_config.branch
+        def controllerSha = cloneCfg.controller_sdk_config.sha
+        def appsBranch = cloneCfg.apps_sdk_config.branch
+        def appsSha = cloneCfg.apps_sdk_config.sha
 
-        // BASE PATH
-        def basePath = isRelease ?"${jfRepo}/releases/${branch}" : "${jfRepo}/branches/${branch}/${sha}"
+        def controllerBasePath =
+            isReleaseBranch(controllerBranch)
+            ? "${jfRepo}/releases/${controllerBranch}"
+            : "${jfRepo}/branches/${controllerBranch}/${controllerSha}"
 
-        // PLATFORM CONFIG RESOLUTION
+        def appsBasePath =
+            isReleaseBranch(appsBranch)
+            ? "${jfRepo}/releases/${appsBranch}"
+            : "${jfRepo}/branches/${appsBranch}/${appsSha}"
+
         def platformCfg = cloneCfg.platforms[platform]
 
-        // Handle ESP variants
         if (!platformCfg) {
             cloneCfg.platforms.each { p, cfg ->
-                if (cfg.variants?.containsKey(platform)) {
+                if (cfg.variants?.containsKey(platform))
                     platformCfg = cfg.variants[platform]
-                }
             }
         }
-
-        // CONTROLLER UPLOAD
         if (uploadController) {
             steps.echo "Uploading controller for ${platform}"
             steps.sh """
                 jf rt u \
                 "${binariesDir}/controller/*.whl" \
-                "${basePath}/controller/${platformCfg.controller_os}/${platformCfg.controller_type}/" \
+                "${controllerBasePath}/controller/${platformCfg.controller_os}/${platformCfg.controller_type}/" \
                 --flat=true
             """
         }
-
-        // APP UPLOAD
         if (uploadApps) {
-            def appName =platformCfg.app_to_test?: testConfigs.ci_config.app_to_test
-
+            def appName = platformCfg.app_to_test ?: testConfigs.ci_config.app_to_test
             steps.echo "Uploading app ${appName} for ${platform}"
             steps.sh """
                 jf rt u \
                 "${binariesDir}/apps/*" \
-                "${basePath}/apps/${appName}/${platform}/" \
+                "${appsBasePath}/apps/${appName}/${platform}/" \
                 --flat=true
             """
         }

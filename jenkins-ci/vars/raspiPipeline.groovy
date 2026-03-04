@@ -370,6 +370,13 @@ def call(testConfigs, testCasesList) {
     def raspiDecision = decision.platforms["raspi"]
     def platformCfg = testConfigs.ci_config.clone_sdk_code_stage.platforms.raspi
     def appName = platformCfg.app_to_test ?: testConfigs.ci_config.app_to_test
+    def repo = testConfigs?.ci_config?.clone_sdk_code_stage?.controller_sdk_config?.controller_repo
+    def controllerMissing = raspiDecision.controllerMissing
+    // track if we built binaries in this run
+    def controllerBuilt = false
+
+    echo "Controller Repo : ${repo}"
+    echo "Controller Missing : ${controllerMissing}"
 
     //TODO: Not scalable, Fix this code to download cloned code in the above step
     //if (raspiStages?.build_firmware?.enabled){
@@ -384,15 +391,14 @@ def call(testConfigs, testCasesList) {
                         }else{
                             error(" getSDKCodeFromArtifacts failed. Build stopped.")
                         }
-                        if (raspiDecision.controllerMissing) {
+                        if (repo == "connectedhomeip" && controllerMissing) {
                         //only runs if it is connectedhomeip repo
-                            if (testConfigs?.ci_config?.clone_sdk_code_stage?.controller_sdk_config?.controller_repo == "connectedhomeip") {
-                                def buildCntrlResult = buildController(testConfigs, testCasesList, controllerBuildWorkSpace,raspiBinariesDirString)
-                                if (buildCntrlResult != 0) {
-                                    buildSuccess = false
-                                    error("Building Controller failed with status ${buildCntrlResult}")
-                                }
+                            def buildCntrlResult = buildController(testConfigs, testCasesList, controllerBuildWorkSpace,raspiBinariesDirString)
+                            if (buildCntrlResult != 0) {
+                                buildSuccess = false
+                                error("Building Controller failed with status ${buildCntrlResult}")
                             }
+                            controllerBuilt = true
                         }
                         if (raspiDecision.appsMissing) {
                             def buildAppResult = buildApps(testConfigs, testCasesList, appsBuildWorkSpace, raspiBinariesDirString)
@@ -425,6 +431,11 @@ def call(testConfigs, testCasesList) {
             def deviceNode = ''
             def deviceNodeIPAddress = ''
             def deviceWorkSpace = ''
+            echo """
+            Repo: ${repo}
+            Binary Missing: ${controllerMissing}
+            Built in pipeline: ${controllerBuilt}
+            """
 
             stage ('Get nodes of controller and device raspi') {
                 def result = RaspiPipelineLib.getCntrlDeviceRaspiNodes(this, "On-Network", testConfigs)
@@ -436,7 +447,8 @@ def call(testConfigs, testCasesList) {
                 }
             }
             //Runs only if it is certification-tool repo
-            if (testConfigs?.ci_config?.clone_sdk_code_stage?.controller_sdk_config?.controller_repo == "certification-tool" && !raspiDecision.controllerMissing){
+            //if (testConfigs?.ci_config?.clone_sdk_code_stage?.controller_sdk_config?.controller_repo == "certification-tool" && !raspiDecision.controllerMissing){
+            if (repo == "certification-tool" && controllerMissing) {
                 stage ('Build and Install CTRL binaries into RASPI_CONTROLLER_NODE'){
                     node("${cntrlNode}"){
                         controllerBuildWorkSpace = "${env.WORKSPACE}/controller_sdk"
@@ -449,7 +461,7 @@ def call(testConfigs, testCasesList) {
                     }
                 }
             }
-            else{
+            if (!controllerMissing || controllerBuilt){
                 stage ('Copy and install binaries into RASPI_CONTROLLER_NODE'){
                     node("${cntrlNode}"){
                         def result = commonPipelineLib.installControllerBinaries(this, testConfigs, "raspi", raspiBinariesDirString)

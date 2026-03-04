@@ -50,18 +50,21 @@ node {
             it.controllerMissing || it.appsMissing
         }
 
-    if (decision.cloneRequired) {
-        echo "SDK Clone Required"
+    def repo = testConfigs.ci_config.clone_sdk_code_stage.controller_sdk_config.controller_repo
+
+    if (repo == "connectedhomeip" && decision.cloneRequired) {
+        echo "Cloning SDK for connectedhomeip"
         testConfigs = cloneRepo(testConfigs, decision)
-    } else {
-        echo "All artifacts available → skipping clone"
+    }
+
+    if (repo == "certification-tool") {
+        echo "Skipping SDK clone for certification-tool"
     }
     //store the configs in the env after updating with SDK SHA
     env.testConfigs = testConfigs
 
     // PLATFORM EXECUTION (dynamic)
-    def platforms =
-        testConfigs.ci_config.clone_sdk_code_stage.platforms
+    def platforms = testConfigs.ci_config.clone_sdk_code_stage.platforms
 
     platforms.each { platformName, cfg ->
 

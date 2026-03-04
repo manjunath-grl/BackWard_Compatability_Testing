@@ -94,6 +94,7 @@ def buildAndinstallControllerBinaries(def steps,testConfigs, workSpace, raspiBin
         def sdkCfg  = testConfigs.ci_config?.clone_sdk_code_stage?.controller_sdk_config
         def repoUrl = sdkCfg?.repoUrl
         def branch  = sdkCfg?.branch
+        def raspiDecision = decision.platforms["raspi"]
 
         def hostname = sh(script: "hostname", returnStdout: true).trim()
         echo "hostname : ${hostname}"

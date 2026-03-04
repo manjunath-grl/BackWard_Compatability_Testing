@@ -373,7 +373,7 @@ def call(testConfigs, testCasesList) {
 
     echo "Controller repo : ${testConfigs?.ci_config?.clone_sdk_code_stage?.controller_sdk_config?.controller_repo == 'certification-tool'}"
     echo "Controller missing : ${raspiDecision.controllerMissing}"
-    error "Apps missing : ${raspiDecision.appsMissing}"
+    error "Apps missing : ${!raspiDecision.appsMissing}"
 
     //TODO: Not scalable, Fix this code to download cloned code in the above step
     //if (raspiStages?.build_firmware?.enabled){

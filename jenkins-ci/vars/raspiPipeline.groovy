@@ -371,13 +371,6 @@ def call(testConfigs, testCasesList) {
     def platformCfg = testConfigs.ci_config.clone_sdk_code_stage.platforms.raspi
     def appName = platformCfg.app_to_test ?: testConfigs.ci_config.app_to_test
 
-    echo "Controller repo : ${testConfigs?.ci_config?.clone_sdk_code_stage?.controller_sdk_config?.controller_repo == 'certification-tool'}"
-    echo "Controller missing : ${!raspiDecision.controllerMissing}"
-    if (testConfigs?.ci_config?.clone_sdk_code_stage?.controller_sdk_config?.controller_repo == "certification-tool" && !raspiDecision.controllerMissing)
-        error "Condition failed"
-
-    error "Apps missing : ${raspiDecision.appsMissing}"
-
     //TODO: Not scalable, Fix this code to download cloned code in the above step
     //if (raspiStages?.build_firmware?.enabled){
     if (raspiDecision?.controllerMissing || raspiDecision?.appsMissing) {
@@ -443,7 +436,7 @@ def call(testConfigs, testCasesList) {
                 }
             }
             //Runs only if it is certification-tool repo
-            if (testConfigs?.ci_config?.clone_sdk_code_stage?.controller_sdk_config?.controller_repo == "certification-tool" && raspiDecision.controllerMissing){
+            if (testConfigs?.ci_config?.clone_sdk_code_stage?.controller_sdk_config?.controller_repo == "certification-tool" && !raspiDecision.controllerMissing){
                 stage ('Build and Install CTRL binaries into RASPI_CONTROLLER_NODE'){
                     node("${cntrlNode}"){
                         controllerBuildWorkSpace = "${env.WORKSPACE}/controller_sdk"

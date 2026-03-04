@@ -158,7 +158,8 @@ def buildAndinstallControllerBinaries(def steps,testConfigs, workSpace, raspiBin
                     echo "Extracting docker artifacts"
                     extractDockerArtifacts(imageSha, raspiBinariesDirString)
                     //archiveArtifacts artifacts: "${homedir}/${raspiBinariesDirString}/**", fingerprint: true, allowEmptyArchive: true
-                    commonPipelineLib.uploadPlatformBinaries(this,testConfigs,"raspi","${homedir}/${raspiBinariesDirString}",raspiDecision.controllerMissing,raspiDecision.appsMissing)
+                    echo "Path for controller binaries: ${homedir}/${raspiBinariesDirString}"
+                    commonPipelineLib.uploadPlatformBinaries(this,testConfigs,"raspi","${homedir}/${raspiBinariesDirString}",true,raspiDecision.appsMissing)
                 }
                 def matterCloneStatus = RepoUtils.cloneMatterQARepo(steps, testConfigs, "main", homedir, raspiBinariesDirString)
                 if (matterCloneStatus != 0) {
@@ -435,7 +436,7 @@ def call(testConfigs, testCasesList) {
                 }
             }
             //Runs only if it is certification-tool repo
-            if (testConfigs?.ci_config?.clone_sdk_code_stage?.controller_sdk_config?.controller_repo == "certification-tool"){
+            if (testConfigs?.ci_config?.clone_sdk_code_stage?.controller_sdk_config?.controller_repo == "certification-tool" && raspiDecision.controllerMissing){
                 stage ('Build and Install CTRL binaries into RASPI_CONTROLLER_NODE'){
                     node("${cntrlNode}"){
                         controllerBuildWorkSpace = "${env.WORKSPACE}/controller_sdk"

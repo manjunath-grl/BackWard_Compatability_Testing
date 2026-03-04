@@ -16,7 +16,6 @@ def call (testConfigs, decision) {
             echo "decision appsMissing: ${appsMissing}"
 
             def result = RepoUtils.cloneSDKRepo(this,testConfigs,controllerMissing,appsMissing)
-            
             if (result.success) {
                 updatedTestConfigs = result.updatedTestConfigs
                 echo "Archiving cloned repo from: ${result.archivePath}"
@@ -29,7 +28,7 @@ def call (testConfigs, decision) {
                 writeFile file: 'UpdatedTestConfig.yaml', text: mergedYaml
                 // Archive it
                 //archiveArtifacts artifacts: 'UpdatedTestConfig.yaml', fingerprint: true
-                archiveArtifacts artifacts: "matter_repo_archive.tgz", fingerprint: true
+                archiveArtifacts artifacts: "matter_repo_archive.tgz", fingerprint: true, allowEmptyArchive: true
                 // def jfrogRepoName = testConfigs.ci_config.jfrog_config.jfrog_repo_name
                 // def jobName  = env.JOB_NAME
                 // def buildNum = env.BUILD_NUMBER

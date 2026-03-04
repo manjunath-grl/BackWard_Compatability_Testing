@@ -383,13 +383,13 @@ def call(testConfigs, testCasesList) {
                         }
                         if (raspiDecision.controllerMissing) {
                         //only runs if it is connectedhomeip repo
-                            //if (testConfigs?.ci_config?.clone_sdk_code_stage?.controller_sdk_config?.controller_repo == "connectedhomeip") {
-                            def buildCntrlResult = buildController(testConfigs, testCasesList, controllerBuildWorkSpace,raspiBinariesDirString)
-                            if (buildCntrlResult != 0) {
-                                buildSuccess = false
-                                error("Building Controller failed with status ${buildCntrlResult}")
+                            if (testConfigs?.ci_config?.clone_sdk_code_stage?.controller_sdk_config?.controller_repo == "connectedhomeip") {
+                                def buildCntrlResult = buildController(testConfigs, testCasesList, controllerBuildWorkSpace,raspiBinariesDirString)
+                                if (buildCntrlResult != 0) {
+                                    buildSuccess = false
+                                    error("Building Controller failed with status ${buildCntrlResult}")
+                                }
                             }
-                            //}
                         }
                         if (raspiDecision.appsMissing) {
                             def buildAppResult = buildApps(testConfigs, testCasesList, appsBuildWorkSpace, raspiBinariesDirString)

@@ -84,7 +84,7 @@ class RepoUtils implements Serializable {
         def app_sdk_sha = ''
 
         steps.echo "value of appconfg: ${appConfig}"
-        steps.echo "ci_config : ${testConfigs.ci_config}"
+        //steps.echo "ci_config : ${testConfigs.ci_config}"
         //def appsNeeded = decision.platforms.values().any { it.appsMissing }
         // Clone the app SDK
         if (cloneApps) {
@@ -137,15 +137,26 @@ class RepoUtils implements Serializable {
         // }
 
         if (cloneSuccess){
-        steps.sh """
-            set -e
-            rm -f ${archivePath}
-            cd ${buildIDWorkspace}
+            steps.sh """
+                set +e
 
-            tar -czvf ${archivePath} \\
-                \$( [ -d "${controllerGitCloneDirectory}" ] && echo ${controllerGitCloneDirectory} ) \\
-                \$( [ -d "${appGitCloneDirectory}" ] && echo ${appGitCloneDirectory} ) \\
-                2>/dev/null || true
+                if [ ! -d "${buildIDWorkspace}" ]; then
+                    echo "Workspace ${buildIDWorkspace} does not exist. Skipping archive."
+                    exit 0
+                fi
+
+                cd ${buildIDWorkspace}
+                files=""
+                [ -d "${controllerGitCloneDirectory}" ] && files="$files ${controllerGitCloneDirectory}"
+                [ -d "${appGitCloneDirectory}" ] && files="$files ${appGitCloneDirectory}"
+
+                if [ -z "$files" ]; then
+                    echo "No directories found to archive. Skipping tar."
+                    exit 0
+                fi
+                rm -f ${archivePath}
+                echo "Creating archive with: $files"
+                tar -czvf ${archivePath} $files
             """
         }
 

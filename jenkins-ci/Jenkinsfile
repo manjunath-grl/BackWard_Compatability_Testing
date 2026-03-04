@@ -46,8 +46,7 @@ node {
     testConfigs.ci_config.artifactDecision = decision
 
     // Compute cloneRequired dynamically
-    decision.cloneRequired =
-        decision.platforms.values().any {
+    decision.cloneRequired = decision.platforms.values().any {
             it.controllerMissing || it.appsMissing
         }
 

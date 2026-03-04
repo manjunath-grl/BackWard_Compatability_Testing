@@ -157,6 +157,7 @@ class RepoUtils implements Serializable {
         def cmdStatus
         def decision = testConfigs.ci_config.artifactDecision
         def raspiDecision = decision.platforms["raspi"]
+        def wheelsDir = ''
         if (testConfigs?.ci_config?.clone_sdk_code_stage?.controller_sdk_config?.controller_repo == "certification-tool" && raspiDecision.controllerMissing){
             wheelsDir = "${controllerDir}/${ctrlBinariesDir}/controller"
         }

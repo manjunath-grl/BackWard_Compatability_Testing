@@ -291,12 +291,19 @@ class commonPipelineLib implements Serializable {
 
             boolean controllerExists = jfrogFileExists(steps, controllerPath)
             boolean appExists = jfrogFileExists(steps, appPath)
+            def controllerMissing = !controllerExists
 
-            if (!controllerExists || !appExists)
+            // override rule
+            if (controllerMissing && testConfigs.ci_config.clone_sdk_code_stage.controller_sdk_config.controller_repo != "connectedhomeip") {
+                steps.echo "Controller repo is not connectedhomeip → ignoring controller binary requirement"
+                controllerMissing = false
+            }
+
+            if (controllerMissing || !appExists)
                 cloneRequired = true
 
             platformDecision[platformName] = [
-                controllerMissing : !controllerExists,
+                controllerMissing : controllerMissing,
                 appsMissing       : !appExists
             ]
         }

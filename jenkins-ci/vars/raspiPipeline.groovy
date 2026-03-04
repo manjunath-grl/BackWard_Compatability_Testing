@@ -405,12 +405,7 @@ def call(testConfigs, testCasesList) {
                         // just get into the parent directory of raspi_binaries and upload it.
                         ws("${sdkFrmArtifactsResult.workSpaceSDKCopied}") {
                             //def decision = commonPipelineLib.resolveArtifactAndBuildDecision(this, testConfigs)
-                            if (testConfigs?.ci_config?.clone_sdk_code_stage?.controller_sdk_config?.controller_repo != "connectedhomeip") {
-                                commonPipelineLib.uploadPlatformBinaries(this, testConfigs, "raspi", raspiBinariesDirString,false,raspiDecision.appsMissing)
-                            }
-                            else{
-                                commonPipelineLib.uploadPlatformBinaries(this, testConfigs, "raspi", raspiBinariesDirString,raspiDecision.controllerMissing,raspiDecision.appsMissing)
-                            }
+                            commonPipelineLib.uploadPlatformBinaries(this, testConfigs, "raspi", raspiBinariesDirString,raspiDecision.controllerMissing,raspiDecision.appsMissing)
                         }
                 }catch (Exception e) {
                     buildSuccess = false

@@ -38,48 +38,44 @@ class RepoUtils implements Serializable {
         def archivePath = "${nodeWorkspace}/${archiveFile}"
 
         // Read controller configuration from testConfigs and clone controller SDK
-        def controllerConfig = testConfigs?.ci_config?.clone_sdk_code_stage?.controller_sdk_config
+        def controllerConfig = testConfigs?.ci_config?.clone_sdk_code_stage?.controller_sdk
         def cloneControllerSuccess = true
         def controller_sdk_sha = ''
 
         if (cloneController) {
             // Clone the controller SDK
-            if (testConfigs.ci_config?.clone_sdk_code_stage?.controller_sdk_config.controller_repo == "connectedhomeip") {
-                if (controllerConfig) {
-                    def controllerGitRef = controllerConfig?.branch ?: 'master'
-                    def controllerShaRef = controllerConfig?.sha
-                    def controllerTagRef = controllerConfig?.tag
-                    def controllerPrRef = controllerConfig?.pr
-                    def controllerRepoUrl = controllerConfig?.repoUrl ?: 'git@github.com:project-chip/connectedhomeip.git' // Default to controller repo URL
-
-                    try {
-                        steps.timeout(time: 60, unit: 'MINUTES') {
-                            steps.ws(controllerWorkspace) {
-                                // Clone the controller SDK
-                                controller_sdk_sha = RepoUtils.cloneGitRepo(steps, controllerRepoUrl, "connectedhomeip", controllerGitRef,controllerShaRef, controllerTagRef, controllerPrRef)
-                                steps.echo "controller SDK SHA cloned : ${controller_sdk_sha}"
-                                if (!controller_sdk_sha) {
-                                    throw new Exception("cloning controller SDK failed")
-                                }
-                                // save controller SDK SHA
-                                //testConfigs.ci_config.controller_sdk_sha = "${controller_sdk_sha}"
+            if (controllerConfig) {
+                def controllerGitRef = controllerConfig?.branch ?: 'master'
+                def controllerShaRef = controllerConfig?.sha
+                def controllerTagRef = controllerConfig?.tag
+                def controllerPrRef = controllerConfig?.pr
+                def controllerRepoUrl = 'git@github.com:project-chip/connectedhomeip.git'
+                try {
+                    steps.timeout(time: 60, unit: 'MINUTES') {
+                        steps.ws(controllerWorkspace) {
+                            // Clone the controller SDK
+                            controller_sdk_sha = RepoUtils.cloneGitRepo(steps, controllerRepoUrl, "connectedhomeip", controllerGitRef,controllerShaRef, controllerTagRef, controllerPrRef)
+                            steps.echo "controller SDK SHA cloned : ${controller_sdk_sha}"
+                            if (!controller_sdk_sha) {
+                                throw new Exception("cloning controller SDK failed")
                             }
+                            // save controller SDK SHA
+                            //testConfigs.ci_config.controller_sdk_sha = "${controller_sdk_sha}"
                         }
-                    } catch (Exception e) {
-                        cloneControllerSuccess = false
-                        steps.echo "Error during controller SDK clone: ${e.getMessage()}"
-                        steps.error "Error during controller SDK clone"
                     }
-                } else {
-                    steps.echo "Skipping controller SDK clone (no controller SDK config provided)."
+                } catch (Exception e) {
+                    cloneControllerSuccess = false
+                    steps.echo "Error during controller SDK clone: ${e.getMessage()}"
+                    steps.error "Error during controller SDK clone"
                 }
+            } else {
+                steps.echo "Skipping controller SDK clone (no controller SDK config provided)."
             }
         }
         else {
             steps.echo "Controller artifacts exist → skip clone"
         }
         // Read app configuration from testConfigs and clone apps SDK
-        def appConfig = testConfigs?.ci_config?.clone_sdk_code_stage?.apps_sdk_config
         def cloneAppSuccess = true
         def app_sdk_sha = ''
 
@@ -88,23 +84,20 @@ class RepoUtils implements Serializable {
         //def appsNeeded = decision.platforms.values().any { it.appsMissing }
         // Clone the app SDK
         if (cloneApps) {
-            def appGitRef = appConfig?.branch ?: 'master'
-            def appShaRef = appConfig?.sha
-            def appTagRef = appConfig?.tag
-            def appPrRef = appConfig?.pr
-            def appRepoUrl = appConfig?.repoUrl ?: 'git@github.com:project-chip/connectedhomeip.git' // Default to app repo URL
-
+            def appRepoUrl = 'git@github.com:project-chip/connectedhomeip.git' // Default to app repo URL
             try {
                 steps.timeout(time: 60, unit: 'MINUTES') {
                     steps.ws(appWorkspace) {
                         // Clone the app SDK
-                        app_sdk_sha = RepoUtils.cloneGitRepo(steps, appRepoUrl, "connectedhomeip", appGitRef, appShaRef, appTagRef, appPrRef)
-                        steps.echo "apps SDK SHA cloned : ${app_sdk_sha}"
-                        if (!app_sdk_sha) {
-                            throw new Exception("cloning app SDK repo ailed")
-                        }
-                        // save apps sdk SHA
-                        //testConfigs.ci_config.apps_sdk_sha = "${app_sdk_sha}"
+                        steps.sh """
+                            set -ex
+                            git config --global http.version HTTP/1.1
+                            git config --global http.postBuffer 524288000
+                            git config --global http.lowSpeedLimit 0
+                            git config --global http.lowSpeedTime 999999
+                            git clone --progress --verbose ${appRepoUrl} .
+                        """
+                        steps.echo "Apps repo cloned successfully (checkout deferred)"
                     }
                 }
             } catch (Exception e) {
@@ -328,6 +321,42 @@ class RepoUtils implements Serializable {
             steps.echo "Error during git clone or checkout: ${e.getMessage()}"
         }
         return gitSha
+    }
+
+    static void checkoutGitRef(def steps,String workspaceDir,String branch,String sha,String tag,String pr) {
+        steps.echo "Checking out reference inside ${workspaceDir}"
+        steps.ws(workspaceDir) {
+            if (branch != 'master') {
+                    steps.sh """
+                        set -ex
+                        git checkout ${branch}  # Checkout the branch
+                        echo "Checked out branch ${branch}"
+                    """
+                }
+
+                // If a SHA is provided, checkout that specific SHA
+                if (sha) {
+                    steps.sh """
+                        set -ex
+                        git checkout ${sha}  # Checkout the specific commit SHA
+                        echo "Checked out SHA ${sha} on branch ${branch}"
+                    """
+                } else if (tag) {
+                    // If a tag is provided, checkout that specific tag
+                    steps.sh """
+                        set -ex
+                        git checkout tags/${tag}  # Checkout the specified tag
+                        echo "Checked out tag ${tag}"
+                    """
+                } else if (pr) {
+                    // Handle PR reference
+                    steps.sh """
+                        set -ex
+                        git fetch origin pull/${pr}/head:pr-${pr}
+                        git checkout pr-${pr}
+                    """
+                }
+        }
     }
 
     //caller to provide the platformBinariesDirString

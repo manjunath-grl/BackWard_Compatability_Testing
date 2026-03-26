@@ -1,30 +1,41 @@
 import com.matterci.pipelineLib.RepoUtils
 import com.matterci.pipelineLib.commonPipelineLib
 
-/* design decision: Jenkins file code is expected to handle jenkins
-stages, steps.. etc core logic is in shared lib.
+/*
+Design decision:
+Jenkinsfile handles stages
+Shared lib handles cloning logic
 */
-def call (testConfigs, decision) {
+
+def call(testConfigs, decision) {
     def updatedTestConfigs = testConfigs
-    stage ("clone code") {
-        //TODO: Fix the naming to come from config
+    stage("clone code") {
         node(testConfigs.ci_config.clone_sdk_code_stage.node_to_clone_code) {
-            def controllerMissing = decision.platforms.values().any { it.controllerMissing }
-            def appsMissing = decision.platforms.values().any { it.appsMissing }
+            //Detect controller clone requirement
+            def controllerMissing = decision.platforms.values().any {it.controllerMissing}
 
+            //Detect connectedhomeip apps clone requirement
+            def connectedhomeipAppsMissing = decision.platforms.values().any { platform ->
+                    platform.apps.any { app ->
+                        app.missing &&
+                        app.repo == "connectedhomeip"
+                    }
+                }
             echo "decision controllerMissing: ${controllerMissing}"
-            echo "decision appsMissing: ${appsMissing}"
+            echo "decision connectedhomeipAppsMissing: ${connectedhomeipAppsMissing}"
 
-            def result = RepoUtils.cloneSDKRepo(this,testConfigs,controllerMissing,appsMissing)
+            //certification-tool apps NEVER cloned here
+            def result =  RepoUtils.cloneSDKRepo(this, testConfigs,controllerMissing,connectedhomeipAppsMissing)
+
             if (result.success) {
                 updatedTestConfigs = result.updatedTestConfigs
                 echo "Archiving cloned repo from: ${result.archivePath}"
-                //TODO: Fix this workspace issue properly.
-                def mergedYaml = writeYaml returnText: true, data: updatedTestConfigs
+                def mergedYaml =writeYaml returnText: true, data: updatedTestConfigs
                 writeFile file: 'UpdatedTestConfig.yaml', text: mergedYaml
-                archiveArtifacts artifacts: "matter_repo_archive.tgz", fingerprint: true, allowEmptyArchive: true
+                archiveArtifacts artifacts:"matter_repo_archive.tgz",fingerprint: true,allowEmptyArchive: true
                 return updatedTestConfigs
-            } else {
+            }
+            else {
                 error("Cloning repo failed. Build stopped.")
             }
         }

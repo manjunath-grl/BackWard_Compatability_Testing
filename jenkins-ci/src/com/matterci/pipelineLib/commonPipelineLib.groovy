@@ -250,12 +250,33 @@ class commonPipelineLib implements Serializable {
     }
 
     static boolean isReleaseBranch(String branch) {
-        if (!branch) return false
-        return (
-            branch ==~ /^v.*(-branch|-sve|-sve-branch)$/ ||   // connectedhomeIp
-            branch ==~ /^v[0-9].*/ ||                         // v2.15-beta2 etc
-            branch ==~ /.*v[0-9]+\.[0-9]+.*\+.*.*/            // contains vX.Y+season
-        )
+        if (!branch)
+            return false
+
+        // certification-tool mapped releases
+        if (CERTIFICATION_TOOL_RELEASE_MAP.containsKey(branch))
+            return true
+
+        // connectedhomeip releases
+        if (branch.startsWith("v"))
+            return true
+
+        if (branch.startsWith("ccb"))
+            return true
+
+        return false
+    }
+
+    static String resolveRepo(String branch) {
+        if (!branch)
+            return "connectedhomeip"
+
+        // highest priority rule
+        if (CERTIFICATION_TOOL_RELEASE_MAP.containsKey(branch)) {
+            return "certification-tool"
+        }
+        // fallback rule
+        return "connectedhomeip"
     }
     
     static Map resolveArtifactAndBuildDecision(def steps, Map testConfigs) {
@@ -263,88 +284,70 @@ class commonPipelineLib implements Serializable {
         def jfRepo = testConfigs.ci_config.jfrog_config.jfrog_repo ?: "matter-binaries"
         def cloneCfg = testConfigs.ci_config.clone_sdk_code_stage
         def platformsCfg = cloneCfg.platforms ?: [:]
-        def controllerCfg = cloneCfg.controller_sdk_config
-        def appsCfg = cloneCfg.apps_sdk_config
-
-        // CONTROLLER BASE PATH
+        def controllerBranch = cloneCfg.controller_sdk.source.branch
+        def controllerSha = cloneCfg.controller_sdk.source.sha
+        def controllerRepo = resolveRepo(controllerBranch)
         def controllerBasePath =
-            isReleaseBranch(controllerCfg.branch)
-            ? "${jfRepo}/releases/${controllerCfg.branch}"
-            : "${jfRepo}/branches/${controllerCfg.branch}/${controllerCfg.sha}"
+            isReleaseBranch(controllerBranch)
+            ? "${jfRepo}/releases/${controllerBranch}"
+            : "${jfRepo}/branches/${controllerBranch}/${controllerSha}"
 
-        // APPS BASE PATH
-        def appsBasePath =
-            isReleaseBranch(appsCfg.branch)
-            ? "${jfRepo}/releases/${appsCfg.branch}"
-            : "${jfRepo}/branches/${appsCfg.branch}/${appsCfg.sha}"
-
-        steps.echo "Controller BasePath = ${controllerBasePath}"
-        steps.echo "Apps BasePath       = ${appsBasePath}"
+        steps.echo "Controller Repo      = ${controllerRepo}"
+        steps.echo "Controller BasePath  = ${controllerBasePath}"
 
         boolean cloneRequired = false
+
         def platformDecision = [:]
 
-        def checkPlatform = { String platformName, Map cfg ->
-            def appName = cfg.app_to_test ?: testConfigs.ci_config.app_to_test
-            def controllerPath ="${controllerBasePath}/controller/${cfg.controller_os}/${cfg.controller_type}/*.whl"
-            def appPath ="${appsBasePath}/apps/${appName}/${platformName}/chip-${appName}*"
+        platformsCfg.each { platformName, platformCfg ->
 
+            if (!platformCfg?.run)
+                return
+            steps.echo "Processing platform: ${platformName}"
+            def controllerPath = "${controllerBasePath}/controller/${platformCfg.controller_os}/${platformCfg.controller_type}/*.whl"
             boolean controllerExists = jfrogFileExists(steps, controllerPath)
-            boolean appExists = jfrogFileExists(steps, appPath)
-
-            def controllerRepo = testConfigs.ci_config.clone_sdk_code_stage.controller_sdk_config.controller_repo
-            steps.echo "Controller Repo = ${controllerRepo}"
-
-            // override rule
             boolean controllerMissing = !controllerExists
-            if (controllerRepo == "certification-tool") {
-                // certification-tool never requires connectedhomeip clone
-                steps.echo "Certification tool repo detected"
-                if (controllerExists) {
-                    controllerMissing = false
-                } else {
-                    controllerMissing = true
-                }
-            }
 
-            if (controllerRepo == "connectedhomeip") {
-                steps.echo "ConnectedHomeIP repo detected"
-                if (controllerExists) {
-                    controllerMissing = false
-                } else {
-                    controllerMissing = true
-                }
-            }
+            steps.echo "Controller exists: ${controllerExists}"
+            def appsDecisionList = []
+            def appsList = platformCfg.apps ?: []
 
-            if (controllerRepo == "connectedhomeip") {
-                if (controllerMissing || !appExists) {
+            appsList.each { appCfg ->
+
+                def appName = appCfg.name
+                def branch  = appCfg.sdk_source.branch
+                def sha     = appCfg.sdk_source.sha
+                def repo = resolveRepo(branch)
+                def appBasePath =
+                    isReleaseBranch(branch)
+                    ? "${jfRepo}/releases/${branch}"
+                    : "${jfRepo}/branches/${branch}/${sha}"
+
+                def appPath ="${appBasePath}/apps/${appName}/${platformName}/chip-${appName}*"
+
+                boolean appExists = jfrogFileExists(steps, appPath)
+                boolean appMissing = !appExists
+
+                steps.echo "App ${appName} exists: ${appExists}"
+
+                if (appMissing)
                     cloneRequired = true
-                }
-            }
 
-            if (controllerRepo == "certification-tool") {
-                if (controllerMissing) {
-                    cloneRequired = false   // build only certification-tool
-                }
+                appsDecisionList << [
+                    name    : appName,
+                    branch  : branch,
+                    repo    : repo,
+                    missing : appMissing
+                ]
             }
+            if (controllerMissing)
+                cloneRequired = true
 
             platformDecision[platformName] = [
                 controllerMissing : controllerMissing,
-                appsMissing       : !appExists
+                controllerRepo    : controllerRepo,
+                apps              : appsDecisionList
             ]
-        }
-
-        platformsCfg.each { pname, pcfg ->
-            if (!pcfg?.run) return
-
-            if (!pcfg.variants) {
-                checkPlatform(pname, pcfg)
-            } else {
-                pcfg.variants.each { vname, vcfg ->
-                    if (vcfg?.run)
-                        checkPlatform(vname, vcfg)
-                }
-            }
         }
 
         def decision = [
@@ -404,6 +407,52 @@ class commonPipelineLib implements Serializable {
             """
         }
     }
+
+    static void uploadControllerBinary(def steps, Map testConfigs, String platform, String binariesDir) {
+        setupJfrog(steps, testConfigs)
+        def jfRepo = testConfigs.ci_config.jfrog_config.jfrog_repo ?: "matter-binaries"
+        def cloneCfg = testConfigs.ci_config.clone_sdk_code_stage
+        def controllerCfg = cloneCfg.controller_sdk
+        def branch = controllerCfg.branch
+        def sha = controllerCfg.sha
+
+        def basePath =
+            isReleaseBranch(branch)
+            ? "${jfRepo}/releases/${branch}"
+            : "${jfRepo}/branches/${branch}/${sha}"
+
+        def platformCfg = cloneCfg.platforms[platform]
+
+        steps.echo "Uploading controller to ${basePath}"
+
+        steps.sh """
+            jf rt u \
+            "${binariesDir}/controller/*.whl" \
+            "${basePath}/controller/${platformCfg.controller_os}/${platformCfg.controller_type}/" \
+            --flat=true
+        """
+    }
+
+    static void uploadAppBinary(def steps, Map testConfigs, String platform, String binariesDir, String appName, String branch, String sha=null, String tag=null, String pr=null) {
+        setupJfrog(steps, testConfigs)
+        def jfRepo = testConfigs.ci_config.jfrog_config.jfrog_repo ?: "matter-binaries"
+        def effectiveRef = sha ?: tag ?: ( pr ? "PR-${pr}" : branch )
+
+        def basePath =
+            isReleaseBranch(branch)
+            ? "${jfRepo}/releases/${branch}"
+            : "${jfRepo}/branches/${branch}/${sha ?: ''}"
+
+        steps.echo "Uploading app ${appName} → ${basePath}"
+
+        steps.sh """
+            jf rt u \
+            "${binariesDir}/apps/*" \
+            "${basePath}/apps/${appName}/${platform}/" \
+            --flat=true
+        """
+    }
+
 
     static Map resolveBranchSHA(def steps, Map testConfigs) {
         def cloneCfg =testConfigs.ci_config.clone_sdk_code_stage
@@ -546,7 +595,7 @@ class commonPipelineLib implements Serializable {
         }
     }
 
-    static Map RELEASE_DOCKER_MAP = [
+    static Map CERTIFICATION_TOOL_RELEASE_MAP = [
         "v2.14+fall2025" : "ca9d1118e097fe947b2aec1ba84f265d6cf2447e",
         "v2.15-beta2.1+spring2026" : "ead81748828787a656ae05c7d980f908f09ea751",
         "v2.14.1-beta2+winter2026" : "4564cd2e0a0c7059bb99719cfc3de50cefac5d10",
@@ -560,7 +609,7 @@ class commonPipelineLib implements Serializable {
         if (!isReleaseBranch(branch))
             return
 
-        def imageSha = RELEASE_DOCKER_MAP[branch]
+        def imageSha = CERTIFICATION_TOOL_RELEASE_MAP[branch]
         if (!imageSha)
             return
 

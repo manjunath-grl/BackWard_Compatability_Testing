@@ -79,7 +79,7 @@ def extractDockerArtifacts(String imageSha, String baseDir) {
 }
 
 
-def buildAndinstallControllerBinaries(def steps,testConfigs, workSpace, raspiBinariesDir) {
+def buildAndinstallCertBinaries(def steps,testConfigs, workSpace, raspiBinariesDir) {
     boolean buildSuccess = false
     def status = 0
     def WORKDIR = ""
@@ -360,7 +360,6 @@ def buildApps(testConfigs, testCasesList, workSpace, raspiBinariesDir){
 def call(testConfigs, testCasesList) {
     def buildSuccess = true
     def raspiStages = testConfigs.ci_config?.raspi_pipeline?.stages
-    def copyBuildArtifact = testConfigs.ci_config?.copy_build_artifact
     def raspiBinariesDirString = "raspi_binaries"
     def appToTest = "chip-all-clusters-app" //TODO remove this, initializing to test
     def controllerBuildWorkSpace = ''
@@ -368,58 +367,68 @@ def call(testConfigs, testCasesList) {
     def logTransferConfig = testConfigs.execution_log_transfer_config
     def decision = testConfigs.ci_config.artifactDecision
     def raspiDecision = decision.platforms["raspi"]
-    def platformCfg = testConfigs.ci_config.clone_sdk_code_stage.platforms.raspi
-    def appName = platformCfg.app_to_test ?: testConfigs.ci_config.app_to_test
-    def repo = testConfigs?.ci_config?.clone_sdk_code_stage?.controller_sdk_config?.controller_repo
-    def controllerMissing = raspiDecision.controllerMissing
-    // track if we built binaries in this run
-    def controllerBuilt = false
+    def platformCfg =testConfigs.ci_config.clone_sdk_code_stage.platforms.raspi
+    def controllerBranch =testConfigs.ci_config.clone_sdk_code_stage.controller_sdk.branch
+    def controllerRepo =commonPipelineLib.resolveRepo(controllerBranch)
+    def controllerMissing =raspiDecision.controllerMissing
+    def appStorePath = "${raspiBinariesDir}/apps"
+    def binariesStorePath = "${raspiBinariesDir}/controller"
 
-    echo "Controller Repo : ${repo}"
+    def controllerBuilt = false
+    echo "Controller Repo : ${controllerRepo}"
     echo "Controller Missing : ${controllerMissing}"
 
-    //TODO: Not scalable, Fix this code to download cloned code in the above step
-    //if (raspiStages?.build_firmware?.enabled){
-    if (repo == "connectedhomeip" && ( controllerMissing || raspiDecision?.appsMissing) ) {
+    def connectedhomeipAppsMissing =
+        raspiDecision.apps.any {
+            it.missing && it.repo == "connectedhomeip"
+        }
+    def certificationAppsMissing =
+        raspiDecision.apps.any {
+            it.missing && it.repo == "certification-tool"
+        }
+
+    if (controllerMissing || connectedhomeipAppsMissing) {
         stage('Build For Raspi inside Docker') {
             node(raspiStages.build_firmware.node) {
                 try {
-                        def sdkFrmArtifactsResult = RepoUtils.getSDKCodeFromBuildArtifacts(this, raspiBinariesDirString)
-                        if (sdkFrmArtifactsResult.success) {
-                            controllerBuildWorkSpace = sdkFrmArtifactsResult.cntrlBuildWorkSpace
-                            appsBuildWorkSpace = sdkFrmArtifactsResult.appsBuildWorkSpace
-                        }else{
-                            error(" getSDKCodeFromArtifacts failed. Build stopped.")
-                        }
-                        if (repo == "connectedhomeip" && controllerMissing) {
-                        //only runs if it is connectedhomeip repo
-                            def buildCntrlResult = buildController(testConfigs, testCasesList, controllerBuildWorkSpace,raspiBinariesDirString)
-                            if (buildCntrlResult != 0) {
-                                buildSuccess = false
-                                error("Building Controller failed with status ${buildCntrlResult}")
-                            }
-                            controllerBuilt = true
-                        }
-                        if (raspiDecision.appsMissing) {
-                            def buildAppResult = buildApps(testConfigs, testCasesList, appsBuildWorkSpace, raspiBinariesDirString)
-                            if (!buildAppResult.success)
-                                error("Building Apps failed with status ${buildAppResult}")
-                            else {
-                                appToTest = buildAppResult.appToTest
-                                //looks like we need to store appToTest in env to access it parallel block otherwise its having null value
-                                env.appToTest = buildAppResult.appToTest
-                                echo "app to test : ${appToTest}"
-                            }
-                        }
-                        // just get into the parent directory of raspi_binaries and upload it.
-                        ws("${sdkFrmArtifactsResult.workSpaceSDKCopied}") {
-                            //def decision = commonPipelineLib.resolveArtifactAndBuildDecision(this, testConfigs)
-                            commonPipelineLib.uploadPlatformBinaries(this, testConfigs, "raspi", raspiBinariesDirString,raspiDecision.controllerMissing,raspiDecision.appsMissing)
-                        }
-                }catch (Exception e) {
+                    def sdkFrmArtifactsResult =RepoUtils.getSDKCodeFromBuildArtifacts(this,raspiBinariesDirString)
+                    if (!sdkFrmArtifactsResult.success)
+                        error("SDK artifact retrieval failed")
+                    controllerBuildWorkSpace = sdkFrmArtifactsResult.cntrlBuildWorkSpace
+                    appsBuildWorkSpace = sdkFrmArtifactsResult.appsBuildWorkSpace
+
+                    //BUILD CONTROLLER (connectedhomeip only)
+
+                    if (controllerRepo == "connectedhomeip" && controllerMissing ) {
+                        def buildCntrlResult =buildController(testConfigs,testCasesList,controllerBuildWorkSpace,binariesStorePath)
+                        if (buildCntrlResult != 0)
+                            error("Controller build failed")
+
+                        controllerBuilt = true
+                        commonPipelineLib.uploadControllerBinary(this,testConfigs,"raspi",binariesStorePath)
+                    }
+
+                    //BUILD APPS (connectedhomeip only)
+                    raspiDecision.apps.each { app ->
+                        if (!app.missing)
+                            return
+                        if (app.repo != "connectedhomeip")
+                            return
+                        echo "Building connectedhomeip app: ${app.name}"
+
+                        RepoUtils.checkoutGitReference(this,appsBuildWorkSpace,app.branch,app.sha,app.tag,app.pr)
+                        def buildAppResult =buildApps(testConfigs,testCasesList,appsBuildWorkSpace,appStorePath,app.name)
+
+                        if (!buildAppResult.success)
+                            error("App build failed: ${app.name}")
+
+                        commonPipelineLib.uploadAppBinary(this,testConfigs,"raspi",appStorePath,app.name,app.branch)
+                    }
+
+                } catch (Exception e) {
                     buildSuccess = false
-                    echo "Error occurred during 'Build For Raspi inside Docker' stage: ${e.getMessage()}"
-                    error("Pipeline failed in 'Build For Raspi inside Docker' stage.")
+                    echo "Docker build stage failed: ${e.getMessage()}"
+                    error("Pipeline failed during docker build stage")
                 }
             }
         }
@@ -431,93 +440,143 @@ def call(testConfigs, testCasesList) {
             def deviceNode = ''
             def deviceNodeIPAddress = ''
             def deviceWorkSpace = ''
+            def controllerBranch =testConfigs.ci_config.clone_sdk_code_stage.controller_sdk.branch
+            def controllerRepo =commonPipelineLib.resolveRepo(controllerBranch)
+            def certificationControllerMissing = controllerRepo == "certification-tool" && raspiDecision.controllerMissing
+
+            def certificationAppsMissing =
+                raspiDecision.apps.any {
+                    it.missing && it.repo == "certification-tool"
+                }
+
             echo """
-            Repo: ${repo}
-            Binary Missing: ${controllerMissing}
-            Built in pipeline: ${controllerBuilt}
+            Controller Repo: ${controllerRepo}
+            Controller Missing: ${raspiDecision.controllerMissing}
+            Certification Apps Missing: ${certificationAppsMissing}
+            Controller Built Earlier: ${controllerBuilt}
             """
 
-            stage ('Get nodes of controller and device raspi') {
-                def result = RaspiPipelineLib.getCntrlDeviceRaspiNodes(this, "On-Network", testConfigs)
+            //Allocate Raspi Nodes
+
+            stage('Get nodes of controller and device raspi') {
+                def result = RaspiPipelineLib.getCntrlDeviceRaspiNodes(this,"On-Network",testConfigs)
+
                 if (!result.success)
-                    error("Get nodes of controller and device raspi failed for on-network")
-                else {
-                    cntrlNode = result.nodesAllocated["controllerNode"]
-                    deviceNode = result.nodesAllocated["deviceNode"]
-                }
+                    error("Get nodes of controller and device raspi failed")
+
+                cntrlNode = result.nodesAllocated["controllerNode"]
+                deviceNode = result.nodesAllocated["deviceNode"]
             }
-            //Runs only if it is certification-tool repo
-            //if (testConfigs?.ci_config?.clone_sdk_code_stage?.controller_sdk_config?.controller_repo == "certification-tool" && !raspiDecision.controllerMissing){
-            if (repo == "certification-tool" && controllerMissing) {
-                stage ('Build and Install CTRL binaries into RASPI_CONTROLLER_NODE'){
-                    node("${cntrlNode}"){
-                        controllerBuildWorkSpace = "${env.WORKSPACE}/controller_sdk"
-                        echo "Controller build work space : ${controllerBuildWorkSpace}"
-                        def result = buildAndinstallControllerBinaries(this,testConfigs, controllerBuildWorkSpace, raspiBinariesDirString)
+
+
+            //Certification-tool build (controller + apps)
+            if (controllerRepo == "certification-tool" && raspiDecision.controllerMissing ) {
+                stage('Build certification-tool controller binaries') {
+
+                    node("${cntrlNode}") {
+                        controllerBuildWorkSpace ="${env.WORKSPACE}/controller_sdk"
+                        echo "Building certification-tool controller"
+                        def result = buildAndinstallCertBinaries(this, testConfigs, controllerBuildWorkSpace, raspiBinariesDirString, "CTRL")
                         if (!result.success)
-                            error("Copy and install binaries into RASPI_CONTROLLER_NODE failed")
-                        else
-                            cntlWorkSpace = result.cntrlWorksSpace
+                            error("Certification-tool controller build failed")
+
+                        cntlWorkSpace = result.cntrlWorksSpace
                     }
                 }
             }
-            if (!controllerMissing || controllerBuilt){
-                stage ('Copy and install binaries into RASPI_CONTROLLER_NODE'){
-                    node("${cntrlNode}"){
-                        def result = commonPipelineLib.installControllerBinaries(this, testConfigs, "raspi", raspiBinariesDirString)
+
+            //Build certification-tool accessories (loop)
+            raspiDecision.apps.each { app ->
+
+                if (!app.missing)
+                    return
+
+                if (app.repo != "certification-tool")
+                    return
+
+                stage("Build certification-tool app: ${app.name}") {
+                    node("${cntrlNode}") {
+                        deviceBuildWorkSpace ="${env.WORKSPACE}/controller_sdk"
+                        echo "Building certification-tool accessory: ${app.name}"
+                        def result = buildAndinstallCertBinaries(this, testConfigs, deviceBuildWorkSpace, raspiBinariesDirString, "DUT" )
                         if (!result.success)
-                            error("Copy and install binaries into RASPI_CONTROLLER_NODE failed")
-                        else
-                            cntlWorkSpace = result.cntrlWorksSpace
+                            error("Certification-tool app build failed: ${app.name}")
                     }
                 }
             }
-            stage ('Copy and install binaries into DEVICE_NODE'){
-                def result = RaspiPipelineLib.installDeviceBinaries(this, testConfigs, deviceNode, "On-Network")
-                if (!result.success)
-                    error("Copy and install binaries into ON_NETWORK_DEVICE_NODE failed ")
-                else {
+
+            //Install controller binaries
+            if (!raspiDecision.controllerMissing ||controllerBuilt) {
+                stage('Install controller binaries into controller node') {
+
+                    node("${cntrlNode}") {
+                        def result = commonPipelineLib.installControllerBinaries(this,testConfigs,"raspi",raspiBinariesDirString)
+                        if (!result.success)
+                            error("Controller install failed")
+
+                        cntlWorkSpace =result.cntrlWorksSpace
+                    }
+                }
+            }
+
+            //Install ALL DUT binaries after ALL builds complete
+            stage('Install DUT binaries into DEVICE_NODE') {
+
+                node("${deviceNode}") {
+                    raspiDecision.apps.each { app ->
+                        echo "Installing device binary: ${app.name}"
+
+                        def result = RaspiPipelineLib.installDeviceBinaries(this,testConfigs,deviceNode,"On-Network",app.name,app.branch)
+
+                        if (!result.success)
+                            error("Device binary install failed: ${app.name}")
+
                         deviceNodeIPAddress = result.deviceIPAddress
                         deviceWorkSpace = result.deviceWorksSpace
-                        // if (copyBuildArtifact.enabled && !raspiStages.build_firmware.enabled) {
-                        //     env.appToTest = result.appToTest
-                        //     testConfigs = result.updatedTestConfig
-                        //     echo "Updated testConfigs : ${testConfigs}"
-                        // }
                     }
-            }
-            stage ('Run Tests on ON_NETWORK_RASPI_CONTROLLER_NODE') {
-                echo "Run Tests"
-                node (cntrlNode) {
-                    echo "controller workspace is : ${cntlWorkSpace}"
-                    def localTestParams = RaspiPipelineLib.initRaspiOnNetworkTestParams(this, testConfigs, cntlWorkSpace, deviceWorkSpace, deviceNodeIPAddress, "chip-${appName}")
-                    def raspi_onnetwork = new RunTests()
-                    def runnerConfigYaml = localTestParams
-                    def mergedYaml = writeYaml(returnText: true, data: runnerConfigYaml)
-                    writeFile(file: "${cntlWorkSpace}/runnerConfig.yaml",text: mergedYaml)
-                    raspi_onnetwork.runTests(this, cntlWorkSpace, "${cntlWorkSpace}/runnerConfig.yaml", "${cntlWorkSpace}/Log_path")
-                    //raspi_onnetwork.runTests(this, cntlWorkSpace, "${cntlWorkSpace}/runner_config.yaml", "${cntlWorkSpace}/Log_path")
                 }
             }
-            if (logTransferConfig?.enableLogsTransfer && logTransferConfig?.storageServerNode && logTransferConfig?.storageServerPath) {
-                stage ('Transfer Logs to server storage') {
-                    def verifySucessTransfer = commonPipelineLib.transferLogsToStorageServer(
-                        this,
-                        [
-                            nodeName: cntrlNode,
-                            storageServerNode: logTransferConfig.storageServerNode,
-                            storageServerPath: logTransferConfig.storageServerPath,
-                            jobName: env.JOB_NAME,
-                            buildId: env.BUILD_ID,
-                            logType: "RASPI-ON-NETWORK"
-                        ],
-                        logTransferConfig
+            //Run Tests
+            stage('Run Tests on ON_NETWORK_RASPI_CONTROLLER_NODE') {
+
+                node(cntrlNode) {
+                    echo "controller workspace: ${cntlWorkSpace}"
+                    def primaryApp = raspiDecision.apps.find { !it.missing }?.name ?: raspiDecision.apps[0].name
+                    def localTestParams = RaspiPipelineLib.initRaspiOnNetworkTestParams(this,testConfigs,cntlWorkSpace,deviceWorkSpace,deviceNodeIPAddress,"chip-${primaryApp}")
+                    def raspi_onnetwork = new RunTests()
+                    def runnerConfigYaml = localTestParams
+                    def mergedYaml =writeYaml(returnText: true,data: runnerConfigYaml)
+                    writeFile(
+                        file: "${cntlWorkSpace}/runnerConfig.yaml",
+                        text: mergedYaml
                     )
-                    if (!verifySucessTransfer.success) {
-                        error "Log transfer to the storage server failed after retries. Logs are still at: ${verifySucessTransfer.location}"
-                    } else {
-                                echo "Log transfer to the storage server completed successfully at: ${verifySucessTransfer.location}"
-                    }
+                    raspi_onnetwork.runTests(this,cntlWorkSpace,"${cntlWorkSpace}/runnerConfig.yaml","${cntlWorkSpace}/Log_path")
+                }
+            }
+
+            //Transfer logs
+            if (logTransferConfig?.enableLogsTransfer &&logTransferConfig?.storageServerNode &&logTransferConfig?.storageServerPath) {
+                stage('Transfer Logs to server storage') {
+                    def verifySucessTransfer =commonPipelineLib.transferLogsToStorageServer(
+                            this,
+                            [
+                                nodeName: cntrlNode,
+                                storageServerNode:
+                                    logTransferConfig.storageServerNode,
+                                storageServerPath:
+                                    logTransferConfig.storageServerPath,
+                                jobName: env.JOB_NAME,
+                                buildId: env.BUILD_ID,
+                                logType: "RASPI-ON-NETWORK"
+                            ],
+                            logTransferConfig
+                        )
+                    if (!verifySucessTransfer.success)
+                        error(
+                            "Log transfer failed. Logs remain at: " +
+                            verifySucessTransfer.location
+                        )
+                    echo "Logs transferred successfully: ${verifySucessTransfer.location}"
                 }
             }
         }

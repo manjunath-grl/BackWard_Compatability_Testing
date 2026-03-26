@@ -2,92 +2,76 @@
 import com.matterci.pipelineLib.ConfigLoader
 import com.matterci.pipelineLib.commonPipelineLib
 
-/**
- * Main Jenkins pipeline for Matter QA testing across platforms (Raspi, Nordic, Silabs).
- * Handles configuration loading, parallel test execution, and artifact management.
- */
-
 node {
     properties([
         parameters([
-            string(name: 'ci_config_file', defaultValue: '~/jenkins-config/ci_config.yaml', description: 'Path to CI configuration YAML file'),
-            string(name: 'test_run_config_file', defaultValue: '~/jenkins-config/test_run_config.yaml', description: 'Path to Test Run configuration YAML file'),
+            string(name: 'ci_config_file',defaultValue: '~/jenkins-config/ci_config.yaml',description: 'Path to CI configuration YAML file'),
+            string(name: 'test_run_config_file',defaultValue: '~/jenkins-config/test_run_config.yaml',description: 'Path to Test Run configuration YAML file'),
         ])
     ])
-    // Override config file paths if provided in environmental variables
+
     script {
         env.ci_config_file = env.INJECTED_CI_CONFIG_FILE ?: params.ci_config_file
         env.test_run_config_file = env.INJECTED_TEST_RUN_CONFIG_FILE ?: params.test_run_config_file
-
         echo "Using CI config file path: ${env.ci_config_file}"
         echo "Using Test run config file path: ${env.test_run_config_file}"
     }
 
-    // Load configuration using two config files
     def testConfigs = ConfigLoader.loadMergedConfig(this)
-
-    def testCasesList = [] //ConfigLoader.getTestCaseList(testConfigs)
+    def testCasesList = []
     echo "Loaded test cases: ${testCasesList}"
-
-    //assign these before starting the test so that python runner has this info to store in DB.
-
     commonPipelineLib.setupJfrog(this, testConfigs)
-
-    // Resolve SHA automatically
-    testConfigs = commonPipelineLib.resolveBranchSHA(this, testConfigs)
-
+    testConfigs =commonPipelineLib.resolveBranchSHA(this, testConfigs)
     commonPipelineLib.validateSdkConfig(this, testConfigs)
     commonPipelineLib.overrideDockerImageForRelease(testConfigs)
 
-    // Resolve artifact decision
-    def decision = commonPipelineLib.resolveArtifactAndBuildDecision(this, testConfigs)
+    //Artifact Decision Engine
 
-    // Store inside config (GLOBAL ACCESS)
+    def decision =commonPipelineLib.resolveArtifactAndBuildDecision(this, testConfigs)
     testConfigs.ci_config.artifactDecision = decision
 
-    // Compute cloneRequired dynamically
-    decision.cloneRequired = decision.platforms.values().any {
-            it.controllerMissing || it.appsMissing
+    //Clone Decision Logic
+    def controllerBranch = testConfigs.ci_config.clone_sdk_code_stage.controller_sdk.branch
+    def controllerRepo = commonPipelineLib.resolveRepo(controllerBranch)
+
+    //Detect controller clone requirement
+    def controllerCloneRequired = decision.platforms.values().any { it.controllerMissing }
+
+    //Detect connectedhomeip apps clone requirement
+    def connectedhomeipAppsCloneRequired = decision.platforms.values().any { platform ->
+        platform.apps.any { app ->
+            app.missing &&
+            app.repo == "connectedhomeip"
         }
+    }
 
-    def repo = testConfigs.ci_config.clone_sdk_code_stage.controller_sdk_config.controller_repo
+    //Detect certification-tool apps build requirement
+    def certificationToolAppsMissing = decision.platforms.values().any { platform ->
+        platform.apps.any { app ->
+            app.missing &&
+            app.repo == "certification-tool"
+        }
+    }
 
-    if (repo == "connectedhomeip" && decision.cloneRequired) {
-        echo "Cloning SDK for connectedhomeip"
+    //Execute SDK clone ONLY when required
+    if (controllerCloneRequired || connectedhomeipAppsCloneRequired) {
+        echo "Cloning connectedhomeip SDK (required)"
         testConfigs = cloneRepo(testConfigs, decision)
     }
 
-    if (repo == "certification-tool") {
-        echo "Skipping SDK clone for certification-tool"
+    if (certificationToolAppsMissing) {
+        echo "Certification-tool accessories will be built later"
     }
-    //store the configs in the env after updating with SDK SHA
     env.testConfigs = testConfigs
-
-    // PLATFORM EXECUTION (dynamic)
+    //Platform Execution
     def platforms = testConfigs.ci_config.clone_sdk_code_stage.platforms
 
     platforms.each { platformName, cfg ->
-
-        if (!cfg.run) return
+        if (!cfg.run)
+            return
 
         if (platformName == "raspi") {
             raspiPipeline(testConfigs, testCasesList)
-        }
-
-        if (platformName == "nordic") {
-            nordicPipeline(testConfigs, testCasesList)
-        }
-
-        if (platformName == "silabs") {
-            silabsPipeline(testConfigs, testCasesList)
-        }
-
-        if (platformName == "esp32" && cfg.variants) {
-            cfg.variants.each { variantName, vcfg ->
-                if (vcfg.run) {
-                    espPipeline(testConfigs, testCasesList, variantName)
-                }
-            }
         }
     }
 }

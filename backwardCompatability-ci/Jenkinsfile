@@ -1,4 +1,4 @@
-@Library('jenkins-ci-lib') _
+@Library('backwardCompatibility-ci-lib') _
 import com.matterci.pipelineLib.ConfigLoader
 import com.matterci.pipelineLib.commonPipelineLib
 

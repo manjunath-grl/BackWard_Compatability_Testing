@@ -8,50 +8,31 @@ import groovy.json.*
 
 class commonPipelineLib implements Serializable {
 
-    static Map installControllerBinaries(def steps, Map testConfigs, String platform, String ctrlBinariesDir) {
-
+    static Map installControllerBinaries(def steps,Map testConfigs,String platform,String ctrlBinariesDir) {
         def copyArtifactsSuccess = true
         def controllerBinariesWorkspace = "${steps.env.WORKSPACE}/${steps.env.BUILD_NUMBER}/copied_controller_binaries"
-        def copyBuildArtifact = testConfigs.ci_config?.copy_build_artifact
-        def repoName = testConfigs.ci_config?.jfrog_config.jfrog_repo_name ?: "Jenkins-Binaries"
-        def projectName = steps.env.JOB_NAME
-        def buildNumber = steps.env.BUILD_NUMBER
-        def platformStages = ""
-
-        // -------- Platform Validation --------
-        switch (ctrlBinariesDir) {
-            case "raspi_binaries":
-                platformStages = testConfigs.ci_config.raspi_pipeline.stages
-                break
-            default:
-                steps.error("Invalid ctrlBinariesDir: ${ctrlBinariesDir}. Must be 'raspi_binaries'")
-        }
-
-        // -------- Handle copy_build_artifact --------
-        // if (copyBuildArtifact?.enabled && !platformStages.build_firmware.enabled) {
-        //     if (!copyBuildArtifact?.job_name || !copyBuildArtifact?.build_number) {
-        //         steps.error("copy_build_artifact enabled but job_name/build_number missing")
-        //     }
-
-        //     projectName = copyBuildArtifact.job_name
-        //     buildNumber = copyBuildArtifact.build_number
-        //     steps.echo "Using configured job: ${projectName}"
-        //     steps.echo "Using configured build: ${buildNumber}"
-        // }
+        def controllerCfg = testConfigs.ci_config.clone_sdk_code_stage.controller_sdk
+        def branch = controllerCfg.branch
+        def sha = controllerCfg.sha
+        def tag = controllerCfg.tag
+        def pr = controllerCfg.pr
 
         steps.timeout(time: 60, unit: 'MINUTES') {
             try {
                 def hostname = steps.sh(script: "hostname", returnStdout: true).trim()
-                steps.echo "Hostname is: ${hostname}"
-                steps.echo "Controller binaries workspace: ${controllerBinariesWorkspace}"
+                steps.echo "Hostname: ${hostname}"
+                steps.echo("Controller binaries workspace: ${controllerBinariesWorkspace}")
 
-                steps.ws("${controllerBinariesWorkspace}") {
+                steps.ws(controllerBinariesWorkspace) {
                     setupJfrog(steps, testConfigs)
-                    def basePath = commonPipelineLib.getResolvedArtifactBasePath(testConfigs, "controller")
+                    /*
+                    Resolve correct JFrog base path
+                    */
+                    def basePath = commonPipelineLib.getResolvedArtifactBasePath(testConfigs,"controller",branch,sha,tag,pr)
                     def platformCfg = testConfigs.ci_config.clone_sdk_code_stage.platforms[platform]
                     def controllerPath = "${basePath}/controller/${platformCfg.controller_os}/${platformCfg.controller_type}/"
 
-                    steps.echo "Downloading Controller from ${controllerPath}"
+                    steps.echo("Downloading controller binaries from: ${controllerPath}")
                     steps.sh """
                         set -e
                         jf rt dl \
@@ -60,30 +41,40 @@ class commonPipelineLib implements Serializable {
                         --flat=true \
                         --insecure-tls=true
                     """
+                    /*
+                    Validate download success
+                    */
+                    def wheelCount =
+                        steps.sh(
+                            script: """
+                                cd ${ctrlBinariesDir}
+                                ls *.whl 2>/dev/null | wc -l
+                            """,
+                            returnStdout: true
+                        ).trim()
 
-                    def count = steps.sh(
-                        script: "cd ${ctrlBinariesDir} && ls *.whl 2>/dev/null | wc -l",
-                        returnStdout: true
-                    ).trim()
-
-                    if (count == "0")
+                    if (wheelCount == "0") {
                         steps.error("No controller wheel files found in ${controllerPath}")
-
-                    steps.echo "Controller binaries downloaded"
-                    // -------- Continue Existing Logic --------
+                    }
+                    steps.echo("Controller binaries successfully downloaded")
+                    /*
+                    Clone Matter-QA repo for test execution environment
+                    */
                     def status = RepoUtils.cloneMatterQARepo(steps,testConfigs,"main",controllerBinariesWorkspace,ctrlBinariesDir)
 
                     if (status != 0) {
                         copyArtifactsSuccess = false
-                        steps.echo("Error during cloneMatterQARepo execution.")
+                        steps.echo(
+                            "cloneMatterQARepo execution failed"
+                        )
                     }
                 }
-
-            } catch (Exception e) {
-                copyArtifactsSuccess = false
-                steps.echo "Error in 'installControllerBinaries': ${e.getMessage()}"
             }
-            return [success: copyArtifactsSuccess, cntrlWorksSpace: "${controllerBinariesWorkspace}"]
+            catch (Exception e) {
+                copyArtifactsSuccess = false
+                steps.echo("Error in installControllerBinaries(): ${e.getMessage()}")
+            }
+            return [success: copyArtifactsSuccess,cntrlWorksSpace: controllerBinariesWorkspace]
         }
     }
 
@@ -271,11 +262,9 @@ class commonPipelineLib implements Serializable {
         if (!branch)
             return "connectedhomeip"
 
-        // highest priority rule
         if (CERTIFICATION_TOOL_RELEASE_MAP.containsKey(branch)) {
             return "certification-tool"
         }
-        // fallback rule
         return "connectedhomeip"
     }
     
@@ -519,27 +508,40 @@ class commonPipelineLib implements Serializable {
         return status == 0
     }
 
-    static String getResolvedArtifactBasePath(Map testConfigs, String component) {
+    static String getResolvedArtifactBasePath(Map testConfigs,String component,String branch = null,String sha = null,String tag = null,String pr = null) {
         def jfRepo = testConfigs.ci_config.jfrog_config.jfrog_repo ?: "matter-binaries"
         def cloneCfg = testConfigs.ci_config.clone_sdk_code_stage
-        def branch
-        def sha
-        if (component == "controller") {
-            branch = cloneCfg.controller_sdk_config.branch
-            sha    = cloneCfg.controller_sdk_config.sha
+        /*
+        Resolve branch + SHA depending on component
+        */
+        if (!branch) {
+            if (component == "controller") {
+                branch = cloneCfg.controller_sdk.branch
+                sha    = cloneCfg.controller_sdk.sha
+            }
+            else if (component == "apps") {
+                throw new IllegalArgumentException(
+                    "Apps component requires branch parameter for multi-accessory support"
+                )
+            }
+            else {
+                throw new IllegalArgumentException(
+                    "Invalid component: ${component}"
+                )
+            }
         }
-        else if (component == "apps") {
-            branch = cloneCfg.apps_sdk_config.branch
-            sha    = cloneCfg.apps_sdk_config.sha
-        }
-        else {
-            throw new IllegalArgumentException("Invalid component: ${component}")
-        }
+        /*
+        Release branch handling
+        */
         if (isReleaseBranch(branch)) {
+
             return "${jfRepo}/releases/${branch}"
         }
-
-        return "${jfRepo}/branches/${branch}/${sha}"
+        /*
+        SHA resolution fallback logic
+        */
+        def effectiveRef =sha ?: tag ?: (pr ? "PR-${pr}" : branch)
+        return "${jfRepo}/branches/${branch}/${effectiveRef}"
     }
 
     static boolean jfrogPathExists(def steps, String path) {
@@ -617,5 +619,20 @@ class commonPipelineLib implements Serializable {
         if (raspiStages?.build_firmware) {
             raspiStages.build_firmware.chip_cert_bins = imageSha
         }
+    }
+
+    static String resolveCertDockerSha(Map testConfigs) {
+        def controllerBranch = testConfigs.ci_config.clone_sdk_code_stage.controller_sdk.branch
+        def raspiStages = testConfigs.ci_config.raspi_pipeline?.stages
+
+        if (CERTIFICATION_TOOL_RELEASE_MAP.containsKey(controllerBranch)) {
+            return CERTIFICATION_TOOL_RELEASE_MAP[controllerBranch]
+        }
+        def fallbackSha = raspiStages?.build_firmware?.chip_cert_bins
+
+        if (fallbackSha) {
+            return fallbackSha
+        }
+        throw new IllegalStateException("Unable to resolve chip-cert-bins docker image SHA for branch: ${controllerBranch}")
     }
 }

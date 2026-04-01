@@ -125,80 +125,86 @@ class RaspiPipelineLib implements Serializable {
         return [success: getNodesAssigned, nodesAllocated: allocatedNodes]
     }
 
-    static installDeviceBinaries(def steps, Map testConfigs, String nodeName, String stageName){
-        def copyArtifactsSuccess = true
-        def raspiStages = testConfigs.ci_config.raspi_pipeline.stages
-        def copyBuildArtifact = testConfigs.ci_config.copy_build_artifact
-        def projectName= steps.env.JOB_NAME
-        def BUILD_NUMBER = steps.env.BUILD_NUMBER
-        def appToTest = testConfigs.ci_config.clone_sdk_code_stage.platforms.raspi.app_to_test
-        // if ( copyBuildArtifact.enabled && !raspiStages.build_firmware.enabled) {
-        //     projectName = copyBuildArtifact.job_name
-        //     BUILD_NUMBER = copyBuildArtifact.build_number
-        // }
+    static installDeviceBinaries(def steps,Map testConfigs,String nodeName,String stageName) {
 
+        def copyArtifactsSuccess = true
         steps.node(nodeName) {
-            def deviceIP=''
-            def deviceRaspiWorkspace
+            def deviceIP = ''
+            def deviceRaspiWorkspace = ''
             commonPipelineLib.setupJfrog(steps, testConfigs)
             steps.timeout(time: 60, unit: 'MINUTES') {
                 try {
                     steps.echo "Running on device node: ${nodeName}"
-                    def hostname = steps.sh(script: "hostname", returnStdout: true).trim()
-                    steps.echo "Hostname is: ${hostname}"
+                    def hostname = steps.sh(
+                        script: "hostname",
+                        returnStdout: true
+                    ).trim()
+                    deviceIP = steps.sh(
+                        script: "hostname -I | awk '{print \$1}'",
+                        returnStdout: true
+                    ).trim()
 
-                    deviceIP = steps.sh(script: "hostname -I | awk '{print \$1}'", returnStdout: true).trim()
-                    steps.echo "${stageName} Node Device IP: ${deviceIP}"
+                    steps.echo "${stageName} Device IP: ${deviceIP}"
                     deviceRaspiWorkspace = "${steps.env.WORKSPACE}/${steps.env.BUILD_NUMBER}/copied_device_binaries"
 
-                    steps.sh 'rm -rf /tmp/chip*'
-                    steps.sleep 2
-                    steps.echo "raspi workspace on device node is ${deviceRaspiWorkspace}"
-                    steps.ws("${deviceRaspiWorkspace}") {
-                        //commonPipelineLib.setupJfrog(steps, testConfigs)
-                        def basePath = commonPipelineLib.getResolvedArtifactBasePath(testConfigs, "apps")
-                        def platformCfg = testConfigs.ci_config.clone_sdk_code_stage.platforms.raspi
-                        def appName = platformCfg.apps[] ?: testConfigs.ci_config.app_to_test
-                        def appPath ="${basePath}/apps/${appName}/raspi/"
+                    steps.echo "Device workspace: ${deviceRaspiWorkspace}"
+                    def raspiDecision = testConfigs.ci_config.artifactDecision.platforms.raspi
+                    steps.ws(deviceRaspiWorkspace) {
+                        raspiDecision.apps.each { app ->
+                            steps.echo "Downloading binary: ${app.name}"
 
-                        steps.echo "Downloading App binaries from ${appPath}"
-                        steps.sh """
-                            set -e
-                            jf rt dl \
-                            "${appPath}*" \
-                            "./" \
-                            --flat=true \
-                            --insecure-tls=true
-                            chmod +x * || true
-                        """
-                        def chipBinaryCount = steps.sh(
-                            script: "ls chip-${appName}* 2>/dev/null | wc -l",
-                            returnStdout: true
-                        ).trim()
+                            def basePath =commonPipelineLib.getResolvedArtifactBasePath(testConfigs,"apps",app.branch,app.sha,app.tag,app.pr)
+                            def jfrogPath = "${basePath}/apps/${app.name}/raspi/*"
 
-                        if (chipBinaryCount == "0")
-                            steps.error("App binary missing for raspi")
+                            steps.echo "JFrog path: ${jfrogPath}"
 
-                        steps.echo "App binaries downloaded"
+                            steps.dir(deviceRaspiWorkspace) {
+                                steps.sh """
+                                    set -e
+                                    jf rt dl \
+                                    "${jfrogPath}" \
+                                    "./" \
+                                    --flat=true \
+                                    --insecure-tls=true
 
-                        // if ( copyBuildArtifact.enabled && !raspiStages.build_firmware.enabled) {
-                        //     def configData = steps.readYaml(file: "UpdatedTestConfig.yaml")
-                        //     def selectedApp = configData?.ci_config.app_to_test ?: testConfigs.ci_config.app_to_test
-                        //     appToTest = "chip-${selectedApp}"
-                        //     steps.echo "App to test updated from copied config: ${appToTest}"
-                        //     //Update controller/apps sdk sha from Previous job yaml file
-                        //     testConfigs.ci_config.apps_sdk_sha = configData?.ci_config.apps_sdk_sha
-                        //     testConfigs.ci_config.controller_sdk_sha = configData?.ci_config.controller_sdk_sha
-                        // }
+                                    chmod +x * || true
+                                """
+                            }
+
+                            def binaryCount = steps.sh(
+                                script: """
+                                    ls ${deviceRaspiWorkspace}/chip-${app.name}* \
+                                    2>/dev/null | wc -l
+                                """,
+                                returnStdout: true
+                            ).trim()
+
+                            if (binaryCount == "0") {
+                                steps.error(
+                                    "Binary missing for ${app.name}"
+                                )
+                            }
+                            steps.echo(
+                                "Downloaded binary for ${app.name}"
+                            )
+                        }
                     }
-                }catch (Exception e) {
-                    copyArtifactsSuccess = false
-                    steps.echo "Error occurred during 'Copy and install binaries into ON_NETWORK_DEVICE_NODE' stage: ${e.getMessage()}"
+
                 }
-                return [success: copyArtifactsSuccess, deviceWorksSpace: "${deviceRaspiWorkspace}", deviceIPAddress: "${deviceIP}", appToTest: "${appToTest}", updatedTestConfig: testConfigs]
+                catch (Exception e) {
+                    copyArtifactsSuccess = false
+                    steps.echo(
+                        "Device binary install failure: ${e.getMessage()}"
+                    )
+                }
+                return [
+                    success: copyArtifactsSuccess,
+                    deviceWorksSpace: deviceRaspiWorkspace,
+                    deviceIPAddress: deviceIP,
+                    updatedTestConfig: testConfigs
+                ]
             }
         }
-
     }
 
     static Map initRaspiOnNetworkTestParams(def steps,Map testConfigs,String cntrlWorkSpace, String deviceWorkSpace, String deviceNodeIPAddress, String appToTest) {

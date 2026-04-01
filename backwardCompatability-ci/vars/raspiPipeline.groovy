@@ -24,156 +24,120 @@ def waitForNodeAfterReboot(int timeoutMinutes = 10) {
             }
         }
     }
-
     echo "Node is back online"
 }
 
 
-def extractDockerArtifacts(String imageSha, String baseDir) {
+def extractDockerArtifacts(def steps, String imageSha, String certBinariesWorkspace) {
+    def containerName = "chip-cert-temp"
+    try {
 
-    sh """
-    set -ex
+        sh """
+            set -ex
+            BASE_DIR="${certBinariesWorkspace}/controller"
+            echo "Preparing controller artifact directory: \$BASE_DIR"
+            docker rm -f ${containerName} || true
 
-    CONTAINER=chip-cert-temp
-    BASE_DIR="\$HOME/${baseDir}/controller"
+            rm -rf "\$BASE_DIR"
+            mkdir -p "\$BASE_DIR"
+            mkdir -p "\$BASE_DIR/python_scripts"
+            echo "Launching chip-cert-bins:${imageSha}"
 
-    # Remove container if it already exists (idempotent)
-    docker rm -f \$CONTAINER || true
+            docker run --name ${containerName} -dit \
+                connectedhomeip/chip-cert-bins:${imageSha} bash
 
-    # Clean existing dirs
-    rm -rf "\$BASE_DIR"
-
-    # Re-create clean directories
-    mkdir -p "\$BASE_DIR"
-    mkdir -p "\$BASE_DIR/python_scripts"
-
-    # Run container
-    docker run --name \$CONTAINER -dit \
-      connectedhomeip/chip-cert-bins:${imageSha} bash
-
-    # Copy controller wheels
-    docker cp \$CONTAINER:/root/python_lib/controller/python/. \
-      "\$BASE_DIR/" || true
-
-    # Copy matter-testing wheels
-    docker cp \$CONTAINER:/root/python_lib/obj/src/python_testing/matter_testing_infrastructure/matter-testing._build_wheel/. \
-      "\$BASE_DIR/" || true
-
-    # Copy YAML wheels
-    docker cp \$CONTAINER:/root/python_lib/python/obj/scripts/py_matter_idl/matter-idl._build_wheel/. \
-      "\$BASE_DIR/" || true
-
-    docker cp \$CONTAINER:/root/python_lib/python/obj/scripts/py_matter_yamltests/matter-yamltests._build_wheel/. \
-      "\$BASE_DIR/" || true
-    
-    docker cp \$CONTAINER:/root/python_lib/obj/scripts/matter_yamltests_distribution._build_wheel. \
-      "\$BASE_DIR/" || true
-
-    # Copy python_testing scripts
-    docker cp \$CONTAINER:/root/python_testing/scripts/sdk/. \
-      "\$BASE_DIR/python_scripts/" || true
-
-    # Cleanup
-    docker rm -f \$CONTAINER || true
-    """
+            echo "Copying controller wheels"
+            docker cp ${containerName}:/root/python_lib/controller/python/. "\$BASE_DIR/" || true
+            docker cp ${containerName}:/root/python_lib/obj/src/python_testing/matter_testing_infrastructure/matter-testing._build_wheel/. "\$BASE_DIR/" || true
+            docker cp ${containerName}:/root/python_lib/python/obj/scripts/py_matter_idl/matter-idl._build_wheel/. "\$BASE_DIR/" || true
+            docker cp ${containerName}:/root/python_lib/python/obj/scripts/py_matter_yamltests/matter-yamltests._build_wheel/. "\$BASE_DIR/" || true
+            docker cp ${containerName}:/root/python_lib/obj/scripts/matter_yamltests_distribution._build_wheel/. "\$BASE_DIR/" || true
+            docker cp ${containerName}:/root/python_testing/scripts/sdk/. "\$BASE_DIR/python_scripts/" || true
+            docker rm -f ${containerName} || true
+        """
+        steps.echo "Docker artifact extraction successful"
+    }
+    catch (Exception e) {
+        steps.echo("Docker artifact extraction failed: ${e.getMessage()}")
+        steps.error("Failed extracting controller artifacts from chip-cert-bins:${imageSha}")
+    }
 }
 
 
-def buildAndinstallCertBinaries(def steps,testConfigs, workSpace, raspiBinariesDir) {
+def buildAndinstallCertBinaries(def steps,Map testConfigs,String workSpace,String raspiBinariesDir,String artifactType,Map appConfig = null) {
     boolean buildSuccess = false
     def status = 0
-    def WORKDIR = ""
     def homedir = ""
+    def raspiStages = testConfigs.ci_config?.raspi_pipeline?.stages
+    def controllerCfg = testConfigs.ci_config?.clone_sdk_code_stage?.controller_sdk
 
-    stage('build controller on raspi') {
+    def repoUrl = controllerCfg?.repoUrl ?: "git@github.com:project-chip/certification-tool.git"
+    def branch  = controllerCfg?.branch
 
-        def raspiStages = testConfigs.ci_config?.raspi_pipeline?.stages
-        echo "raspiStages : ${raspiStages}"
-        def isFreshInstall = raspiStages?.build_firmware?.fresh_install ?: false
-        echo "isFreshInstall : ${isFreshInstall}"
-        def sdkCfg  = testConfigs.ci_config?.clone_sdk_code_stage?.controller_sdk_config
-        def repoUrl = sdkCfg?.repoUrl
-        def branch  = sdkCfg?.branch
-        def decision = testConfigs.ci_config.artifactDecision
-        def raspiDecision = decision.platforms["raspi"]
+    def certBinariesWorkspace = "${steps.env.WORKSPACE}/${steps.env.BUILD_NUMBER}/copied_cert_binaries"
 
-        def hostname = sh(script: "hostname", returnStdout: true).trim()
-        echo "hostname : ${hostname}"
-        def raspiBinariesDirString = raspiBinariesDir
-        WORKDIR = "/home/${hostname}/certification-tool"
-        homedir = "/home/${hostname}"
+    def hostname = steps.sh(script: "hostname",returnStdout: true).trim()
 
-        def imageSha = raspiStages?.build_firmware?.chip_cert_bins
-        try {
-            ws(workSpace) {
-
-                /* ================================
-                * Fresh install (reboot)
-                * ================================ */
-                if (isFreshInstall) {
-                    echo "Fresh install enabled"
-                    status = sh(
-                        script: """
-                        set -ex
-
-                        export PATH="\$HOME/.local/bin:\$PATH"
-                        
-                        WORKDIR="\$HOME/certification-tool"
-                        sudo docker ps -q | xargs -r sudo docker kill
-                        sudo rm -rf "\$WORKDIR"
-                        cd "\$HOME"
+    //def WORKDIR = "/home/${hostname}/certification-tool"
+    homedir = "/home/${hostname}"
+    def imageSha = ''
+    try {
+        steps.ws(workSpace) {
+            steps.echo "Preparing certification-tool repo"
+            status = steps.sh(
+                script: """
+                    set -ex
+                    export PATH="\$HOME/.local/bin:\$PATH"
+                    sudo docker ps -q | xargs -r sudo docker kill
+                    if [ ! -d certification-tool ]; then
+                        git clone -b "${branch}" "${repoUrl}" --recurse-submodules certification-tool
+                    else
                         sudo rm -rf matter_qa
-                        git clone -b "${branch}" "${repoUrl}" --recurse-submodules
-                        cd "\$WORKDIR"
-                        yes 1 | ./scripts/pi-setup/auto-install.sh || true
-                        """,
-                        returnStatus: true
-                    )
-                    // Node reboot happens here
-                    waitForNodeAfterReboot(5)
-                }
-                else {
-                    echo "Update install enabled"
-                    status = sh(
-                        script: """
-                        set -ex
-
-                        export PATH="\$HOME/.local/bin:\$PATH"
-
-                        cd "\$HOME"
-                        sudo rm -rf matter_qa
-                        WORKDIR="\$HOME/certification-tool"
-                        cd "\$WORKDIR"
+                        cd certification-tool
                         git fetch
                         git checkout "${branch}"
                         git pull --recurse-submodules
-                        ./scripts/ubuntu/auto-update.sh "${branch}"
-                        """,
-                        returnStatus: true
-                    )
-                }
-                //Docker artifact extraction
-                if (status == 0) {
-                    buildSuccess = true
-                    echo "Extracting docker artifacts"
-                    extractDockerArtifacts(imageSha, raspiBinariesDirString)
-                    //archiveArtifacts artifacts: "${homedir}/${raspiBinariesDirString}/**", fingerprint: true, allowEmptyArchive: true
-                    echo "Path for controller binaries: ${homedir}/${raspiBinariesDirString}"
-                    commonPipelineLib.uploadPlatformBinaries(this,testConfigs,"raspi","${homedir}/${raspiBinariesDirString}",true,raspiDecision.appsMissing)
-                }
-                def matterCloneStatus = RepoUtils.cloneMatterQARepo(steps, testConfigs, "main", homedir, raspiBinariesDirString)
-                if (matterCloneStatus != 0) {
-                    buildSuccess = false
-                    steps.echo("Error occurred in shell CMDs in 'Copy and install binaries into CONTROLLER_NODE' stage.")
-                }
+                        yes 1 | ./scripts/pi-setup/auto-install.sh || true
+                    fi
+                """,
+                returnStatus: true
+            )
+
+            if (status != 0)
+                throw new Exception("certification-tool checkout failed")
+
+            def dutBinariesPath = "${homedir}/apps"
+
+            //load controller binaries
+            if (artifactType == "CTRL") {
+                //tract controller + accessory binaries from docker
+                imageSha = commonPipelineLib.resolveCertDockerSha(testConfigs)
+                extractDockerArtifacts(imageSha,certBinariesWorkspace)
+                steps.echo "Uploading certification-tool controller binaries"
+                commonPipelineLib.uploadControllerBinary(steps,testConfigs,"raspi",certBinariesWorkspace)
             }
 
-        }catch (Exception e) {
-            buildSuccess = false
-            echo "Error occurred during 'Build for controller using certification-tool repo' stage: ${e.getMessage()}"
+            //load accessory binary
+            if (artifactType == "DUT" && appConfig != null) {
+                steps.echo "Uploading certification-tool accessory: ${appConfig.name}"
+                commonPipelineLib.uploadAppBinary(steps,testConfigs,"raspi",dutBinariesPath,appConfig.name,appConfig.branch,appConfig.sha,appConfig.tag,appConfig.pr)
+            }
+
+            //Clone Matter-QA repo (required for test execution)
+            def matterCloneStatus = RepoUtils.cloneMatterQARepo(steps,testConfigs,"main",certBinariesWorkspace,controller)
+            if (matterCloneStatus != 0)
+                throw new Exception("Matter-QA clone failed")
+
+            buildSuccess = true
         }
     }
-    return [success: buildSuccess, cntrlWorksSpace: homedir]
+    catch (Exception e) {
+        buildSuccess = false
+        steps.echo(
+            "Certification-tool build failed: ${e.getMessage()}"
+        )
+    }
+    return [success: buildSuccess,cntrlWorksSpace: homedir]
 }
 
 
@@ -495,7 +459,7 @@ def call(testConfigs, testCasesList) {
                     return
 
                 stage("Build certification-tool app: ${app.name}") {
-                    node("${cntrlNode}") {
+                    node("${deviceNode}") {
                         deviceBuildWorkSpace ="${env.WORKSPACE}/controller_sdk"
                         echo "Building certification-tool accessory: ${app.name}"
                         def result = buildAndinstallCertBinaries(this, testConfigs, deviceBuildWorkSpace, raspiBinariesDirString, "DUT" )
@@ -521,19 +485,13 @@ def call(testConfigs, testCasesList) {
 
             //Install ALL DUT binaries after ALL builds complete
             stage('Install DUT binaries into DEVICE_NODE') {
-
                 node("${deviceNode}") {
-                    raspiDecision.apps.each { app ->
-                        echo "Installing device binary: ${app.name}"
+                    def result =RaspiPipelineLib.installDeviceBinaries(this,testConfigs,deviceNode,"On-Network")
+                    if (!result.success)
+                        error("Device binary install failed")
 
-                        def result = RaspiPipelineLib.installDeviceBinaries(this,testConfigs,deviceNode,"On-Network",app.name,app.branch)
-
-                        if (!result.success)
-                            error("Device binary install failed: ${app.name}")
-
-                        deviceNodeIPAddress = result.deviceIPAddress
-                        deviceWorkSpace = result.deviceWorksSpace
-                    }
+                    deviceNodeIPAddress = result.deviceIPAddress
+                    deviceWorkSpace = result.deviceWorksSpace
                 }
             }
             //Run Tests
@@ -561,10 +519,8 @@ def call(testConfigs, testCasesList) {
                             this,
                             [
                                 nodeName: cntrlNode,
-                                storageServerNode:
-                                    logTransferConfig.storageServerNode,
-                                storageServerPath:
-                                    logTransferConfig.storageServerPath,
+                                storageServerNode: logTransferConfig.storageServerNode,
+                                storageServerPath: logTransferConfig.storageServerPath,
                                 jobName: env.JOB_NAME,
                                 buildId: env.BUILD_ID,
                                 logType: "RASPI-ON-NETWORK"
@@ -572,10 +528,7 @@ def call(testConfigs, testCasesList) {
                             logTransferConfig
                         )
                     if (!verifySucessTransfer.success)
-                        error(
-                            "Log transfer failed. Logs remain at: " +
-                            verifySucessTransfer.location
-                        )
+                        error("Log transfer failed. Logs remain at: " +verifySucessTransfer.location)
                     echo "Logs transferred successfully: ${verifySucessTransfer.location}"
                 }
             }

@@ -641,7 +641,7 @@ class commonPipelineLib implements Serializable {
         "v2.15-beta2+spring2026" : "9b1078da4307f98d362a0b44625a94d649bc1e77",
     ]
 
-    static void overrideDockerImageForRelease(Map testConfigs) {
+    static void overrideDockerImageForRelease(def steps, Map testConfigs) {
         def cloneCfg = testConfigs.ci_config.clone_sdk_code_stage
         def controllerCfg = cloneCfg.controller_sdk
 

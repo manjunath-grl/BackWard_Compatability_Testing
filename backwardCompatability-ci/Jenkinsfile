@@ -23,7 +23,7 @@ node {
     commonPipelineLib.setupJfrog(this, testConfigs)
     testConfigs = commonPipelineLib.resolveBranchSHA(this, testConfigs)
     commonPipelineLib.validateSdkConfig(this, testConfigs)
-    commonPipelineLib.overrideDockerImageForRelease(testConfigs)
+    commonPipelineLib.overrideDockerImageForRelease(this, testConfigs)
 
     //Artifact Decision Engine
 

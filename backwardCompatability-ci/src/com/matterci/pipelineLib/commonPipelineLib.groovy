@@ -643,18 +643,27 @@ class commonPipelineLib implements Serializable {
 
     static void overrideDockerImageForRelease(Map testConfigs) {
         def cloneCfg = testConfigs.ci_config.clone_sdk_code_stage
-        def branch = cloneCfg.apps_sdk_config.branch
+        def controllerCfg = cloneCfg.controller_sdk
+
+        if (!controllerCfg?.branch)
+            return
+
+        def branch = controllerCfg.branch
 
         if (!isReleaseBranch(branch))
             return
 
-        def imageSha = CERTIFICATION_TOOL_RELEASE_MAP[branch]
-        if (!imageSha)
+        if (!CERTIFICATION_TOOL_RELEASE_MAP.containsKey(branch))
             return
 
+        def imageSha = CERTIFICATION_TOOL_RELEASE_MAP[branch]
         def raspiStages = testConfigs.ci_config?.raspi_pipeline?.stages
+
         if (raspiStages?.build_firmware) {
             raspiStages.build_firmware.chip_cert_bins = imageSha
+            println "Docker image overridden using certification-tool release map:"
+            println "Branch: ${branch}"
+            println "Image SHA: ${imageSha}"
         }
     }
 

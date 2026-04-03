@@ -151,8 +151,8 @@ class RepoUtils implements Serializable {
         // def raspiDecision = decision.platforms["raspi"]
         // def controllerMissing = raspiDecision.controllerMissing
 
-        steps.echo "Controller Repo : ${repo}"
-        steps.echo "Controller Missing : ${controllerMissing}"
+        //steps.echo "Controller Repo : ${repo}"
+        //steps.echo "Controller Missing : ${controllerMissing}"
         def wheelsDir = '"${controllerDir}/${ctrlBinariesDir}"'
         // if (repo == "certification-tool" && controllerMissing){
         //     wheelsDir = "${controllerDir}/${ctrlBinariesDir}/controller"

@@ -270,49 +270,62 @@ class commonPipelineLib implements Serializable {
     
     static Map resolveArtifactAndBuildDecision(def steps, Map testConfigs) {
         setupJfrog(steps, testConfigs)
+
         def jfRepo = testConfigs.ci_config.jfrog_config.jfrog_repo ?: "matter-binaries"
         def cloneCfg = testConfigs.ci_config.clone_sdk_code_stage
         def platformsCfg = cloneCfg.platforms ?: [:]
-        def controllerBranch = cloneCfg.controller_sdk.source.branch
-        def controllerSha = cloneCfg.controller_sdk.source.sha
+        def controllerCfg = cloneCfg.controller_sdk
+        def controllerBranch = controllerCfg.branch
+        def controllerSha    = controllerCfg.sha
+        def controllerTag    = controllerCfg.tag
+        def controllerPr     = controllerCfg.pr
         def controllerRepo = resolveRepo(controllerBranch)
+
         def controllerBasePath =
             isReleaseBranch(controllerBranch)
             ? "${jfRepo}/releases/${controllerBranch}"
             : "${jfRepo}/branches/${controllerBranch}/${controllerSha}"
 
-        steps.echo "Controller Repo      = ${controllerRepo}"
-        steps.echo "Controller BasePath  = ${controllerBasePath}"
+        steps.echo "Controller Repo     = ${controllerRepo}"
+        steps.echo "Controller BasePath = ${controllerBasePath}"
 
         boolean cloneRequired = false
-
         def platformDecision = [:]
 
         platformsCfg.each { platformName, platformCfg ->
 
             if (!platformCfg?.run)
                 return
+
             steps.echo "Processing platform: ${platformName}"
+
             def controllerPath = "${controllerBasePath}/controller/${platformCfg.controller_os}/${platformCfg.controller_type}/*.whl"
+
             boolean controllerExists = jfrogFileExists(steps, controllerPath)
             boolean controllerMissing = !controllerExists
 
             steps.echo "Controller exists: ${controllerExists}"
+
+            if (controllerMissing)
+                cloneRequired = true
+
             def appsDecisionList = []
             def appsList = platformCfg.apps ?: []
 
             appsList.each { appCfg ->
-
                 def appName = appCfg.name
-                def branch  = appCfg.sdk_source.branch
-                def sha     = appCfg.sdk_source.sha
+                def branch  = appCfg.branch
+                def sha     = appCfg.sha
+                def tag     = appCfg.tag
+                def pr      = appCfg.pr
+
                 def repo = resolveRepo(branch)
                 def appBasePath =
                     isReleaseBranch(branch)
                     ? "${jfRepo}/releases/${branch}"
                     : "${jfRepo}/branches/${branch}/${sha}"
 
-                def appPath ="${appBasePath}/apps/${appName}/${platformName}/chip-${appName}*"
+                def appPath = "${appBasePath}/apps/${appName}/${platformName}/chip-${appName}*"
 
                 boolean appExists = jfrogFileExists(steps, appPath)
                 boolean appMissing = !appExists
@@ -325,12 +338,13 @@ class commonPipelineLib implements Serializable {
                 appsDecisionList << [
                     name    : appName,
                     branch  : branch,
+                    sha     : sha,
+                    tag     : tag,
+                    pr      : pr,
                     repo    : repo,
                     missing : appMissing
                 ]
             }
-            if (controllerMissing)
-                cloneRequired = true
 
             platformDecision[platformName] = [
                 controllerMissing : controllerMissing,
@@ -339,11 +353,7 @@ class commonPipelineLib implements Serializable {
             ]
         }
 
-        def decision = [
-            platforms     : platformDecision,
-            cloneRequired : cloneRequired
-        ]
-
+        def decision = [platforms     : platformDecision, cloneRequired : cloneRequired ]
         steps.echo "Artifact Decision = ${decision}"
         return decision
     }

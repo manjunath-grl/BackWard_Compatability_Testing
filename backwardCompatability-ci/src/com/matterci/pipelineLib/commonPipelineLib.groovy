@@ -583,23 +583,55 @@ class commonPipelineLib implements Serializable {
 
     static void validateSdkConfig(def steps, Map testConfigs) {
         def cloneCfg = testConfigs.ci_config.clone_sdk_code_stage
-        def ctrl = cloneCfg.controller_sdk_config
-        def apps = cloneCfg.apps_sdk_config
+        def controllerCfg = cloneCfg.controller_sdk
+        def platformsCfg = cloneCfg.platforms
 
-        if (ctrl.branch == apps.branch && ctrl.sha == apps.sha) {
-            steps.error("""
-                Controller SDK and Apps SDK cannot use the same branch and SHA.
-                Controller:
-                branch: ${ctrl.branch}
-                sha:    ${ctrl.sha}
-
-                Apps:
-                branch: ${apps.branch}
-                sha:    ${apps.sha}
-
-                Please provide different sources for controller and apps.
-                """)
+        // helper closure to resolve effective ref
+        def resolveEffectiveRef = { cfg ->
+            return cfg.sha ?: cfg.tag ?: (cfg.pr ? "PR-${cfg.pr}" : cfg.branch)
         }
+
+        def controllerRef = resolveEffectiveRef(controllerCfg)
+
+        if (!controllerRef) {
+            steps.error("Controller SDK must provide at least one reference: branch OR sha OR tag OR pr")
+        }
+
+        platformsCfg.each { platformName, platformCfg ->
+
+            platformCfg.apps?.each { appCfg ->
+
+                def appRef = resolveEffectiveRef(appCfg)
+
+                if (!appRef) {
+                    steps.error("""
+                    Missing SDK reference for accessory: ${appCfg.name}
+                    Provide one of:
+                    branch OR sha OR tag OR pr
+                    """)
+                }
+
+                // prevent identical controller + accessory reference
+                if (controllerRef == appRef) {
+
+                    steps.error("""
+                    Controller SDK reference cannot match accessory reference.
+
+                    Controller ref:
+                    ${controllerRef}
+
+                    Accessory:
+                    ${appCfg.name}
+                    ref:
+                    ${appRef}
+
+                    Backward compatibility requires controller and accessory to use different SDK sources.
+                    """)
+                }
+            }
+        }
+
+        steps.echo "SDK configuration validation passed"
     }
 
     static Map CERTIFICATION_TOOL_RELEASE_MAP = [

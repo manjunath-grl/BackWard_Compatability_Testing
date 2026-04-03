@@ -661,9 +661,9 @@ class commonPipelineLib implements Serializable {
 
         if (raspiStages?.build_firmware) {
             raspiStages.build_firmware.chip_cert_bins = imageSha
-            println "Docker image overridden using certification-tool release map:"
-            println "Branch: ${branch}"
-            println "Image SHA: ${imageSha}"
+            steps.echo "Docker image overridden using certification-tool release map:"
+            steps.echo "Branch: ${branch}"
+            steps.echo "Image SHA: ${imageSha}"
         }
     }
 

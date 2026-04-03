@@ -21,7 +21,7 @@ node {
     def testCasesList = []
     echo "Loaded test cases: ${testCasesList}"
     commonPipelineLib.setupJfrog(this, testConfigs)
-    testConfigs =commonPipelineLib.resolveBranchSHA(this, testConfigs)
+    testConfigs = commonPipelineLib.resolveBranchSHA(this, testConfigs)
     commonPipelineLib.validateSdkConfig(this, testConfigs)
     commonPipelineLib.overrideDockerImageForRelease(testConfigs)
 

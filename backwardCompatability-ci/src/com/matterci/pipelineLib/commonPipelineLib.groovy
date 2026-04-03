@@ -444,31 +444,29 @@ class commonPipelineLib implements Serializable {
 
 
     static Map resolveBranchSHA(def steps, Map testConfigs) {
-        def cloneCfg =testConfigs.ci_config.clone_sdk_code_stage
-        def controllerCfg = cloneCfg.controller_sdk_config
-        def appsCfg = cloneCfg.apps_sdk_config
+        def cloneCfg = testConfigs.ci_config.clone_sdk_code_stage
+        def controllerCfg = cloneCfg.controller_sdk
+        def platformsCfg = cloneCfg.platforms
 
-        // Helper Closure
+        // helper closure
         def resolveSHA = { cfg, name ->
+
             if (!cfg?.branch)
                 return
-            def branch = cfg.branch
 
-            // RELEASE BRANCH CHECK
+            def branch = cfg.branch
             if (isReleaseBranch(branch)) {
                 steps.echo "${name}: Release branch detected (${branch}) → SHA not required"
                 return
             }
 
-            // SHA already provided
             if (cfg.sha?.trim()) {
                 steps.echo "${name}: SHA already provided → ${cfg.sha}"
                 return
             }
 
-            // Resolve SHA using git ls-remote
+            def repoUrl = "git@github.com:project-chip/connectedhomeip.git"
             steps.echo "${name}: Resolving SHA for branch ${branch}"
-            def repoUrl = cfg.repoUrl
             def sha = steps.sh(
                 script: """
                     git ls-remote ${repoUrl} refs/heads/${branch} | awk '{print \$1}'
@@ -476,15 +474,22 @@ class commonPipelineLib implements Serializable {
                 returnStdout: true
             ).trim()
 
-            if (!sha) {
+            if (!sha)
                 steps.error("Failed resolving SHA for ${name}")
-            }
+
             cfg.sha = sha
             steps.echo "${name}: Resolved SHA = ${sha}"
         }
-        resolveSHA(controllerCfg, "Controller SDK")
-        resolveSHA(appsCfg, "Apps SDK")
 
+        // resolve controller SHA
+        resolveSHA(controllerCfg, "Controller SDK")
+
+        // resolve SHA for each accessory app
+        platformsCfg.each { platformName, platformCfg ->
+            platformCfg.apps?.each { appCfg ->
+                resolveSHA(appCfg, "App SDK (${appCfg.name})")
+            }
+        }
         return testConfigs
     }
 

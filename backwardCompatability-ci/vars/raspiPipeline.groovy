@@ -335,8 +335,8 @@ def call(testConfigs, testCasesList) {
     def controllerBranch =testConfigs.ci_config.clone_sdk_code_stage.controller_sdk.branch
     def controllerRepo =commonPipelineLib.resolveRepo(controllerBranch)
     def controllerMissing =raspiDecision.controllerMissing
-    def appStorePath = "${raspiBinariesDir}/apps"
-    def binariesStorePath = "${raspiBinariesDir}/controller"
+    def appStorePath = "${raspiBinariesDirString}/apps"
+    def binariesStorePath = "${raspiBinariesDirString}/controller"
 
     def controllerBuilt = false
     echo "Controller Repo : ${controllerRepo}"

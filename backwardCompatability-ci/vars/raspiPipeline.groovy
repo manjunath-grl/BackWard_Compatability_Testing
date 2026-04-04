@@ -350,6 +350,13 @@ def call(testConfigs, testCasesList) {
         raspiDecision.apps.any {
             it.missing && it.repo == "certification-tool"
         }
+    
+    echo """
+            Controller Repo: ${controllerRepo}
+            Controller Missing: ${raspiDecision.controllerMissing}
+            Certification Apps Missing: ${certificationAppsMissing}
+            Controller Built Earlier: ${controllerBuilt}
+      """
 
     if (controllerMissing || connectedhomeipAppsMissing) {
         stage('Build For Raspi inside Docker') {
@@ -404,21 +411,14 @@ def call(testConfigs, testCasesList) {
             def deviceNode = ''
             def deviceNodeIPAddress = ''
             def deviceWorkSpace = ''
-            def controllerBranch =testConfigs.ci_config.clone_sdk_code_stage.controller_sdk.branch
-            def controllerRepo =commonPipelineLib.resolveRepo(controllerBranch)
+            // def controllerBranch =testConfigs.ci_config.clone_sdk_code_stage.controller_sdk.branch
+            // def controllerRepo =commonPipelineLib.resolveRepo(controllerBranch)
             def certificationControllerMissing = controllerRepo == "certification-tool" && raspiDecision.controllerMissing
 
-            def certificationAppsMissing =
-                raspiDecision.apps.any {
-                    it.missing && it.repo == "certification-tool"
-                }
-
-            echo """
-            Controller Repo: ${controllerRepo}
-            Controller Missing: ${raspiDecision.controllerMissing}
-            Certification Apps Missing: ${certificationAppsMissing}
-            Controller Built Earlier: ${controllerBuilt}
-            """
+            // def certificationAppsMissing =
+            //     raspiDecision.apps.any {
+            //         it.missing && it.repo == "certification-tool"
+            //     }
 
             //Allocate Raspi Nodes
 

@@ -446,7 +446,7 @@ class commonPipelineLib implements Serializable {
 
         steps.sh """
             jf rt u \
-            "${binariesDir}/apps/*" \
+            "${binariesDir}/*" \
             "${basePath}/apps/${appName}/${platform}/" \
             --flat=true
         """

@@ -260,61 +260,69 @@ class RaspiPipelineLib implements Serializable {
                 app_name : "chip-lighting-app"
             ]
         ]
-
         if (!appMapping.containsKey(appName))
             steps.error("Unsupported app: ${appName}")
 
-        def buildApp  = appMapping[appName].build_app
+        def buildApp   = appMapping[appName].build_app
         def outputPath = appMapping[appName].output_path
         def binaryName = appMapping[appName].app_name
         def appStorePath = "${raspiBinariesDir}/apps/${appName}"
+
         steps.echo "Building ${appName}"
         steps.echo "Output → ${outputPath}"
-        def buildAppSucess = true
 
         def arch = steps.sh(script: "uname -m", returnStdout: true).trim()
         def dockerPlatform = (arch == "x86_64") ? "linux/amd64" : "linux/arm64"
         def dockerImage = testConfigs.ci_config.raspi_pipeline.stages.build_firmware.docker_image
 
-        def dockerCommands = """#!/bin/bash
+        def dockerCommands = """
+            set -ex
+            export PATH=/usr/local/bin:\\\$PATH
+            echo "PATH=\\\$PATH"
+
+            docker run --rm \
+            --user root \
+            --platform=${dockerPlatform} \
+            -v ${workSpace}:/home/connectedhome \
+            -w /home/connectedhome \
+            ${dockerImage}:latest \
+            /bin/bash -c "
                 set -ex
+                git config --global --add safe.directory /home/connectedhome
+                git config --global --add safe.directory /home/connectedhome/third_party/pigweed/repo
+                git config --global http.version HTTP/1.1
+                git config --global http.postBuffer 524288000
+                git config --global http.lowSpeedLimit 0
+                git config --global http.lowSpeedTime 999999
 
-                export PATH=/usr/local/bin:$PATH
-                echo "PATH=$PATH"
-                which docker
-                docker --version
-                
-                docker run --rm --user root --platform=${dockerPlatform} -v ${workSpace}:/home/connectedhome \\
-                -w /home/connectedhome ${docker_image}:latest \\
-                /bin/bash -c \"
-                    set -ex  # Stop execution on first error
-                    git config --global --add safe.directory /home/connectedhome
-                    git config --global --add safe.directory /home/connectedhome/third_party/pigweed/repo
-                    git config --global http.version HTTP/1.1
-                    git config --global http.postBuffer 524288000
-                    git config --global http.lowSpeedLimit 0
-                    git config --global http.lowSpeedTime 999999
-                    ./scripts/checkout_submodules.py --allow-changing-global-git-config --shallow --platform linux
-                    source scripts/bootstrap.sh
-                    source scripts/activate.sh
-                    scripts/build/build_examples.py --target ${buildApp} build
-                \"
+                ./scripts/checkout_submodules.py \
+                --allow-changing-global-git-config \
+                --shallow \
+                --platform linux
+
+                source scripts/bootstrap.sh
+                source scripts/activate.sh
+
+                scripts/build/build_examples.py \
+                --target ${buildApp} \
+                build
+            "
+        """
+
+        steps.echo "Executing docker build for ${appName}"
+        def status = steps.sh(
+            script: dockerCommands,
+            returnStatus: true
+        )
+        if (status != 0)
+            return [success:false]
+
+        steps.ws(workSpace) {
+            steps.sh """
+                mkdir -p ${appStorePath}
+                mv ${outputPath} ${appStorePath}/
             """
-            steps.echo "Docker command used to build App ${dockerCommands}"
-
-            def status = sh(
-                script: dockerCommands,
-                returnStatus: true
-            )
-
-            if (status ==0){
-                steps.ws(workSpace) {
-                    steps.sh """
-                        mkdir -p ${appStorePath}
-                        mv ${outputPath} ${appStorePath}/
-                    """
-                }
-            }
-        return [ success : true, appToTest : binaryName]
+        }
+        return [success : true,appToTest : binaryName]
     }
 }

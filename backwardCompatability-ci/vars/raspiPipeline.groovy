@@ -387,7 +387,7 @@ def call(testConfigs, testCasesList) {
                             return
                         echo "Building connectedhomeip app: ${app.name}"
 
-                        RepoUtils.checkoutGitReference(this,appsBuildWorkSpace,app.branch,app.sha,app.tag,app.pr)
+                        RepoUtils.checkoutGitRef(this,appsBuildWorkSpace,app.branch,app.sha,app.tag,app.pr)
                         def buildAppResult =buildApps(testConfigs,testCasesList,appsBuildWorkSpace,appStorePath,app.name)
 
                         if (!buildAppResult.success)

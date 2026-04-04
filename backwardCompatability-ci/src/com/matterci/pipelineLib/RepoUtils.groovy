@@ -321,39 +321,43 @@ class RepoUtils implements Serializable {
         return gitSha
     }
 
-    static void checkoutGitRef(def steps,String workspaceDir,String branch,String sha,String tag,String pr) {
+    static void checkoutGitRef(def steps, String workspaceDir, String branch, String sha, String tag, String pr) {
         steps.echo "Checking out reference inside ${workspaceDir}"
         steps.ws(workspaceDir) {
-            if (branch != 'master') {
-                    steps.sh """
-                        set -ex
-                        git checkout ${branch}  # Checkout the branch
-                        echo "Checked out branch ${branch}"
-                    """
-                }
-
-                // If a SHA is provided, checkout that specific SHA
-                if (sha) {
-                    steps.sh """
-                        set -ex
-                        git checkout ${sha}  # Checkout the specific commit SHA
-                        echo "Checked out SHA ${sha} on branch ${branch}"
-                    """
-                } else if (tag) {
-                    // If a tag is provided, checkout that specific tag
-                    steps.sh """
-                        set -ex
-                        git checkout tags/${tag}  # Checkout the specified tag
-                        echo "Checked out tag ${tag}"
-                    """
-                } else if (pr) {
-                    // Handle PR reference
-                    steps.sh """
-                        set -ex
-                        git fetch origin pull/${pr}/head:pr-${pr}
-                        git checkout pr-${pr}
-                    """
-                }
+            if (sha) {
+                steps.echo "Checking out SHA: ${sha}"
+                steps.sh """
+                    set -ex
+                    git checkout ${sha}
+                """
+                return
+            }
+            if (tag) {
+                steps.echo "Checking out TAG: ${tag}"
+                steps.sh """
+                    set -ex
+                    git checkout tags/${tag}
+                """
+                return
+            }
+            if (pr) {
+                steps.echo "Checking out PR: ${pr}"
+                steps.sh """
+                    set -ex
+                    git fetch origin pull/${pr}/head:pr-${pr}
+                    git checkout pr-${pr}
+                """
+                return
+            }
+            if (branch && branch != 'master') {
+                steps.echo "Checking out BRANCH: ${branch}"
+                steps.sh """
+                    set -ex
+                    git checkout ${branch}
+                """
+                return
+            }
+            steps.echo "Using default repository HEAD (master)"
         }
     }
 

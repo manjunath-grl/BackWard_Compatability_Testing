@@ -266,7 +266,7 @@ class RaspiPipelineLib implements Serializable {
         def buildApp   = appMapping[appName].build_app
         def outputPath = appMapping[appName].output_path
         def binaryName = appMapping[appName].app_name
-        def appStorePath = "${raspiBinariesDir}/apps/${appName}"
+        def appStorePath = "${raspiBinariesDir}/${appName}"
 
         steps.echo "Building ${appName}"
         steps.echo "Output → ${outputPath}"

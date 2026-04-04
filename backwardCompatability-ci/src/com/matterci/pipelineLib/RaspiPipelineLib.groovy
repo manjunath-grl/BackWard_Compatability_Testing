@@ -296,6 +296,10 @@ class RaspiPipelineLib implements Serializable {
                 source scripts/bootstrap.sh
                 source scripts/activate.sh
                 scripts/build/build_examples.py --target ${buildApp} build
+                echo "Checking binary inside container:"
+                pwd
+                ls -la out/
+                ls -la ${outputPath} || true
             \"
         """
 
@@ -303,11 +307,33 @@ class RaspiPipelineLib implements Serializable {
         def status = steps.sh(script: dockerCommands,returnStatus: true)
         if (status != 0)
             return [success:false]
+        
+        steps.echo "Checking binary on Jenkins workspace after docker exits"
+
+        steps.ws(workSpace) {
+
+            steps.sh """
+                echo "Workspace after docker build:"
+                pwd
+                echo "Checking output directory:"
+                ls -la out || true
+
+                echo "Checking expected binary path:"
+                ls -la ${outputPath} || true
+
+                echo "Checking raspi_binaries folder before move:"
+                ls -la ${raspiBinariesDir} || true
+            """
+        }
 
         steps.ws(workSpace) {
             steps.sh """
+                echo "Creating destination directory:"
                 mkdir -p ${appStorePath}
+                echo "Moving binary:"
                 mv ${steps.env.app_output_path} ${appStorePath}/
+                echo "After move verification:"
+                ls -R ${raspiBinariesDir} || true
             """
         }
         return [success : true,appToTest : binaryName]

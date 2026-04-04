@@ -432,28 +432,74 @@ class commonPipelineLib implements Serializable {
         """
     }
 
-    static void uploadAppBinary(def steps, Map testConfigs, String platform, String binariesDir, String appName, String branch, String sha=null, String tag=null, String pr=null) {
+    static void uploadAppBinary(def steps,Map testConfigs,String platform,String binariesDir,String appName,String branch,String sha = null,String tag = null,String pr  = null) {
         setupJfrog(steps, testConfigs)
+
         def jfRepo = testConfigs.ci_config.jfrog_config.jfrog_repo ?: "matter-binaries"
 
-        def basePath =
-            isReleaseBranch(branch)
-            ? "${jfRepo}/releases/${branch}"
-            : "${jfRepo}/branches/${branch}/${sha ?: ''}"
+        /*
+        Resolve reference priority:
+        SHA > TAG > PR > BRANCH
+        */
 
-        steps.echo "Uploading app ${appName} → ${basePath}"
+        def effectiveRef = sha ?: tag ?: (pr ? "PR-${pr}" : branch)
+
+        /*
+        Resolve base upload path
+        */
+
+        def basePath
+
+        if (isReleaseBranch(branch)) {
+            basePath = "${jfRepo}/releases/${branch}"
+        } else if (sha) {
+            basePath = "${jfRepo}/branches/${branch}/${sha}"
+        } else if (tag) {
+            basePath = "${jfRepo}/tags/${tag}"
+        } else if (pr) {
+            basePath = "${jfRepo}/pull-requests/PR-${pr}"
+        } else {
+            basePath = "${jfRepo}/branches/${branch}"
+        }
+
+        def appBinaryPath = "${binariesDir}/${appName}"
+
+        steps.echo """
+        Uploading app binary
+        --------------------
+        App Name        : ${appName}
+        Platform        : ${platform}
+        Branch          : ${branch}
+        Effective Ref   : ${effectiveRef}
+        Upload From     : ${appBinaryPath}
+        Upload To       : ${basePath}
+        """
+
+        /*
+        Verify binary exists before upload
+        */
+
         steps.sh """
             set -ex
-            echo "Upload workspace:"
+            echo "Current workspace:"
             pwd
-            echo "Checking binaries before upload:"
-            ls -R ${binariesDir}/${appName} || true
 
+            echo "Checking binary directory:"
+            ls -R "${appBinaryPath}" || true
+        """
+
+        /*
+        Upload binary to JFrog
+        */
+
+        steps.sh """
+            set -ex
             jf rt u \
-            "${binariesDir}/${appName}/*" \
+            "${appBinaryPath}/*" \
             "${basePath}/apps/${appName}/${platform}/" \
             --flat=true
         """
+        steps.echo "Upload completed successfully for ${appName}"
     }
 
 

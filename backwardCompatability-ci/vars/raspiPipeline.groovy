@@ -227,8 +227,8 @@ def call(testConfigs, testCasesList) {
     def controllerBranch =testConfigs.ci_config.clone_sdk_code_stage.controller_sdk.branch
     def controllerRepo =commonPipelineLib.resolveRepo(controllerBranch)
     def controllerMissing =raspiDecision.controllerMissing
-    def appStorePath = "${raspiBinariesDirString}/apps"
-    def binariesStorePath = "${raspiBinariesDirString}/controller"
+    def appStorePath = ''
+    def binariesStorePath = ''
 
     def controllerBuilt = false
     echo "Controller Repo : ${controllerRepo}"
@@ -260,9 +260,12 @@ def call(testConfigs, testCasesList) {
                     controllerBuildWorkSpace = sdkFrmArtifactsResult.cntrlBuildWorkSpace
                     appsBuildWorkSpace = sdkFrmArtifactsResult.appsBuildWorkSpace
 
+                    appStorePath = "${appsBuildWorkSpace}/${raspiBinariesDirString}/apps"
+                    binariesStorePath = "${controllerBuildWorkSpace}/${raspiBinariesDirString}/controller"
+
                     //BUILD CONTROLLER (connectedhomeip only)
                     if (controllerRepo == "connectedhomeip" && controllerMissing ) {
-                        def buildCntrlResult =buildController(testConfigs,testCasesList,controllerBuildWorkSpace,binariesStorePath)
+                        def buildCntrlResult = buildController(testConfigs,testCasesList,controllerBuildWorkSpace,binariesStorePath)
                         if (buildCntrlResult != 0)
                             error("Controller build failed")
 

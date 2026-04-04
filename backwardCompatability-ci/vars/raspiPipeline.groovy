@@ -260,8 +260,8 @@ def call(testConfigs, testCasesList) {
                     controllerBuildWorkSpace = sdkFrmArtifactsResult.cntrlBuildWorkSpace
                     appsBuildWorkSpace = sdkFrmArtifactsResult.appsBuildWorkSpace
 
-                    appStorePath = "${appsBuildWorkSpace}/${raspiBinariesDirString}/apps"
-                    binariesStorePath = "${controllerBuildWorkSpace}/${raspiBinariesDirString}/controller"
+                    appStorePath = "${appsBuildWorkSpace}/../${raspiBinariesDirString}/apps"
+                    binariesStorePath = "${controllerBuildWorkSpace}/../${raspiBinariesDirString}/controller"
 
                     //BUILD CONTROLLER (connectedhomeip only)
                     if (controllerRepo == "connectedhomeip" && controllerMissing ) {
@@ -282,6 +282,7 @@ def call(testConfigs, testCasesList) {
                         echo "Building connectedhomeip app: ${app.name}"
 
                         RepoUtils.checkoutGitRef(this,appsBuildWorkSpace,app.branch,app.sha,app.tag,app.pr)
+                        //app.sha = resolvedSha
                         def buildAppResult = RaspiPipelineLib.buildApps(this,testConfigs,testCasesList,appsBuildWorkSpace,appStorePath,app.name)
 
                         if (!buildAppResult.success)

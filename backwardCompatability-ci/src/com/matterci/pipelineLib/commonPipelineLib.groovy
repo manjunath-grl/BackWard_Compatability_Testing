@@ -434,22 +434,38 @@ class commonPipelineLib implements Serializable {
 
     static void uploadAppBinary(def steps,Map testConfigs,String platform,String binariesDir,String appName,String branch,String sha = null,String tag = null,String pr  = null) {
         setupJfrog(steps, testConfigs)
+        def jfRepo =
+            testConfigs.ci_config.jfrog_config.jfrog_repo
+            ?: "matter-binaries"
+        def repoUrl=''
+        /*
+        Resolve SHA automatically if:
+        - branch exists
+        - sha missing
+        - not release branch
+        */
+        if (branch && !sha && !tag && !pr && !isReleaseBranch(branch)) {
+            steps.echo "SHA missing for branch ${branch}, resolving automatically..."
+            //repoUrl =testConfigs.ci_config.clone_sdk_code_stage.apps_sdk_config.repoUrl
+            repoUrl = "git@github.com:project-chip/connectedhomeip.git"
 
-        def jfRepo = testConfigs.ci_config.jfrog_config.jfrog_repo ?: "matter-binaries"
+            sha = steps.sh(
+                script: """
+                    git ls-remote ${repoUrl} refs/heads/${branch} | awk '{print \$1}'
+                """,
+                returnStdout: true
+            ).trim()
+
+            if (!sha)
+                steps.error("Failed to resolve SHA for branch ${branch}")
+
+            steps.echo "Resolved SHA = ${sha}"
+        }
 
         /*
-        Resolve reference priority:
-        SHA > TAG > PR > BRANCH
+        Resolve upload base path
         */
-
-        def effectiveRef = sha ?: tag ?: (pr ? "PR-${pr}" : branch)
-
-        /*
-        Resolve base upload path
-        */
-
         def basePath
-
         if (isReleaseBranch(branch)) {
             basePath = "${jfRepo}/releases/${branch}"
         } else if (sha) {
@@ -459,7 +475,7 @@ class commonPipelineLib implements Serializable {
         } else if (pr) {
             basePath = "${jfRepo}/pull-requests/PR-${pr}"
         } else {
-            basePath = "${jfRepo}/branches/${branch}"
+            steps.error("Unable to determine artifact upload path")
         }
 
         def appBinaryPath = "${binariesDir}/${appName}"
@@ -467,31 +483,28 @@ class commonPipelineLib implements Serializable {
         steps.echo """
         Uploading app binary
         --------------------
-        App Name        : ${appName}
-        Platform        : ${platform}
-        Branch          : ${branch}
-        Effective Ref   : ${effectiveRef}
-        Upload From     : ${appBinaryPath}
-        Upload To       : ${basePath}
+        App Name      : ${appName}
+        Platform      : ${platform}
+        Branch        : ${branch}
+        Resolved SHA  : ${sha ?: "N/A"}
+        Upload From   : ${appBinaryPath}
+        Upload To     : ${basePath}
         """
-
         /*
-        Verify binary exists before upload
+        Verify binary exists
         */
-
         steps.sh """
             set -ex
-            echo "Current workspace:"
+            echo "Workspace:"
             pwd
 
-            echo "Checking binary directory:"
-            ls -R "${appBinaryPath}" || true
+            echo "Checking binaries:"
+            ls -R "${appBinaryPath}"
         """
 
         /*
-        Upload binary to JFrog
+        Upload binary
         */
-
         steps.sh """
             set -ex
             jf rt u \

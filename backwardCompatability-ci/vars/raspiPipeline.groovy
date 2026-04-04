@@ -213,114 +213,6 @@ def buildController(testConfigs, testCasesList, workSpace, raspiBinariesDir){
     }
 }
 
-def buildApps(testConfigs, testCasesList, workSpace, raspiBinariesDir){
-
-    // Build apps mapping from test config
-    def appMapping = [
-        "all-clusters-app": [
-            "build_app"  : "linux-arm64-all-clusters-ipv6only",
-            "output_path": "out/linux-arm64-all-clusters-ipv6only/chip-all-clusters-app",
-            "app_name": "chip-all-clusters-app"
-        ],
-        "lock-app": [
-            "build_app"  : "linux-arm64-lock-ipv6only",
-            "output_path": "out/linux-arm64-lock-ipv6only/chip-lock-app",
-            "app_name": "chip-lock-app"
-        ],
-        "lighting-app":[
-            "build_app":"linux-arm64-light-ipv6only",
-            "output_path":"out/linux-arm64-light-ipv6only/chip-lighting-app",
-            "app_name": "chip-lighting-app"
-        ]
-        // Add more app mappings as needed
-    ]
-    // Get 'app_to_test' is provided from the YAML config
-    def appToTest = testConfigs.ci_config.clone_sdk_code_stage.platforms?.raspi?.app_to_test ?: testConfigs.ci_config.app_to_test
-
-    // Retrieve the build app and output path from the map
-    def buildApp = appMapping[appToTest]?.build_app
-    def outputPath = appMapping[appToTest]?.output_path
-    def appName = appMapping[appToTest]?.app_name
-    def appStorePath = "${raspiBinariesDir}/apps"
-    echo "Build app to be stored in: ${appStorePath}"
-
-    stage ('build Apps on raspi'){
-
-        def arch = sh(script: "uname -m", returnStdout: true).trim()
-        echo "HW arch ${arch}"
-        def dockerPlatform = (arch == "x86_64") ? "linux/amd64" : "linux/arm64"
-        echo "dockerPlatform arch ${dockerPlatform}"
-        echo "This stage Build Apps For Raspi inside Docker is running on: ${env.NODE_NAME}"
-        echo "Work space to build Apps : ${workSpace}"
-
-
-        if (!buildApp || !outputPath) {
-            error "No build configuration found for app: ${appToTest}"
-        }
-
-        echo "Building app: ${buildApp}"
-        echo "Output path: ${outputPath}"
-        //pass this value to subsequent stages
-        env.app_output_path = "${outputPath}"
-        def raspiStages = testConfigs.ci_config?.raspi_pipeline?.stages
-        def docker_image = raspiStages.build_firmware?.docker_image ?:"testing_partof_chip_cert_bins_dockerfile"
-        def buildAppSucess = true
-
-        // TODO add swapfile to docker arguments
-        def dockerCommands = """#!/bin/bash
-            set -ex
-
-            export PATH=/usr/local/bin:$PATH
-            echo "PATH=$PATH"
-            which docker
-            docker --version
-            
-            docker run --rm --user root --platform=${dockerPlatform} -v ${workSpace}:/home/connectedhome \\
-            -w /home/connectedhome ${docker_image}:latest \\
-            /bin/bash -c \"
-                set -ex  # Stop execution on first error
-                git config --global --add safe.directory /home/connectedhome
-                git config --global --add safe.directory /home/connectedhome/third_party/pigweed/repo
-                git config --global http.version HTTP/1.1
-                git config --global http.postBuffer 524288000
-                git config --global http.lowSpeedLimit 0
-                git config --global http.lowSpeedTime 999999
-                ./scripts/checkout_submodules.py --allow-changing-global-git-config --shallow --platform linux
-                source scripts/bootstrap.sh
-                source scripts/activate.sh
-                scripts/build/build_examples.py --target ${buildApp} build
-            \"
-        """
-        echo "Docker command used to build App ${dockerCommands}"
-
-        def status = sh(
-            script: dockerCommands,
-            returnStatus: true
-        )
-
-        if (status ==0){
-            ws("${workSpace}")
-            {
-                // since outputpath is not available inside ws block, using the env var app_output_path here.
-                ////TODO: we may need to fix this .. path in the below command
-                def copyCommand = """#!/bin/bash
-                    set -ex
-                    mkdir -p ../${appStorePath}
-                    mv ${env.app_output_path} ../${appStorePath}
-                """
-                status = sh(
-                    script: copyCommand,
-                    returnStatus: true
-                )
-            }
-        }
-        if (status != 0)
-            buildAppSucess = false
-
-        return [success: buildAppSucess, appToTest: "${appName}"]
-    }
-}
-
 def call(testConfigs, testCasesList) {
     def buildSuccess = true
     def raspiStages = testConfigs.ci_config?.raspi_pipeline?.stages
@@ -369,7 +261,6 @@ def call(testConfigs, testCasesList) {
                     appsBuildWorkSpace = sdkFrmArtifactsResult.appsBuildWorkSpace
 
                     //BUILD CONTROLLER (connectedhomeip only)
-
                     if (controllerRepo == "connectedhomeip" && controllerMissing ) {
                         def buildCntrlResult =buildController(testConfigs,testCasesList,controllerBuildWorkSpace,binariesStorePath)
                         if (buildCntrlResult != 0)
@@ -388,14 +279,13 @@ def call(testConfigs, testCasesList) {
                         echo "Building connectedhomeip app: ${app.name}"
 
                         RepoUtils.checkoutGitRef(this,appsBuildWorkSpace,app.branch,app.sha,app.tag,app.pr)
-                        def buildAppResult =buildApps(testConfigs,testCasesList,appsBuildWorkSpace,appStorePath,app.name)
+                        def buildAppResult = RaspiPipelineLib.buildApps(this,testConfigs,testCasesList,appsBuildWorkSpace,appStorePath,app.name)
 
                         if (!buildAppResult.success)
                             error("App build failed: ${app.name}")
 
                         commonPipelineLib.uploadAppBinary(this,testConfigs,"raspi",appStorePath,app.name,app.branch)
                     }
-
                 } catch (Exception e) {
                     buildSuccess = false
                     echo "Docker build stage failed: ${e.getMessage()}"

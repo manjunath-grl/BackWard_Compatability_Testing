@@ -270,6 +270,7 @@ class RaspiPipelineLib implements Serializable {
 
         steps.echo "Building ${appName}"
         steps.echo "Output → ${outputPath}"
+        env.app_output_path = "${outputPath}"
 
         def arch = steps.sh(script: "uname -m", returnStdout: true).trim()
         def dockerPlatform = (arch == "x86_64") ? "linux/amd64" : "linux/arm64"
@@ -280,13 +281,9 @@ class RaspiPipelineLib implements Serializable {
             export PATH=/usr/local/bin:\\\$PATH
             echo "PATH=\\\$PATH"
 
-            docker run --rm \
-            --user root \
-            --platform=${dockerPlatform} \
-            -v ${workSpace}:/home/connectedhome \
-            -w /home/connectedhome \
-            ${dockerImage}:latest \
-            /bin/bash -c "
+            docker run --rm --user root --platform=${dockerPlatform} -v ${workSpace}:/home/connectedhome \\
+            -w /home/connectedhome ${docker_image}:latest \\
+            /bin/bash -c \"
                 set -ex
                 git config --global --add safe.directory /home/connectedhome
                 git config --global --add safe.directory /home/connectedhome/third_party/pigweed/repo
@@ -295,32 +292,22 @@ class RaspiPipelineLib implements Serializable {
                 git config --global http.lowSpeedLimit 0
                 git config --global http.lowSpeedTime 999999
 
-                ./scripts/checkout_submodules.py \
-                --allow-changing-global-git-config \
-                --shallow \
-                --platform linux
-
+                ./scripts/checkout_submodules.py --allow-changing-global-git-config --shallow --platform linux
                 source scripts/bootstrap.sh
                 source scripts/activate.sh
-
-                scripts/build/build_examples.py \
-                --target ${buildApp} \
-                build
-            "
+                scripts/build/build_examples.py --target ${buildApp} build
+            \"
         """
 
         steps.echo "Executing docker build for ${appName}"
-        def status = steps.sh(
-            script: dockerCommands,
-            returnStatus: true
-        )
+        def status = steps.sh(script: dockerCommands,returnStatus: true)
         if (status != 0)
             return [success:false]
 
         steps.ws(workSpace) {
             steps.sh """
                 mkdir -p ${appStorePath}
-                mv ${outputPath} ${appStorePath}/
+                mv ${env.app_output_path} ${appStorePath}/
             """
         }
         return [success : true,appToTest : binaryName]

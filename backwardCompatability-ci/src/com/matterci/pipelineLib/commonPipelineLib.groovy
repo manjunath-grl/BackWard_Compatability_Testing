@@ -432,19 +432,23 @@ class commonPipelineLib implements Serializable {
         """
     }
 
-    static void uploadAppBinary(def steps, Map testConfigs, String platform, String binariesDir, String appName, String branch, String sha=null, String tag=null, String pr=null) {
+    static void uploadAppBinary(def steps, Map testConfigs, String platform, String binariesDir, String appName, String branch, String sha = null, String tag = null, String pr = null ) {
         setupJfrog(steps, testConfigs)
         def jfRepo = testConfigs.ci_config.jfrog_config.jfrog_repo ?: "matter-binaries"
-        def effectiveRef = sha ?: tag ?: ( pr ? "PR-${pr}" : branch )
-
+        def effectiveRef = sha ?: tag ?: (pr ? "PR-${pr}" : branch)
         def basePath =
             isReleaseBranch(branch)
             ? "${jfRepo}/releases/${branch}"
             : "${jfRepo}/branches/${branch}/${sha ?: ''}"
 
-        steps.echo "Uploading app ${appName} → ${basePath}"
+        steps.echo "Uploading app ${appName} from ${basePath}"
 
         steps.sh """
+            set -ex
+            if [ ! -d "${binariesDir}" ]; then
+                echo "Directory missing: ${binariesDir}"
+                exit 1
+            fi
             jf rt u \
             "${binariesDir}/*" \
             "${basePath}/apps/${appName}/${platform}/" \

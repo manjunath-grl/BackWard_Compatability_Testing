@@ -242,35 +242,38 @@ class RaspiPipelineLib implements Serializable {
         return localTestParams
     }
 
-    static Map buildApps(def steps, Map testConfigs, List testCasesList, String workSpace, String raspiBinariesDir, String appName) {
+    static Map buildApps(def steps,Map testConfigs,List testCasesList,String workSpace,String raspiBinariesDir,String appName) {
         def appMapping = [
             "all-clusters-app": [
-                build_app : "linux-arm64-all-clusters-ipv6only",
+                build_app  : "linux-arm64-all-clusters-ipv6only",
                 output_path: "out/linux-arm64-all-clusters-ipv6only/chip-all-clusters-app",
-                app_name : "chip-all-clusters-app"
+                app_name   : "chip-all-clusters-app"
             ],
             "lock-app": [
-                build_app : "linux-arm64-lock-ipv6only",
+                build_app  : "linux-arm64-lock-ipv6only",
                 output_path: "out/linux-arm64-lock-ipv6only/chip-lock-app",
-                app_name : "chip-lock-app"
+                app_name   : "chip-lock-app"
             ],
             "lighting-app":[
-                build_app : "linux-arm64-light-ipv6only",
+                build_app  : "linux-arm64-light-ipv6only",
                 output_path: "out/linux-arm64-light-ipv6only/chip-lighting-app",
-                app_name : "chip-lighting-app"
+                app_name   : "chip-lighting-app"
             ]
         ]
+
         if (!appMapping.containsKey(appName))
             steps.error("Unsupported app: ${appName}")
 
         def buildApp   = appMapping[appName].build_app
         def outputPath = appMapping[appName].output_path
         def binaryName = appMapping[appName].app_name
+
+        // raspiBinariesDir already = raspi_binaries/apps
         def appStorePath = "${raspiBinariesDir}/${appName}"
 
         steps.echo "Building ${appName}"
-        steps.echo "Output → ${outputPath}"
-        steps.env.app_output_path = "${outputPath}"
+        steps.echo "Expected output path → ${outputPath}"
+        steps.echo "Target storage path → ${appStorePath}"
 
         def arch = steps.sh(script: "uname -m", returnStdout: true).trim()
         def dockerPlatform = (arch == "x86_64") ? "linux/amd64" : "linux/arm64"
@@ -279,63 +282,55 @@ class RaspiPipelineLib implements Serializable {
         def dockerCommands = """
             set -ex
             export PATH=/usr/local/bin:\\\$PATH
-            echo "PATH=\\\$PATH"
 
-            docker run --rm --user root --platform=${dockerPlatform} -v ${workSpace}:/home/connectedhome \\
-            -w /home/connectedhome ${dockerImage}:latest \\
-            /bin/bash -c \"
+            docker run --rm \
+            --user root \
+            --platform=${dockerPlatform} \
+            -v ${workSpace}:/home/connectedhome \
+            -w /home/connectedhome \
+            ${dockerImage}:latest \
+            /bin/bash -c "
                 set -ex
+
                 git config --global --add safe.directory /home/connectedhome
                 git config --global --add safe.directory /home/connectedhome/third_party/pigweed/repo
-                git config --global http.version HTTP/1.1
-                git config --global http.postBuffer 524288000
-                git config --global http.lowSpeedLimit 0
-                git config --global http.lowSpeedTime 999999
 
                 ./scripts/checkout_submodules.py --allow-changing-global-git-config --shallow --platform linux
                 source scripts/bootstrap.sh
                 source scripts/activate.sh
                 scripts/build/build_examples.py --target ${buildApp} build
-                echo "Checking binary inside container:"
-                pwd
-                ls -la out/
-                ls -la ${outputPath} || true
-            \"
-        """
 
+                echo 'Binary inside container:'
+                ls -la ${outputPath}
+            "
+        """
         steps.echo "Executing docker build for ${appName}"
-        def status = steps.sh(script: dockerCommands,returnStatus: true)
+
+        def status = steps.sh(
+            script: dockerCommands,
+            returnStatus: true
+        )
         if (status != 0)
             return [success:false]
-        
-        steps.echo "Checking binary on Jenkins workspace after docker exits"
 
+        //Verify binary exists in workspace
         steps.ws(workSpace) {
-
             steps.sh """
-                echo "Workspace after docker build:"
-                pwd
-                echo "Checking output directory:"
-                ls -la out || true
-
-                echo "Checking expected binary path:"
-                ls -la ${outputPath} || true
-
-                echo "Checking raspi_binaries folder before move:"
-                ls -la ${raspiBinariesDir} || true
+                echo "Verifying binary after docker exit"
+                ls -la ${outputPath}
             """
         }
 
+        //Move binary into raspi_binaries/apps/<appName>/
         steps.ws(workSpace) {
             steps.sh """
-                echo "Creating destination directory:"
                 mkdir -p ${appStorePath}
-                echo "Moving binary:"
-                mv ${steps.env.app_output_path} ${appStorePath}/
-                echo "After move verification:"
-                ls -R ${raspiBinariesDir} || true
+
+                mv ${outputPath} ${appStorePath}/
+                echo "Final artifact location:"
+                ls -R ${raspiBinariesDir}
             """
         }
-        return [success : true,appToTest : binaryName]
+        return [success : true, appToTest : binaryName]
     }
 }

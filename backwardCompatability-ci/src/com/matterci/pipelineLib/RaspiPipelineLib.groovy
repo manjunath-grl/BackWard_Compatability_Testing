@@ -270,7 +270,7 @@ class RaspiPipelineLib implements Serializable {
 
         steps.echo "Building ${appName}"
         steps.echo "Output → ${outputPath}"
-        env.app_output_path = "${outputPath}"
+        steps.env.app_output_path = "${outputPath}"
 
         def arch = steps.sh(script: "uname -m", returnStdout: true).trim()
         def dockerPlatform = (arch == "x86_64") ? "linux/amd64" : "linux/arm64"
@@ -282,7 +282,7 @@ class RaspiPipelineLib implements Serializable {
             echo "PATH=\\\$PATH"
 
             docker run --rm --user root --platform=${dockerPlatform} -v ${workSpace}:/home/connectedhome \\
-            -w /home/connectedhome ${docker_image}:latest \\
+            -w /home/connectedhome ${dockerImage}:latest \\
             /bin/bash -c \"
                 set -ex
                 git config --global --add safe.directory /home/connectedhome
@@ -307,7 +307,7 @@ class RaspiPipelineLib implements Serializable {
         steps.ws(workSpace) {
             steps.sh """
                 mkdir -p ${appStorePath}
-                mv ${env.app_output_path} ${appStorePath}/
+                mv ${steps.env.app_output_path} ${appStorePath}/
             """
         }
         return [success : true,appToTest : binaryName]

@@ -321,44 +321,71 @@ class RepoUtils implements Serializable {
         return gitSha
     }
 
-    static void checkoutGitRef(def steps, String workspaceDir, String branch, String sha, String tag, String pr) {
+    static String checkoutGitRef(def steps,String workspaceDir,String branch,String sha,String tag,String pr) {
         steps.echo "Checking out reference inside ${workspaceDir}"
+        def resolvedSha = sha
         steps.ws(workspaceDir) {
+            steps.sh """
+                set -ex
+
+                echo "Cleaning previous build artifacts..."
+
+                git reset --hard
+                git clean -xfd
+
+                rm -rf out
+                rm -rf .environment
+                rm -rf third_party/pigweed/.environment
+            """
             if (sha) {
                 steps.echo "Checking out SHA: ${sha}"
                 steps.sh """
                     set -ex
                     git checkout ${sha}
                 """
-                return
             }
-            if (tag) {
+            else if (tag) {
                 steps.echo "Checking out TAG: ${tag}"
                 steps.sh """
                     set -ex
                     git checkout tags/${tag}
                 """
-                return
             }
-            if (pr) {
+            else if (pr) {
                 steps.echo "Checking out PR: ${pr}"
                 steps.sh """
                     set -ex
                     git fetch origin pull/${pr}/head:pr-${pr}
                     git checkout pr-${pr}
                 """
-                return
             }
-            if (branch && branch != 'master') {
+            else if (branch) {
                 steps.echo "Checking out BRANCH: ${branch}"
                 steps.sh """
                     set -ex
                     git checkout ${branch}
+                    git pull
                 """
-                return
             }
-            steps.echo "Using default repository HEAD (master)"
+
+            /*
+            CRITICAL: sync submodules after checkout
+            */
+            steps.sh """
+                set -ex
+                git submodule sync
+                git submodule update --init --recursive
+            """
+            /*
+            Resolve actual checked-out commit SHA
+            */
+            resolvedSha = steps.sh(
+                script: "git rev-parse HEAD",
+                returnStdout: true
+            ).trim()
         }
+        steps.echo "Resolved checkout SHA: ${resolvedSha}"
+        return resolvedSha
     }
 
     //caller to provide the platformBinariesDirString

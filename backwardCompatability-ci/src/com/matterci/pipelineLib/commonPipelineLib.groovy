@@ -260,8 +260,8 @@ class commonPipelineLib implements Serializable {
                 set -ex
                 ${jfBinary} c add ${serverId} \
                 --url=${jfUrl} \
-                --user=$JF_USER \
-                --password=$JF_PASSWORD \
+                --user=\$JF_USER \
+                --password=\$JF_PASSWORD \
                 --interactive=false \
                 --overwrite \
                 --insecure-tls=true

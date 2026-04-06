@@ -209,54 +209,32 @@ class commonPipelineLib implements Serializable {
     * One-time setup for JFrog CLI using YAML configs and System PATH.
     */
     static def setupJfrog(def steps, Map testConfigs) {
-        /*
-        Detect jf binary manually if PATH lookup fails
-        */
-        def jfBinary = steps.sh(
-            script: """
-                if command -v jf >/dev/null 2>&1; then
-                    command -v jf
-                elif [ -f /opt/jfrog/bin/jf ]; then
-                    echo /opt/jfrog/bin/jf
-                else
-                    echo ""
-                fi
-            """,
-            returnStdout: true
-        ).trim()
-
-        if (jfBinary) {
-            steps.echo "Using system-installed JFrog CLI: ${jfBinary}"
+        steps.echo "Setting up JFrog CLI..."
+        // Try system jf first (Raspi / Linux)
+        def hasJf = steps.sh(
+            script: "which jf >/dev/null 2>&1",
+            returnStatus: true
+        ) == 0
+        if (hasJf) {
+            steps.echo "Using system-installed jf"
         } else {
-            steps.echo "System jf not found. Falling back to Jenkins tool installer..."
+            steps.echo "System jf not found. Falling back to Jenkins tool..."
             def jfHome = steps.tool 'jfrog-cli'
-            jfBinary = "${jfHome}/jf"
+            steps.env.PATH = "${jfHome}:${steps.env.PATH}"
         }
 
-        /*
-        Verify CLI works
-        */
-        steps.sh "${jfBinary} --version"
-
-        /*
-        Load config
-        */
-        def jfUrl =
-            testConfigs.ci_config?.jfrog_config?.jfrog_url
-            ?: "http://192.168.0.56:8082"
-
-        def credId =
-            testConfigs.ci_config?.jfrog_config?.jfrog_creds_id
-            ?: "artifactory-jenkins-creds"
-
-        def serverId =
-            testConfigs.ci_config?.jfrog_config?.jfrog_server_id
-            ?: "artifactory-oss"
+        // Final verification
+        steps.sh """
+            set -ex
+            which jf
+            jf --version
+        """
+        // Load config
+        def jfUrl    = testConfigs.ci_config?.jfrog_config?.jfrog_url ?: "http://192.168.0.56:8082"
+        def credId   = testConfigs.ci_config?.jfrog_config?.jfrog_creds_id ?: "artifactory-jenkins-creds"
+        def serverId = testConfigs.ci_config?.jfrog_config?.jfrog_server_id ?: "artifactory-oss"
 
         steps.echo "Configuring JFrog CLI for server: ${serverId}"
-        /*
-        Authenticate
-        */
         steps.withCredentials([
             steps.usernamePassword(
                 credentialsId: credId,
@@ -265,17 +243,17 @@ class commonPipelineLib implements Serializable {
             )
         ]) {
             steps.sh """
-                ${jfBinary} c add ${serverId} \
+                set -ex
+                jf c add ${serverId} \
                 --url=${jfUrl} \
-                --user=\$JF_USER \
-                --password=\$JF_PASSWORD \
+                --user=$JF_USER \
+                --password=$JF_PASSWORD \
                 --interactive=false \
                 --overwrite \
                 --insecure-tls=true
             """
-            steps.sh "${jfBinary} c use ${serverId}"
+            steps.sh "jf c use ${serverId}"
         }
-        return jfBinary
     }
 
     static boolean isReleaseBranch(String branch) {
@@ -606,7 +584,6 @@ class commonPipelineLib implements Serializable {
 
     static boolean jfrogFileExists(def steps, String pattern) {
         steps.echo "Checking artifact: ${pattern}"
-        steps.sh "jf rt s '${pattern}' --count --insecure-tls=true"
         def status = steps.sh(
             script: """
                 set +e

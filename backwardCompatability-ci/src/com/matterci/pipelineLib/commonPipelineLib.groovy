@@ -606,6 +606,7 @@ class commonPipelineLib implements Serializable {
 
     static boolean jfrogFileExists(def steps, String pattern) {
         steps.echo "Checking artifact: ${pattern}"
+        steps.sh "jf rt s '${pattern}' --count --insecure-tls=true"
         def status = steps.sh(
             script: """
                 set +e

@@ -211,16 +211,15 @@ class commonPipelineLib implements Serializable {
     static def setupJfrog(def steps, Map testConfigs) {
         steps.echo "Setting up JFrog CLI..."
 
-        def hasJf = steps.sh(
-            script: "which jf >/dev/null 2>&1",
+        def hasSystemJf = steps.sh(
+            script: "test -x /opt/jfrog/bin/jf",
             returnStatus: true
         ) == 0
-
-        if (hasJf) {
+        if (hasSystemJf) {
             steps.echo "Using system-installed jf"
+            steps.env.PATH = "/opt/jfrog/bin:${steps.env.PATH}"
         } else {
-            steps.echo "System jf not found. Falling back to Jenkins tool..."
-
+            steps.echo "System jf not found. Using Jenkins tool installer..."
             def jfHome = steps.tool 'jfrog-cli'
             steps.env.PATH = "${jfHome}:${steps.env.PATH}"
         }

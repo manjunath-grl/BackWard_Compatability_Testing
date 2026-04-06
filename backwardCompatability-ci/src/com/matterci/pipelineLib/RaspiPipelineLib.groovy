@@ -176,7 +176,7 @@ class RaspiPipelineLib implements Serializable {
 
                             def binaryCount = steps.sh(
                                 script: """
-                                    ls ${deviceRaspiWorkspace}/chip-${app.name}* \
+                                    ls ${targetDir}/chip-${app.name}* \
                                     2>/dev/null | wc -l
                                 """,
                                 returnStdout: true
@@ -196,12 +196,7 @@ class RaspiPipelineLib implements Serializable {
                         "Device binary install failure: ${e.getMessage()}"
                     )
                 }
-                return [
-                    success: copyArtifactsSuccess,
-                    deviceWorksSpace: deviceRaspiWorkspace,
-                    deviceIPAddress: deviceIP,
-                    updatedTestConfig: testConfigs
-                ]
+                return [success: copyArtifactsSuccess,deviceWorksSpace: deviceRaspiWorkspace,deviceIPAddress: deviceIP,updatedTestConfig: testConfigs]
             }
     }
 

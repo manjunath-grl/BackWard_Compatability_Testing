@@ -128,7 +128,6 @@ class RaspiPipelineLib implements Serializable {
     static installDeviceBinaries(def steps,Map testConfigs,String nodeName,String stageName) {
 
         def copyArtifactsSuccess = true
-        steps.node(nodeName) {
             def deviceIP = ''
             def deviceRaspiWorkspace = ''
             commonPipelineLib.setupJfrog(steps, testConfigs)
@@ -204,7 +203,6 @@ class RaspiPipelineLib implements Serializable {
                     updatedTestConfig: testConfigs
                 ]
             }
-        }
     }
 
     static Map initRaspiOnNetworkTestParams(def steps,Map testConfigs,String cntrlWorkSpace, String deviceWorkSpace, String deviceNodeIPAddress, String appToTest) {

@@ -79,8 +79,7 @@ class RepoUtils implements Serializable {
         def cloneAppSuccess = true
         def app_sdk_sha = ''
 
-        //steps.echo "ci_config : ${testConfigs.ci_config}"
-        //def appsNeeded = decision.platforms.values().any { it.appsMissing }
+
         // Clone the app SDK
         if (cloneApps) {
             def appRepoUrl = 'git@github.com:project-chip/connectedhomeip.git' // Default to app repo URL
@@ -148,18 +147,10 @@ class RepoUtils implements Serializable {
         def qaRepoSha = ''
         def cmdStatus
         def decision = testConfigs.ci_config.artifactDecision
-        // def raspiDecision = decision.platforms["raspi"]
-        // def controllerMissing = raspiDecision.controllerMissing
 
-        //steps.echo "Controller Repo : ${repo}"
-        //steps.echo "Controller Missing : ${controllerMissing}"
-        def wheelsDir = '"${controllerDir}/${ctrlBinariesDir}"'
-        // if (repo == "certification-tool" && controllerMissing){
-        //     wheelsDir = "${controllerDir}/${ctrlBinariesDir}/controller"
-        // }
-        // else{
-        //     wheelsDir = "${controllerDir}/${ctrlBinariesDir}"
-        // }
+        steps.echo "controllerDir  : ${controllerDir}"
+        steps.echo "ctrlBinariesDir : ${ctrlBinariesDir}"
+        def wheelsDir = "${controllerDir}/${ctrlBinariesDir}"
 
         def setupCommand = """#!/bin/bash
             set -e

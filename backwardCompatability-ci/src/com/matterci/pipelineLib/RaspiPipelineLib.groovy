@@ -126,10 +126,11 @@ class RaspiPipelineLib implements Serializable {
     }
 
     static installDeviceBinaries(def steps,Map testConfigs,String nodeName,String stageName) {
-
         def copyArtifactsSuccess = true
-            def deviceIP = ''
-            def deviceRaspiWorkspace = ''
+        def deviceIP = ''
+        def deviceRaspiWorkspace = ''
+        def refFolder = ''
+        def targetDir = ''
             commonPipelineLib.setupJfrog(steps, testConfigs)
             steps.timeout(time: 60, unit: 'MINUTES') {
                 try {
@@ -157,7 +158,10 @@ class RaspiPipelineLib implements Serializable {
 
                             steps.echo "JFrog path: ${jfrogPath}"
 
-                            steps.dir(deviceRaspiWorkspace) {
+                            refFolder = app.sha ?: app.tag ?: (app.pr ? "PR-${app.pr}" : app.branch)
+                            targetDir = "${deviceRaspiWorkspace}/${refFolder}"
+                            steps.sh "mkdir -p ${targetDir}"
+                            steps.dir(targetDir) {
                                 steps.sh """
                                     set -e
                                     jf rt dl \
@@ -179,13 +183,9 @@ class RaspiPipelineLib implements Serializable {
                             ).trim()
 
                             if (binaryCount == "0") {
-                                steps.error(
-                                    "Binary missing for ${app.name}"
-                                )
+                                steps.error("Binary missing for ${app.name}")
                             }
-                            steps.echo(
-                                "Downloaded binary for ${app.name}"
-                            )
+                            steps.echo("Downloaded binary for ${app.name}")
                         }
                     }
 

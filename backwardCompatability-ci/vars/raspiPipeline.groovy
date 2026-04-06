@@ -390,19 +390,45 @@ def call(testConfigs, testCasesList) {
             }
             //Run Tests
             stage('Run Tests on ON_NETWORK_RASPI_CONTROLLER_NODE') {
-
                 node(cntrlNode) {
                     echo "controller workspace: ${cntlWorkSpace}"
-                    def primaryApp = raspiDecision.apps.find { !it.missing }?.name ?: raspiDecision.apps[0].name
-                    def localTestParams = RaspiPipelineLib.initRaspiOnNetworkTestParams(this,testConfigs,cntlWorkSpace,deviceWorkSpace,deviceNodeIPAddress,"chip-${primaryApp}")
-                    def raspi_onnetwork = new RunTests()
-                    def runnerConfigYaml = localTestParams
-                    def mergedYaml =writeYaml(returnText: true,data: runnerConfigYaml)
-                    writeFile(
-                        file: "${cntlWorkSpace}/runnerConfig.yaml",
-                        text: mergedYaml
-                    )
-                    raspi_onnetwork.runTests(this,cntlWorkSpace,"${cntlWorkSpace}/runnerConfig.yaml","${cntlWorkSpace}/Log_path")
+                    def testrun = new RunTests()
+                    raspiDecision.apps.each { app ->
+                        echo "Running tests for app: ${app.name}"
+                        def localTestParams = RaspiPipelineLib.initRaspiOnNetworkTestParams(this,testConfigs,cntlWorkSpace,deviceWorkSpace,deviceNodeIPAddress,"chip-${app.name}")
+                        def runnerConfigYaml = localTestParams
+                        def mergedYaml =writeYaml(returnText: true,data: runnerConfigYaml)
+                        def runnerConfigPath = "${cntlWorkSpace}/runnerConfig.yaml"
+                        writeFile(file: runnerConfigPath,text: mergedYaml)
+                        testrun.runTests(this,"${cntlWorkSpace}/${raspiBinariesDirString}",runnerConfigPath,"${cntlWorkSpace}/LOG_Backward_Compatability/${steps.env.BUILD_NUMBER}")
+                    }
+                }
+            }
+
+            stage('Run Tests on ON_NETWORK_RASPI_CONTROLLER_NODE') {
+                node(cntrlNode) {
+                    echo "controller workspace: ${cntlWorkSpace}"
+                    def testrun = new RunTests()
+                    def logPath = "${cntlWorkSpace}/LOG_Backward_Compatability/${steps.env.BUILD_NUMBER}"
+                    def ctrlPath = "${cntlWorkSpace}/${raspiBinariesDirString}"
+                    def refFolder = ''
+                    def refPath = ''
+                    
+                    raspiDecision.apps.findAll { !it.missing }.each { app ->
+                        refFolder =app.sha ?: app.tag ?: (app.pr ? "PR-${app.pr}" : app.branch)
+                        refPath = "${deviceWorkSpace}/${refFolder}"
+
+                        echo "Running tests for app: ${app.name}"
+                        echo "Reference folder: ${refFolder}"
+                        def localTestParams = RaspiPipelineLib.initRaspiOnNetworkTestParams(this,testConfigs,cntlWorkSpace,deviceWorkSpace,deviceNodeIPAddress,refPath)
+                        def runnerConfigPath = "${cntlWorkSpace}/runnerConfig.yaml"
+                        def mergedYaml =writeYaml(returnText: true, data: localTestParams)
+                        writeFile(
+                            file: runnerConfigPath,
+                            text: mergedYaml
+                        )
+                        testrun.runTests(this,ctrlPath,runnerConfigPath,logPath)
+                    }
                 }
             }
 

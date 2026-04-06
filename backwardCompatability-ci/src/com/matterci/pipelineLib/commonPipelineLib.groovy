@@ -210,44 +210,52 @@ class commonPipelineLib implements Serializable {
     */
     static def setupJfrog(def steps, Map testConfigs) {
         /*
-        Step 1: Try system-installed jf first
+        Detect jf binary manually if PATH lookup fails
         */
         def jfBinary = steps.sh(
-            script: "which jf || true",
+            script: """
+                if command -v jf >/dev/null 2>&1; then
+                    command -v jf
+                elif [ -f /opt/jfrog/bin/jf ]; then
+                    echo /opt/jfrog/bin/jf
+                else
+                    echo ""
+                fi
+            """,
             returnStdout: true
         ).trim()
 
         if (jfBinary) {
             steps.echo "Using system-installed JFrog CLI: ${jfBinary}"
         } else {
-
-            /*
-            Step 2: fallback to Jenkins tool installer
-            */
             steps.echo "System jf not found. Falling back to Jenkins tool installer..."
             def jfHome = steps.tool 'jfrog-cli'
-            steps.env.PATH = "${jfHome}:${steps.env.PATH}"
             jfBinary = "${jfHome}/jf"
         }
 
         /*
-        Step 3: verify CLI
+        Verify CLI works
         */
-        steps.sh """
-            set -ex
-            ${jfBinary} --version
-        """
+        steps.sh "${jfBinary} --version"
 
         /*
-        Step 4: load config
+        Load config
         */
-        def jfUrl = testConfigs.ci_config?.jfrog_config?.jfrog_url?: "http://192.168.0.56:8082"
-        def credId = testConfigs.ci_config?.jfrog_config?.jfrog_creds_id ?: "artifactory-jenkins-creds"
-        def serverId = testConfigs.ci_config?.jfrog_config?.jfrog_server_id ?: "artifactory-oss"
+        def jfUrl =
+            testConfigs.ci_config?.jfrog_config?.jfrog_url
+            ?: "http://192.168.0.56:8082"
+
+        def credId =
+            testConfigs.ci_config?.jfrog_config?.jfrog_creds_id
+            ?: "artifactory-jenkins-creds"
+
+        def serverId =
+            testConfigs.ci_config?.jfrog_config?.jfrog_server_id
+            ?: "artifactory-oss"
+
         steps.echo "Configuring JFrog CLI for server: ${serverId}"
-
         /*
-        Step 5: authenticate
+        Authenticate
         */
         steps.withCredentials([
             steps.usernamePassword(
@@ -257,7 +265,6 @@ class commonPipelineLib implements Serializable {
             )
         ]) {
             steps.sh """
-                set -ex
                 ${jfBinary} c add ${serverId} \
                 --url=${jfUrl} \
                 --user=\$JF_USER \
@@ -268,9 +275,6 @@ class commonPipelineLib implements Serializable {
             """
             steps.sh "${jfBinary} c use ${serverId}"
         }
-        /*
-        Return binary path for reuse if needed later
-        */
         return jfBinary
     }
 

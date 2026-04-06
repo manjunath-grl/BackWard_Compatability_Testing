@@ -211,30 +211,46 @@ class commonPipelineLib implements Serializable {
     * One-time setup for JFrog CLI using YAML configs and System PATH.
     */
     static def setupJfrog(def steps, Map testConfigs) {
-        // 1. Force the manual installation path into the environment
-        steps.env.PATH = "/opt/jfrog/bin:${steps.env.PATH}"
-        def jfHome = steps.tool 'jfrog-cli'
-        steps.env.PATH = "${jfHome}:${steps.env.PATH}"
+        //Detect jf CLI automatically on agent
+        def jfPath = steps.sh(
+            script: "dirname \$(which jf)",
+            returnStdout: true
+        ).trim()
 
-        // 2. Fetch arguments from YAML (with defaults as fallback)
-        def jfUrl    = testConfigs.ci_config?.jfrog_config?.jfrog_url ?: "http://192.168.0.56:8082"
-        def credId   = testConfigs.ci_config?.jfrog_config?.jfrog_creds_id ?: "artifactory-jenkins-creds"
-        def serverId = testConfigs.ci_config?.jfrog_config?.jfrog_server_id ?: "artifactory-oss"
+        steps.echo "Detected JFrog CLI path: ${jfPath}"
+        steps.env.PATH = "${jfPath}:${steps.env.PATH}"
+
+        //Verify CLI exists
+        steps.sh """
+            set -ex
+            which jf
+            jf --version
+        """
+
+        //Load config from YAML
+        def jfUrl = testConfigs.ci_config?.jfrog_config?.jfrog_url ?: "http://192.168.0.56:8082"
+        def credId = testConfigs.ci_config?.jfrog_config?.jfrog_creds_id?: "artifactory-jenkins-creds"
+        def serverId = testConfigs.ci_config?.jfrog_config?.jfrog_server_id?: "artifactory-oss"
 
         steps.echo "Configuring JFrog CLI for server: ${serverId}"
 
-        // 3. Authenticate and Configure
-        steps.withCredentials([steps.usernamePassword(credentialsId: credId, 
-                                                    passwordVariable: 'JF_PASSWORD', 
-                                                    usernameVariable: 'JF_USER')]) {
+        //Authenticate
+        steps.withCredentials([
+            steps.usernamePassword(
+                credentialsId: credId,
+                usernameVariable: 'JF_USER',
+                passwordVariable: 'JF_PASSWORD'
+            )
+        ]) {
             steps.sh """
+                set -ex
                 jf c add ${serverId} \
                 --url=${jfUrl} \
-                --user=${steps.env.JF_USER} \
-                --password=${steps.env.JF_PASSWORD} \
-                --insecure-tls=true \
+                --user=$JF_USER \
+                --password=$JF_PASSWORD \
+                --interactive=false \
                 --overwrite \
-                --interactive=false
+                --insecure-tls=true
             """
             steps.sh "jf c use ${serverId}"
         }

@@ -211,7 +211,6 @@ class commonPipelineLib implements Serializable {
     static def setupJfrog(def steps, Map testConfigs) {
         steps.echo "Setting up JFrog CLI..."
 
-        // Detect system jf first
         def hasJf = steps.sh(
             script: "which jf >/dev/null 2>&1",
             returnStatus: true
@@ -221,20 +220,20 @@ class commonPipelineLib implements Serializable {
             steps.echo "Using system-installed jf"
         } else {
             steps.echo "System jf not found. Falling back to Jenkins tool..."
+
             def jfHome = steps.tool 'jfrog-cli'
             steps.env.PATH = "${jfHome}:${steps.env.PATH}"
         }
 
-        // Verify CLI
         steps.sh """
             set -ex
             which jf
             jf --version
         """
 
-        def jfUrl = testConfigs.ci_config?.jfrog_config?.jfrog_url ?: "http://192.168.0.56:8082"
-        def credId = testConfigs.ci_config?.jfrog_config?.jfrog_creds_id ?: "artifactory-jenkins-creds"
-        def serverId = testConfigs.ci_config?.jfrog_config?.jfrog_server_id ?: "artifactory-oss"
+        def jfUrl = testConfigs.ci_config?.jfrog_config?.jfrog_url?: "http://192.168.0.56:8082"
+        def credId = testConfigs.ci_config?.jfrog_config?.jfrog_creds_id?: "artifactory-jenkins-creds"
+        def serverId = testConfigs.ci_config?.jfrog_config?.jfrog_server_id?: "artifactory-oss"
 
         steps.echo "Configuring JFrog CLI for server: ${serverId}"
 
@@ -249,8 +248,8 @@ class commonPipelineLib implements Serializable {
                 set -ex
                 jf c add ${serverId} \
                 --url=${jfUrl} \
-                --user=$JF_USER \
-                --password=$JF_PASSWORD \
+                --user=\$JF_USER \
+                --password=\$JF_PASSWORD \
                 --interactive=false \
                 --overwrite \
                 --insecure-tls=true

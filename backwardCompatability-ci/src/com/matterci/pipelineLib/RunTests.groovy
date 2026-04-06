@@ -18,7 +18,7 @@ class RunTests {
 
                 steps.echo "Creating log directory: ${dateLogPath}"
                 steps.sh """
-                    mkdir -p "${dateLogPath}"
+                    mkdir -p "${HOME}/${dateLogPath}"
                 """
                 def configData = steps.readYaml(file: runnerConfigFile)
 

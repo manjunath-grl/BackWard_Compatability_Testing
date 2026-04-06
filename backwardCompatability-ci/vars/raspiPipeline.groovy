@@ -409,24 +409,21 @@ def call(testConfigs, testCasesList) {
                 node(cntrlNode) {
                     echo "controller workspace: ${cntlWorkSpace}"
                     def testrun = new RunTests()
-                    def logPath = "${cntlWorkSpace}/LOG_Backward_Compatability/${steps.env.BUILD_NUMBER}"
+                    def logPath = "${cntlWorkSpace}/LOG_Backward_Compatability/${env.BUILD_NUMBER}"
                     def ctrlPath = "${cntlWorkSpace}/${raspiBinariesDirString}"
-                    def refFolder = ''
-                    def refPath = ''
-                    
-                    raspiDecision.apps.findAll { !it.missing }.each { app ->
-                        refFolder =app.sha ?: app.tag ?: (app.pr ? "PR-${app.pr}" : app.branch)
-                        refPath = "${deviceWorkSpace}/${refFolder}"
 
+                    raspiDecision.apps.findAll { !it.missing }.each { app ->
+                        def refFolder = app.sha ?: app.tag ?: (app.pr ? "PR-${app.pr}" : app.branch)
+                        def refPath = "${deviceWorkSpace}/${refFolder}"
                         echo "Running tests for app: ${app.name}"
                         echo "Reference folder: ${refFolder}"
+
                         def localTestParams = RaspiPipelineLib.initRaspiOnNetworkTestParams(this,testConfigs,cntlWorkSpace,deviceWorkSpace,deviceNodeIPAddress,refPath)
-                        def runnerConfigPath = "${cntlWorkSpace}/runnerConfig.yaml"
-                        def mergedYaml =writeYaml(returnText: true, data: localTestParams)
-                        writeFile(
-                            file: runnerConfigPath,
-                            text: mergedYaml
-                        )
+                        def runnerConfigPath = "${cntlWorkSpace}/runnerConfig_${refFolder}_${app.name}.yaml"
+                        def mergedYaml = writeYaml(returnText: true, data: localTestParams)
+                        writeFile(file: runnerConfigPath,text: mergedYaml)
+
+                        //testrun.runTests(this,ctrlPath,runnerConfigPath,"${logPath}/${refFolder}/${app.name}")
                         testrun.runTests(this,ctrlPath,runnerConfigPath,logPath)
                     }
                 }

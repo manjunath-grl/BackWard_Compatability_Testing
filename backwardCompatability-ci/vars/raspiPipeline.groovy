@@ -250,7 +250,7 @@ def call(testConfigs, testCasesList) {
             Controller Built Earlier: ${controllerBuilt}
       """
 
-    if (controllerMissing || connectedhomeipAppsMissing) {
+    if (( controllerMissing && controllerRepo == "connectedhomeip" ) || connectedhomeipAppsMissing) {
         stage('Build For Raspi inside Docker') {
             node(raspiStages.build_firmware.node) {
                 try {

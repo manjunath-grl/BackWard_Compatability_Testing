@@ -112,7 +112,7 @@ def buildAndinstallCertBinaries(def steps,Map testConfigs,String workSpace,Strin
             if (artifactType == "CTRL") {
                 //tract controller + accessory binaries from docker
                 imageSha = commonPipelineLib.resolveCertDockerSha(testConfigs)
-                extractDockerArtifacts(imageSha,certBinariesWorkspace)
+                extractDockerArtifacts(this, imageSha, certBinariesWorkspace)
                 steps.echo "Uploading certification-tool controller binaries"
                 commonPipelineLib.uploadControllerBinary(steps,testConfigs,"raspi",certBinariesWorkspace)
             }

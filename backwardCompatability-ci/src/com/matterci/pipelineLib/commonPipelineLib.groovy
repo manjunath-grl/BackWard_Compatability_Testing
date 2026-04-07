@@ -729,6 +729,7 @@ class commonPipelineLib implements Serializable {
         "v2.15-beta2.1+spring2026" : "ead81748828787a656ae05c7d980f908f09ea751",
         "v2.14.1-beta2+winter2026" : "4564cd2e0a0c7059bb99719cfc3de50cefac5d10",
         "v2.15-beta2+spring2026" : "9b1078da4307f98d362a0b44625a94d649bc1e77",
+        "v2.15-beta3+spring2026" : "c2175a1ee826fe66f1d40afc3fcf8e05689810aa"
     ]
 
     static void overrideDockerImageForRelease(def steps, Map testConfigs) {

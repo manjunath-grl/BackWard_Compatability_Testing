@@ -393,7 +393,8 @@ def call(testConfigs, testCasesList) {
                     echo "controller workspace: ${cntlWorkSpace}"
                     def testrun = new RunTests()
                     def logPath = "${cntlWorkSpace}/LOG_Backward_Compatability"
-                    def ctrlPath = "${cntlWorkSpace}/${raspiBinariesDirString}"
+                    //def ctrlPath = "${cntlWorkSpace}/${raspiBinariesDirString}"
+                    def ctrlPath = "${cntlWorkSpace}"
 
                     raspiDecision.apps.findAll { !it.missing }.each { app ->
                         def refFolder = app.sha ?: app.tag ?: (app.pr ? "PR-${app.pr}" : app.branch)

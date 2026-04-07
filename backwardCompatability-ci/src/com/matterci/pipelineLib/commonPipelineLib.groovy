@@ -476,7 +476,7 @@ class commonPipelineLib implements Serializable {
                 steps.error("Failed to resolve SHA for branch ${branch}")
 
             steps.echo "Resolved SHA = ${sha}"
-            def appBinaryPath = "${binariesDir}/${appName}"
+            appBinaryPath = "${binariesDir}/${appName}"
         }
 
         /*

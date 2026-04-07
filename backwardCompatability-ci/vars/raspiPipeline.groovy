@@ -229,6 +229,7 @@ def call(testConfigs, testCasesList) {
     def controllerMissing =raspiDecision.controllerMissing
     def appStorePath = ''
     def binariesStorePath = ''
+    def buildNumber = env.BUILD_NUMBER
 
     def controllerBuilt = false
     echo "Controller Repo : ${controllerRepo}"
@@ -372,7 +373,7 @@ def call(testConfigs, testCasesList) {
                         if (!result.success)
                             error("Controller install failed")
 
-                        cntlWorkSpace =result.cntrlWorksSpace
+                        cntlWorkSpace = result.cntrlWorksSpace
                     }
                 }
             }
@@ -409,7 +410,7 @@ def call(testConfigs, testCasesList) {
                 node(cntrlNode) {
                     echo "controller workspace: ${cntlWorkSpace}"
                     def testrun = new RunTests()
-                    def logPath = "${cntlWorkSpace}/LOG_Backward_Compatability/${env.BUILD_NUMBER}"
+                    def logPath = "${cntlWorkSpace}/LOG_Backward_Compatability/${buildNumber}"
                     def ctrlPath = "${cntlWorkSpace}/${raspiBinariesDirString}"
 
                     raspiDecision.apps.findAll { !it.missing }.each { app ->

@@ -406,7 +406,7 @@ def call(testConfigs, testCasesList) {
                         def mergedYaml = writeYaml(returnText: true, data: localTestParams)
                         writeFile(file: runnerConfigPath,text: mergedYaml)
 
-                        testrun.runTests(this,ctrlPath,runnerConfigPath,logPath,${app.name})
+                        testrun.runTests(this, ctrlPath, runnerConfigPath, logPath, app.name)
                     }
                 }
             }

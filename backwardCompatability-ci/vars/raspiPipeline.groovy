@@ -81,7 +81,8 @@ def buildAndinstallCertBinaries(def steps, Map testConfigs, String workSpace, St
     steps.echo "Artifact type: ${artifactType}"
 
     //def WORKDIR = "/home/${hostname}/certification-tool"
-    homedir = "/home/${hostname}"
+    //homedir = "/home/${hostname}"
+    homedir = "\$HOME"
     def imageSha = ''
     try {
         steps.ws(workSpace) {

@@ -78,6 +78,8 @@ def buildAndinstallCertBinaries(def steps,Map testConfigs,String workSpace,Strin
 
     def hostname = steps.sh(script: "hostname",returnStdout: true).trim()
 
+    steps.echo "Artifact type: ${artifactType}"
+
     //def WORKDIR = "/home/${hostname}/certification-tool"
     homedir = "/home/${hostname}"
     def imageSha = ''
@@ -109,24 +111,24 @@ def buildAndinstallCertBinaries(def steps,Map testConfigs,String workSpace,Strin
             def dutBinariesPath = "${homedir}/apps"
 
             //load controller binaries
-            if (artifactType == "CTRL") {
+            if ( artifactType == "CTRL" ) {
                 //tract controller + accessory binaries from docker
                 imageSha = commonPipelineLib.resolveCertDockerSha(testConfigs)
                 extractDockerArtifacts(this, imageSha, certBinariesWorkspace)
                 steps.echo "Uploading certification-tool controller binaries"
                 commonPipelineLib.uploadControllerBinary(steps,testConfigs,"raspi",certBinariesWorkspace)
+
+                //Clone Matter-QA repo (required for test execution)
+                def matterCloneStatus = RepoUtils.cloneMatterQARepo(steps,testConfigs,"main",certBinariesWorkspace,"controller")
+                if (matterCloneStatus != 0)
+                    throw new Exception("Matter-QA clone failed")
             }
 
             //load accessory binary
-            if (artifactType == "DUT" && appConfig != null) {
+            if ( artifactType == "DUT" ) {
                 steps.echo "Uploading certification-tool accessory: ${appConfig.name}"
                 commonPipelineLib.uploadAppBinary(steps,testConfigs,"raspi",dutBinariesPath,appConfig.name,appConfig.branch,appConfig.sha,appConfig.tag,appConfig.pr)
             }
-
-            //Clone Matter-QA repo (required for test execution)
-            def matterCloneStatus = RepoUtils.cloneMatterQARepo(steps,testConfigs,"main",certBinariesWorkspace,"controller")
-            if (matterCloneStatus != 0)
-                throw new Exception("Matter-QA clone failed")
 
             buildSuccess = true
         }

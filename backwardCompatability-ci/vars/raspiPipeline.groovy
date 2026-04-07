@@ -398,7 +398,7 @@ def call(testConfigs, testCasesList) {
 
                     raspiDecision.apps.findAll { !it.missing }.each { app ->
                         def refFolder = app.sha ?: app.tag ?: (app.pr ? "PR-${app.pr}" : app.branch)
-                        def refPath = "${deviceWorkSpace}/${refFolder}"
+                        def refPath = "${deviceWorkSpace}/${refFolder}/chip-${app.name}"
                         echo "Running tests for app: ${app.name}"
                         echo "Reference folder: ${refFolder}"
 

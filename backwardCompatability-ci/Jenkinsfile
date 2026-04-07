@@ -71,7 +71,7 @@ node {
             return
 
         if (platformName == "raspi") {
-            raspiPipeline(this, testConfigs, testCasesList)
+            raspiPipeline(testConfigs, testCasesList)
         }
     }
 }

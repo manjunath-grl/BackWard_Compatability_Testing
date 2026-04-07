@@ -213,7 +213,7 @@ def buildController(testConfigs, testCasesList, workSpace, raspiBinariesDir){
     }
 }
 
-def call(steps, testConfigs, testCasesList) {
+def call(testConfigs, testCasesList) {
     def buildSuccess = true
     def raspiStages = testConfigs.ci_config?.raspi_pipeline?.stages
     def raspiBinariesDirString = "raspi_binaries"
@@ -229,7 +229,6 @@ def call(steps, testConfigs, testCasesList) {
     def controllerMissing =raspiDecision.controllerMissing
     def appStorePath = ''
     def binariesStorePath = ''
-    def buildNumber = steps.env.BUILD_NUMBER
 
     def controllerBuilt = false
     echo "Controller Repo : ${controllerRepo}"
@@ -389,28 +388,11 @@ def call(steps, testConfigs, testCasesList) {
                     deviceWorkSpace = result.deviceWorksSpace
                 }
             }
-            //Run Tests
-            stage('Run Tests on ON_NETWORK_RASPI_CONTROLLER_NODE') {
+            stage('Run Tests on RASPI_CONTROLLER_NODE') {
                 node(cntrlNode) {
                     echo "controller workspace: ${cntlWorkSpace}"
                     def testrun = new RunTests()
-                    raspiDecision.apps.each { app ->
-                        echo "Running tests for app: ${app.name}"
-                        def localTestParams = RaspiPipelineLib.initRaspiOnNetworkTestParams(this,testConfigs,cntlWorkSpace,deviceWorkSpace,deviceNodeIPAddress,"chip-${app.name}")
-                        def runnerConfigYaml = localTestParams
-                        def mergedYaml =writeYaml(returnText: true,data: runnerConfigYaml)
-                        def runnerConfigPath = "${cntlWorkSpace}/runnerConfig.yaml"
-                        writeFile(file: runnerConfigPath,text: mergedYaml)
-                        testrun.runTests(this,"${cntlWorkSpace}/${raspiBinariesDirString}",runnerConfigPath,"${cntlWorkSpace}/LOG_Backward_Compatability/${steps.env.BUILD_NUMBER}")
-                    }
-                }
-            }
-
-            stage('Run Tests on ON_NETWORK_RASPI_CONTROLLER_NODE') {
-                node(cntrlNode) {
-                    echo "controller workspace: ${cntlWorkSpace}"
-                    def testrun = new RunTests()
-                    def logPath = "${cntlWorkSpace}/LOG_Backward_Compatability/${buildNumber}"
+                    def logPath = "${cntlWorkSpace}/LOG_Backward_Compatability"
                     def ctrlPath = "${cntlWorkSpace}/${raspiBinariesDirString}"
 
                     raspiDecision.apps.findAll { !it.missing }.each { app ->
@@ -425,7 +407,7 @@ def call(steps, testConfigs, testCasesList) {
                         writeFile(file: runnerConfigPath,text: mergedYaml)
 
                         //testrun.runTests(this,ctrlPath,runnerConfigPath,"${logPath}/${refFolder}/${app.name}")
-                        testrun.runTests(this,ctrlPath,runnerConfigPath,logPath)
+                        testrun.runTests(this,ctrlPath,runnerConfigPath,logPath,${app.name})
                     }
                 }
             }

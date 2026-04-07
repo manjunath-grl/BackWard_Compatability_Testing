@@ -6,15 +6,15 @@ import com.matterci.pipelineLib.commonPipelineLib
 
 class RunTests {
 
-    def runTests(def steps, String workspace, String runnerConfigFile, String logPath) {
+    def runTests(def steps, String workspace, String runnerConfigFile, String logPath, String appName) {
         def hasFailures = false
         // Extract app name from log path for better stage labeling
-        def stageLabel = logPath.tokenize('/').takeRight(2).join(" - ")
-        steps.stage("Run Tests - ${stageLabel}") {
+        steps.stage("Run Tests - ${appName}") {
             steps.catchError(buildResult: 'SUCCESS',stageResult: 'FAILURE') {
 
                 def currentDate = new Date().format("dd_MM_yyyy")
-                def dateLogPath = "${logPath}/${stageLabel}-${currentDate}"
+                def buildNumber = steps.env.BUILD_NUMBER
+                def dateLogPath = "${logPath}/${buildNumber}/${currentDate}"
 
                 steps.echo "Creating log directory: ${dateLogPath}"
                 steps.sh """
@@ -49,7 +49,7 @@ class RunTests {
                 )
 
                 if (status != 0) {
-                    steps.echo "Test execution failed for ${stageLabel}"
+                    steps.echo "Test execution failed for ${appName}. Check logs at ${dateLogPath} for details."
                     hasFailures = true
                 }
             }

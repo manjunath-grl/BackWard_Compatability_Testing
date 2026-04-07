@@ -124,7 +124,7 @@ def buildAndinstallCertBinaries(def steps,Map testConfigs,String workSpace,Strin
             }
 
             //Clone Matter-QA repo (required for test execution)
-            def matterCloneStatus = RepoUtils.cloneMatterQARepo(steps,testConfigs,"main",certBinariesWorkspace,controller)
+            def matterCloneStatus = RepoUtils.cloneMatterQARepo(steps,testConfigs,"main",certBinariesWorkspace,"controller")
             if (matterCloneStatus != 0)
                 throw new Exception("Matter-QA clone failed")
 

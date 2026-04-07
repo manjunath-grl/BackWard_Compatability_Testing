@@ -91,14 +91,14 @@ def buildAndinstallCertBinaries(def steps,Map testConfigs,String workSpace,Strin
                     sudo docker ps -q | xargs -r sudo docker kill
                     if [ ! -d certification-tool ]; then
                         git clone -b "${branch}" "${repoUrl}" --recurse-submodules certification-tool
-                    else
-                        sudo rm -rf matter_qa
-                        cd certification-tool
-                        git fetch
-                        git checkout "${branch}"
-                        git pull --recurse-submodules
-                        yes 1 | ./scripts/pi-setup/auto-install.sh || true
                     fi
+
+                    cd certification-tool
+                    git fetch
+                    git checkout "${branch}"
+                    git pull --recurse-submodules
+                    yes 1 | ./scripts/pi-setup/auto-install.sh || true
+
                 """,
                 returnStatus: true
             )

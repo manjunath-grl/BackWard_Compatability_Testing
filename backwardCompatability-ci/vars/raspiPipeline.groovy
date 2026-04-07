@@ -213,7 +213,7 @@ def buildController(testConfigs, testCasesList, workSpace, raspiBinariesDir){
     }
 }
 
-def call(testConfigs, testCasesList) {
+def call(steps, testConfigs, testCasesList) {
     def buildSuccess = true
     def raspiStages = testConfigs.ci_config?.raspi_pipeline?.stages
     def raspiBinariesDirString = "raspi_binaries"
@@ -229,7 +229,7 @@ def call(testConfigs, testCasesList) {
     def controllerMissing =raspiDecision.controllerMissing
     def appStorePath = ''
     def binariesStorePath = ''
-    def buildNumber = env.BUILD_NUMBER
+    def buildNumber = steps.env.BUILD_NUMBER
 
     def controllerBuilt = false
     echo "Controller Repo : ${controllerRepo}"

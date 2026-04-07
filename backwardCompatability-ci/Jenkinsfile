@@ -54,7 +54,7 @@ node {
     }
 
     //Execute SDK clone ONLY when required
-    if (controllerCloneRequired || connectedhomeipAppsCloneRequired) {
+    if ((controllerCloneRequired && controllerRepo == "connectedhomeip") || connectedhomeipAppsCloneRequired ) {
         echo "Cloning connectedhomeip SDK (required)"
         testConfigs = cloneRepo(testConfigs, decision)
     }

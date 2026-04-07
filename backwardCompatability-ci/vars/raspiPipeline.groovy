@@ -64,7 +64,7 @@ def extractDockerArtifacts(def steps, String imageSha, String certBinariesWorksp
 }
 
 
-def buildAndinstallCertBinaries(def steps,Map testConfigs,String workSpace,String raspiBinariesDir,String artifactType,Map appConfig = null) {
+def buildAndinstallCertBinaries(def steps, Map testConfigs, String workSpace, String raspiBinariesDir, String artifactType, Map appConfig) {
     boolean buildSuccess = false
     def status = 0
     def homedir = ""
@@ -290,7 +290,7 @@ def call(testConfigs, testCasesList) {
                         if (!buildAppResult.success)
                             error("App build failed: ${app.name}")
 
-                        commonPipelineLib.uploadAppBinary(this,testConfigs,"raspi",appStorePath,app.name,app.branch)
+                        commonPipelineLib.uploadAppBinary(this,testConfigs,"raspi",appStorePath,app.name,app.branch,app.sha,app.tag,app.pr)
                     }
                 } catch (Exception e) {
                     buildSuccess = false
@@ -327,7 +327,7 @@ def call(testConfigs, testCasesList) {
                     node("${cntrlNode}") {
                         controllerBuildWorkSpace ="${env.WORKSPACE}/controller_sdk"
                         echo "Building certification-tool controller"
-                        def result = buildAndinstallCertBinaries(this, testConfigs, controllerBuildWorkSpace, raspiBinariesDirString, "CTRL")
+                        def result = buildAndinstallCertBinaries(this, testConfigs, controllerBuildWorkSpace, raspiBinariesDirString, "CTRL", app)
                         if (!result.success)
                             error("Certification-tool controller build failed")
 
@@ -349,7 +349,7 @@ def call(testConfigs, testCasesList) {
                     node("${deviceNode}") {
                         deviceBuildWorkSpace ="${env.WORKSPACE}/controller_sdk"
                         echo "Building certification-tool accessory: ${app.name}"
-                        def result = buildAndinstallCertBinaries(this, testConfigs, deviceBuildWorkSpace, raspiBinariesDirString, "DUT" )
+                        def result = buildAndinstallCertBinaries(this, testConfigs, deviceBuildWorkSpace, raspiBinariesDirString, "DUT", app )
                         if (!result.success)
                             error("Certification-tool app build failed: ${app.name}")
                     }

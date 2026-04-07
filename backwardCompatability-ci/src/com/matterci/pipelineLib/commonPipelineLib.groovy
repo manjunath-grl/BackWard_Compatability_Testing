@@ -451,9 +451,7 @@ class commonPipelineLib implements Serializable {
 
     static void uploadAppBinary(def steps,Map testConfigs,String platform,String binariesDir,String appName,String branch,String sha = null,String tag = null,String pr  = null) {
         setupJfrog(steps, testConfigs)
-        def jfRepo =
-            testConfigs.ci_config.jfrog_config.jfrog_repo
-            ?: "matter-binaries"
+        def jfRepo = testConfigs.ci_config.jfrog_config.jfrog_repo?: "matter-binaries"
         def repoUrl=''
         /*
         Resolve SHA automatically if:
@@ -495,17 +493,18 @@ class commonPipelineLib implements Serializable {
             steps.error("Unable to determine artifact upload path")
         }
 
-        def appBinaryPath = "${binariesDir}/${appName}"
+        //def appBinaryPath = "${binariesDir}/${appName}"
+        def appBinaryPath = "${binariesDir}"
 
         steps.echo """
-        Uploading app binary
-        --------------------
-        App Name      : ${appName}
-        Platform      : ${platform}
-        Branch        : ${branch}
-        Resolved SHA  : ${sha ?: "N/A"}
-        Upload From   : ${appBinaryPath}
-        Upload To     : ${basePath}
+            Uploading app binary
+            --------------------
+            App Name      : ${appName}
+            Platform      : ${platform}
+            Branch        : ${branch}
+            Resolved SHA  : ${sha ?: "N/A"}
+            Upload From   : ${appBinaryPath}
+            Upload To     : ${basePath}
         """
         /*
         Verify binary exists

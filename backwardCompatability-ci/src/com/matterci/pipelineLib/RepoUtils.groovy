@@ -362,11 +362,11 @@ class RepoUtils implements Serializable {
             /*
             CRITICAL: sync submodules after checkout
             */
-            steps.sh """
-                set -ex
-                git submodule sync
-                git submodule update --init --recursive
-            """
+            // steps.sh """
+            //     set -ex
+            //     git submodule sync
+            //     git submodule update --init --recursive
+            // """
             /*
             Resolve actual checked-out commit SHA
             */

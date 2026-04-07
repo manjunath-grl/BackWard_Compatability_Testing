@@ -150,21 +150,47 @@ class RepoUtils implements Serializable {
 
         steps.echo "controllerDir  : ${controllerDir}"
         steps.echo "ctrlBinariesDir : ${ctrlBinariesDir}"
+
         def wheelsDir = "${controllerDir}/${ctrlBinariesDir}"
 
         def setupCommand = """#!/bin/bash
             set -e
             shopt -s nullglob
+
             echo "ControllerDir: ${wheelsDir}"
+
             WHEEL_PATH="${wheelsDir}"
+
             echo "Looking for wheels in: \$WHEEL_PATH"
             ls -la "\$WHEEL_PATH"
 
             sudo rm -rf /tmp/chip* || true
+
             python3 -m venv .venv
             source .venv/bin/activate
 
-            wheels=( "\$WHEEL_PATH"/*.whl )
+            echo "Resolving duplicate wheel versions..."
+
+            cd "\$WHEEL_PATH"
+
+            # Keep only latest version per package
+            for pkg in \$(ls *.whl | sed -E 's/-[0-9].*//' | sort | uniq); do
+                latest=\$(ls "\${pkg}"-*.whl 2>/dev/null | sort -V | tail -n 1)
+                echo "Keeping latest: \$latest"
+
+                for f in "\${pkg}"-*.whl; do
+                    if [ "\$f" != "\$latest" ]; then
+                        echo "Removing duplicate wheel: \$f"
+                        rm -f "\$f"
+                    fi
+                done
+            done
+
+            echo "Final wheel set:"
+            ls -la *.whl
+
+            wheels=( *.whl )
+
             if [ \${#wheels[@]} -eq 0 ]; then
                 echo "ERROR: No wheel files found in \$WHEEL_PATH"
                 exit 1
@@ -172,11 +198,10 @@ class RepoUtils implements Serializable {
 
             echo "Installing wheels..."
             pip3 install --no-cache-dir "\${wheels[@]}"
-            """
-        cmdStatus = steps.sh(
-                                script: setupCommand,
-                                returnStatus: true
-                            )
+        """
+
+        cmdStatus = steps.sh(script: setupCommand, returnStatus: true)
+
         steps.echo ">>> cmdStatus for wheel files = ${cmdStatus}"
         if (cmdStatus == 0){
             //create matter_qa repo and install all whl files

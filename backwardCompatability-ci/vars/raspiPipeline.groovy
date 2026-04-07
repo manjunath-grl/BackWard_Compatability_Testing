@@ -305,16 +305,8 @@ def call(testConfigs, testCasesList) {
             def deviceNode = ''
             def deviceNodeIPAddress = ''
             def deviceWorkSpace = ''
-            // def controllerBranch =testConfigs.ci_config.clone_sdk_code_stage.controller_sdk.branch
-            // def controllerRepo =commonPipelineLib.resolveRepo(controllerBranch)
+
             def certificationControllerMissing = controllerRepo == "certification-tool" && raspiDecision.controllerMissing
-
-            // def certificationAppsMissing =
-            //     raspiDecision.apps.any {
-            //         it.missing && it.repo == "certification-tool"
-            //     }
-
-            //Allocate Raspi Nodes
 
             stage('Get nodes of controller and device raspi') {
                 def result = RaspiPipelineLib.getCntrlDeviceRaspiNodes(this,"On-Network",testConfigs)
@@ -325,7 +317,6 @@ def call(testConfigs, testCasesList) {
                 cntrlNode = result.nodesAllocated["controllerNode"]
                 deviceNode = result.nodesAllocated["deviceNode"]
             }
-
 
             //Certification-tool build (controller + apps)
             if (controllerRepo == "certification-tool" && raspiDecision.controllerMissing ) {
@@ -364,7 +355,7 @@ def call(testConfigs, testCasesList) {
             }
 
             //Install controller binaries
-            if (!raspiDecision.controllerMissing ||controllerBuilt) {
+            if (!raspiDecision.controllerMissing || controllerBuilt ) {
                 stage('Install controller binaries into controller node') {
 
                     node("${cntrlNode}") {

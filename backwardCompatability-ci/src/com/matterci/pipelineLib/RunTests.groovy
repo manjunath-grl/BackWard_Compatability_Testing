@@ -6,7 +6,7 @@ import com.matterci.pipelineLib.commonPipelineLib
 
 class RunTests {
 
-    def runTests(def steps, String workspace, String runnerConfigFile, String logPath, String appName) {
+    def runTests(def steps, String workspace, String runnerConfigFile, String appName) {
         def hasFailures = false
         // Extract app name from log path for better stage labeling
         steps.stage("Run Tests - ${appName}") {
@@ -14,11 +14,11 @@ class RunTests {
 
                 def currentDate = new Date().format("dd_MM_yyyy")
                 def buildNumber = steps.env.BUILD_NUMBER
-                def dateLogPath = "${logPath}/${buildNumber}/${currentDate}"
+                def dateLogPath = "Backward_Compatability_LOGS/${buildNumber}/${currentDate}"
 
                 steps.echo "Creating log directory: ${dateLogPath}"
                 steps.sh """
-                    mkdir -p "${dateLogPath}"
+                    mkdir -p "\$HOME/${dateLogPath}"
                 """
                 def configData = steps.readYaml(file: runnerConfigFile)
 

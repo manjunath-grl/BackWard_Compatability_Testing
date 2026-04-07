@@ -392,8 +392,6 @@ def call(testConfigs, testCasesList) {
                 node(cntrlNode) {
                     echo "controller workspace: ${cntlWorkSpace}"
                     def testrun = new RunTests()
-                    def logPath = "${cntlWorkSpace}/LOG_Backward_Compatability"
-                    //def ctrlPath = "${cntlWorkSpace}/${raspiBinariesDirString}"
                     def ctrlPath = "${cntlWorkSpace}"
 
                     raspiDecision.apps.findAll { !it.missing }.each { app ->
@@ -407,7 +405,7 @@ def call(testConfigs, testCasesList) {
                         def mergedYaml = writeYaml(returnText: true, data: localTestParams)
                         writeFile(file: runnerConfigPath,text: mergedYaml)
 
-                        testrun.runTests(this, ctrlPath, runnerConfigPath, logPath, app.name)
+                        testrun.runTests(this, ctrlPath, runnerConfigPath, app.name)
                     }
                 }
             }

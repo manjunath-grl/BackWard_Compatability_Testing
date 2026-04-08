@@ -169,7 +169,7 @@ class RepoUtils implements Serializable {
             python3 -m venv .venv
             source .venv/bin/activate
 
-            pip3 install requirements.txt
+            pip3 install -r requirements.txt
 
             echo "Resolving duplicate wheel versions..."
 

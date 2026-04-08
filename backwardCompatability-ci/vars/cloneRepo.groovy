@@ -30,7 +30,7 @@ def call(testConfigs, decision) {
             if (result.success) {
                 updatedTestConfigs = result.updatedTestConfigs
                 echo "Archiving cloned repo from: ${result.archivePath}"
-                def mergedYaml =writeYaml returnText: true, data: updatedTestConfigs
+                def mergedYaml = writeYaml returnText: true, data: updatedTestConfigs
                 writeFile file: 'UpdatedTestConfig.yaml', text: mergedYaml
                 archiveArtifacts artifacts:"matter_repo_archive.tgz",fingerprint: true,allowEmptyArchive: true
                 return updatedTestConfigs

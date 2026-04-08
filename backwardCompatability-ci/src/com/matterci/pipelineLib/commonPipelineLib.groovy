@@ -266,11 +266,11 @@ class commonPipelineLib implements Serializable {
             return true
 
         // connectedhomeip releases
-        if (branch.startsWith("v"))
-            return true
+        // if (branch.startsWith("v"))
+        //     return true
 
-        if (branch.startsWith("ccb"))
-            return true
+        // if (branch.startsWith("ccb"))
+        //     return true
 
         return false
     }
@@ -342,7 +342,7 @@ class commonPipelineLib implements Serializable {
                     ? "${jfRepo}/releases/${branch}"
                     : "${jfRepo}/branches/${branch}/${sha}"
 
-                def appPath = "${appBasePath}/apps/${appName}/${platformName}/chip-${appName}*"
+                def appPath = "${appBasePath}/apps/${appName}/${platformName}/${appName}*"
 
                 boolean appExists = jfrogFileExists(steps, appPath)
                 boolean appMissing = !appExists
@@ -375,55 +375,6 @@ class commonPipelineLib implements Serializable {
         return decision
     }
 
-    static void uploadPlatformBinaries(def steps, Map testConfigs, String platform, String binariesDir, boolean uploadController, boolean uploadApps) {
-        setupJfrog(steps, testConfigs)
-
-        def jfRepo = testConfigs.ci_config.jfrog_config.jfrog_repo ?: "matter-binaries"
-        def cloneCfg = testConfigs.ci_config.clone_sdk_code_stage
-        def controllerBranch = cloneCfg.controller_sdk_config.branch
-        def controllerSha = cloneCfg.controller_sdk_config.sha
-        def appsBranch = cloneCfg.apps_sdk_config.branch
-        def appsSha = cloneCfg.apps_sdk_config.sha
-
-        def controllerBasePath =
-            isReleaseBranch(controllerBranch)
-            ? "${jfRepo}/releases/${controllerBranch}"
-            : "${jfRepo}/branches/${controllerBranch}/${controllerSha}"
-
-        def appsBasePath =
-            isReleaseBranch(appsBranch)
-            ? "${jfRepo}/releases/${appsBranch}"
-            : "${jfRepo}/branches/${appsBranch}/${appsSha}"
-
-        def platformCfg = cloneCfg.platforms[platform]
-
-        if (!platformCfg) {
-            cloneCfg.platforms.each { p, cfg ->
-                if (cfg.variants?.containsKey(platform))
-                    platformCfg = cfg.variants[platform]
-            }
-        }
-        if (uploadController) {
-            steps.echo "Uploading controller for ${platform}"
-            steps.sh """
-                jf rt u \
-                "${binariesDir}/controller/*.whl" \
-                "${controllerBasePath}/controller/${platformCfg.controller_os}/${platformCfg.controller_type}/" \
-                --flat=true
-            """
-        }
-        if (uploadApps) {
-            def appName = platformCfg.app_to_test ?: testConfigs.ci_config.app_to_test
-            steps.echo "Uploading app ${appName} for ${platform}"
-            steps.sh """
-                jf rt u \
-                "${binariesDir}/apps/*" \
-                "${appsBasePath}/apps/${appName}/${platform}/" \
-                --flat=true
-            """
-        }
-    }
-
     static void uploadControllerBinary(def steps, Map testConfigs, String platform, String binariesDir) {
         setupJfrog(steps, testConfigs)
         def jfRepo = testConfigs.ci_config.jfrog_config.jfrog_repo ?: "matter-binaries"
@@ -449,82 +400,87 @@ class commonPipelineLib implements Serializable {
         """
     }
 
-    static void uploadAppBinary(def steps,Map testConfigs,String platform,String binariesDir,String appName,String branch,String sha = null,String tag = null,String pr  = null) {
+    static void uploadAppBinary(def steps, Map testConfigs, String platform, String binariesDir, String appName, String branch = null, String sha = null, String tag = null, String pr  = null) {
         setupJfrog(steps, testConfigs)
-        def jfRepo = testConfigs.ci_config.jfrog_config.jfrog_repo?: "matter-binaries"
-        def repoUrl=''
-        def appBinaryPath = "${binariesDir}"
-        /*
-        Resolve SHA automatically if:
-        - branch exists
-        - sha missing
-        - not release branch
-        */
-        if (branch && !sha && !tag && !pr && !isReleaseBranch(branch)) {
-            steps.echo "SHA missing for branch ${branch}, resolving automatically..."
-            //repoUrl =testConfigs.ci_config.clone_sdk_code_stage.apps_sdk_config.repoUrl
-            repoUrl = "git@github.com:project-chip/connectedhomeip.git"
+        def jfRepo =testConfigs.ci_config.jfrog_config.jfrog_repo ?: "matter-binaries"
 
-            sha = steps.sh(
-                script: """
-                    git ls-remote ${repoUrl} refs/heads/${branch} | awk '{print \$1}'
-                """,
-                returnStdout: true
-            ).trim()
+        //Detect certification-tool workspace
+        def isCertificationToolRepo = isReleaseBranch(branch)
+        echo "Is certification-tool repo: ${isCertificationToolRepo}"
 
-            if (!sha)
-                steps.error("Failed to resolve SHA for branch ${branch}")
-
-            steps.echo "Resolved SHA = ${sha}"
-            appBinaryPath = "${binariesDir}/${appName}"
-        }
-
-        /*
-        Resolve upload base path
-        */
+        //Resolve artifact base path
         def basePath
+
         if (isReleaseBranch(branch)) {
             basePath = "${jfRepo}/releases/${branch}"
-        } else if (sha) {
+        }
+        else if (sha) {
             basePath = "${jfRepo}/branches/${branch}/${sha}"
-        } else if (tag) {
+        }
+        else if (tag) {
             basePath = "${jfRepo}/tags/${tag}"
-        } else if (pr) {
+        }
+        else if (pr) {
             basePath = "${jfRepo}/pull-requests/PR-${pr}"
-        } else {
+        }
+        else {
             steps.error("Unable to determine artifact upload path")
         }
 
-        steps.echo """
-            Uploading app binary
-            --------------------
-            App Name      : ${appName}
-            Platform      : ${platform}
-            Branch        : ${branch}
-            Resolved SHA  : ${sha ?: "N/A"}
-            Upload From   : ${appBinaryPath}
-            Upload To     : ${basePath}
-        """
-        /*
-        Verify binary exists
-        */
+        //certification-tool logic Upload ALL binaries present in apps folder
+        if (isCertificationToolRepo) {
+            steps.echo "Detected certification-tool repo → uploading ALL binaries"
+            def binaries = steps.sh(
+                script: """
+                    ls ${binariesDir} 2>/dev/null || true
+                """,
+                returnStdout: true
+            ).trim().split("\\n")
+
+            if (!binaries || binaries[0] == "") {
+                steps.error("No binaries found inside ${binariesDir}")
+            }
+
+            binaries.each { binaryName ->
+                def binaryPath = "${binariesDir}/${binaryName}"
+                steps.echo "Uploading binary: ${binaryName}"
+                def uploadTargetPath = "${basePath}/${binaryName}/${platform}/"
+                steps.sh """
+                    set -ex
+                    jf rt u \
+                    "${binaryPath}" \
+                    "${uploadTargetPath}" \
+                    --flat=true
+                """
+            }
+            steps.echo "All certification-tool binaries uploaded successfully"
+            return
+        }
+
+        //connectedhomeip logic Upload single requested binary
+        def binaryPath = "${binariesDir}/${appName}/${appName}"
+
+
         steps.sh """
             set -ex
-            echo "Workspace:"
-            pwd
+            ls -la "${binaryPath}"
+        """
+        def uploadTargetPath = "${basePath}/apps/${appName}/${platform}/"
 
-            echo "Checking binaries:"
-            ls -R "${appBinaryPath}"
+        steps.echo """
+        Uploading connectedhomeip binary
+        -------------------------------
+        App Name     : ${appName}
+        Platform     : ${platform}
+        Upload From  : ${binaryPath}
+        Upload To    : ${uploadTargetPath}
         """
 
-        /*
-        Upload binary
-        */
         steps.sh """
             set -ex
             jf rt u \
-            "${appBinaryPath}/*" \
-            "${basePath}/apps/${appName}/${platform}/" \
+            "${binaryPath}" \
+            "${uploadTargetPath}" \
             --flat=true
         """
         steps.echo "Upload completed successfully for ${appName}"

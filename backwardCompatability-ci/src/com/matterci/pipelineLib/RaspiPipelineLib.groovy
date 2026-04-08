@@ -176,7 +176,7 @@ class RaspiPipelineLib implements Serializable {
 
                             def binaryCount = steps.sh(
                                 script: """
-                                    ls ${targetDir}/chip-${app.name}* \
+                                    ls ${targetDir}/${app.name}* \
                                     2>/dev/null | wc -l
                                 """,
                                 returnStdout: true
@@ -237,17 +237,17 @@ class RaspiPipelineLib implements Serializable {
 
     static Map buildApps(def steps,Map testConfigs,List testCasesList,String workSpace,String raspiBinariesDir,String appName) {
         def appMapping = [
-            "all-clusters-app": [
+            "chip-all-clusters-app": [
                 build_app  : "linux-arm64-all-clusters-ipv6only",
                 output_path: "out/linux-arm64-all-clusters-ipv6only/chip-all-clusters-app",
                 app_name   : "chip-all-clusters-app"
             ],
-            "lock-app": [
+            "chip-lock-app": [
                 build_app  : "linux-arm64-lock-ipv6only",
                 output_path: "out/linux-arm64-lock-ipv6only/chip-lock-app",
                 app_name   : "chip-lock-app"
             ],
-            "lighting-app":[
+            "chip-lighting-app":[
                 build_app  : "linux-arm64-light-ipv6only",
                 output_path: "out/linux-arm64-light-ipv6only/chip-lighting-app",
                 app_name   : "chip-lighting-app"

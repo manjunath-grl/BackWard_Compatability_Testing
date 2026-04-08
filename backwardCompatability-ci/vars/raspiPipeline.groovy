@@ -27,7 +27,6 @@ def waitForNodeAfterReboot(int timeoutMinutes = 10) {
     echo "Node is back online"
 }
 
-
 def extractDockerArtifacts(def steps, String imageSha, String certBinariesWorkspace) {
     def containerName = "chip-cert-temp"
     try {
@@ -387,9 +386,12 @@ def call(testConfigs, testCasesList) {
                     def testrun = new RunTests()
                     def ctrlPath = "${cntlWorkSpace}"
 
+                    echo "Apps list: ${raspiDecision.apps}"
+                    echo "Filtered apps: ${raspiDecision.apps.findAll { !it.missing }}"
+
                     raspiDecision.apps.findAll { !it.missing }.each { app ->
                         def refFolder = app.sha ?: app.tag ?: (app.pr ? "PR-${app.pr}" : app.branch)
-                        def refPath = "${deviceWorkSpace}/${refFolder}/chip-${app.name}"
+                        def refPath = "${deviceWorkSpace}/${refFolder}/${app.name}"
                         echo "Running tests for app: ${app.name}"
                         echo "Reference folder: ${refFolder}"
 

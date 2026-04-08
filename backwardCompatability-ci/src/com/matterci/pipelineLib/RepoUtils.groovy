@@ -60,7 +60,7 @@ class RepoUtils implements Serializable {
                                 throw new Exception("cloning controller SDK failed")
                             }
                             // save controller SDK SHA
-                            //testConfigs.ci_config.controller_sdk_sha = "${controller_sdk_sha}"
+                            testConfigs.ci_config.controller_sdk_sha = "${controller_sdk_sha}"
                         }
                     }
                 } catch (Exception e) {
@@ -169,6 +169,8 @@ class RepoUtils implements Serializable {
             python3 -m venv .venv
             source .venv/bin/activate
 
+            pip3 install requirements.txt
+
             echo "Resolving duplicate wheel versions..."
 
             cd "\$WHEEL_PATH"
@@ -239,7 +241,8 @@ class RepoUtils implements Serializable {
                 testConfigs.ci_config.qa_repo_git_sha = "${qaRepoSha}"
             }
 
-            def repoSha = testConfigs?.ci_config?.raspi_pipeline?.stages?.build_controller?.chip_cert_bins ?: 'master'
+            def repoSha = testConfigs.ci_config.controller_sdk_sha ?: 'master'
+            echo "Using controller SDK SHA for sparse checkout: ${repoSha}"
 
             setupCommand = """#!/bin/bash
                 cd ${controllerDir}
@@ -247,11 +250,12 @@ class RepoUtils implements Serializable {
                 cd ./matter_qa/
                 pip install .
                 cd ..
-                git clone --filter=blob:none --no-checkout --depth 1 --sparse git@github.com:project-chip/connectedhomeip.git connectedhomeip
-                cd connectedhomeip/
-                git sparse-checkout init
-                git sparse-checkout set src/ scripts/ credentials/ data_model/
-                git checkout ${repoSha}
+                git clone --filter=blob:none --no-checkout --sparse git@github.com:project-chip/connectedhomeip.git connectedhomeip
+                cd connectedhomeip
+                git sparse-checkout init --cone
+                git sparse-checkout set src scripts credentials data_model
+                git fetch --depth 1 origin ${repoSha}
+                git checkout FETCH_HEAD
                 cd ..
             """
 

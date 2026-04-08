@@ -394,7 +394,7 @@ class commonPipelineLib implements Serializable {
 
         steps.sh """
             jf rt u \
-            "${binariesDir}/controller/*.whl" \
+            "${binariesDir}/controller/*" \
             "${basePath}/controller/${platformCfg.controller_os}/${platformCfg.controller_type}/" \
             --flat=true
         """

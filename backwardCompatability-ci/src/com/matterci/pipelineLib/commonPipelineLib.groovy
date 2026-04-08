@@ -342,7 +342,7 @@ class commonPipelineLib implements Serializable {
                     ? "${jfRepo}/releases/${branch}"
                     : "${jfRepo}/branches/${branch}/${sha}"
 
-                def appPath = "${appBasePath}/apps/${appName}/${platformName}/${appName}*"
+                def appPath = "${appBasePath}/apps/${appName}/${platformName}/${appName}"
 
                 boolean appExists = jfrogFileExists(steps, appPath)
                 boolean appMissing = !appExists

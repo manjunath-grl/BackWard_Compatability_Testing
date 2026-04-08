@@ -385,11 +385,9 @@ def call(testConfigs, testCasesList) {
                     echo "controller workspace: ${cntlWorkSpace}"
                     def testrun = new RunTests()
                     def ctrlPath = "${cntlWorkSpace}"
-
                     echo "Apps list: ${raspiDecision.apps}"
-                    echo "Filtered apps: ${raspiDecision.apps.findAll { !it.missing }}"
 
-                    raspiDecision.apps.findAll { !it.missing }.each { app ->
+                    raspiDecision.apps.each { app ->
                         def refFolder = app.sha ?: app.tag ?: (app.pr ? "PR-${app.pr}" : app.branch)
                         def refPath = "${deviceWorkSpace}/${refFolder}/${app.name}"
                         echo "Running tests for app: ${app.name}"

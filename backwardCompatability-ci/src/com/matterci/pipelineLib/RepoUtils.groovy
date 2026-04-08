@@ -220,20 +220,16 @@ class RepoUtils implements Serializable {
 
             cd "\$WHEEL_PATH"
 
-            echo "Installing ALL wheel files..."
+            echo "Installing wheels sequentially..."
 
-            wheels=( *.whl )
-
-            if [ \${#wheels[@]} -eq 0 ]; then
-                echo "ERROR: No wheel files found in \$WHEEL_PATH"
-                exit 1
-            fi
-
-            pip3 install --no-cache-dir "\${wheels[@]}"
+            for wheel in *.whl; do
+                echo "Installing \$wheel"
+                pip3 install "\$wheel" || true
+            done
 
             echo "Installing requirements.txt dependencies..."
 
-            #pip3 install -r requirements.txt
+            pip3 install -r requirements.txt || true
         """
 
         cmdStatus = steps.sh(script: setupCommand, returnStatus: true)

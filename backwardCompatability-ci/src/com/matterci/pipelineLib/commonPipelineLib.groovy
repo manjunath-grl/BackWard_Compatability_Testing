@@ -406,7 +406,7 @@ class commonPipelineLib implements Serializable {
 
         //Detect certification-tool workspace
         def isCertificationToolRepo = isReleaseBranch(branch)
-        echo "Is certification-tool repo: ${isCertificationToolRepo}"
+        steps.echo "Is certification-tool repo: ${isCertificationToolRepo}"
 
         //Resolve artifact base path
         def basePath

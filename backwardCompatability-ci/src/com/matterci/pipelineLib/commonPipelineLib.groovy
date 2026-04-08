@@ -401,10 +401,6 @@ class commonPipelineLib implements Serializable {
             "${binariesDir}/controller/requirements.txt" \
             "${basePath}/controller/${platformCfg.controller_os}/${platformCfg.controller_type}/" \
             --flat=true
-            jf rt u \
-            "${binariesDir}/controller/python_scripts/*" \
-            "${basePath}/controller/${platformCfg.controller_os}/${platformCfg.controller_type}/python_scripts/" \
-            --flat=true
         """
     }
 

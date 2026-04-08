@@ -119,9 +119,9 @@ def buildAndinstallCertBinaries(def steps, Map testConfigs, String workSpace, St
                 commonPipelineLib.uploadControllerBinary(steps,testConfigs,"raspi",certBinariesWorkspace)
 
                 //Clone Matter-QA repo (required for test execution)
-                def matterCloneStatus = RepoUtils.cloneMatterQARepo(steps,testConfigs,"main",certBinariesWorkspace,"controller")
-                if (matterCloneStatus != 0)
-                    throw new Exception("Matter-QA clone failed")
+                // def matterCloneStatus = RepoUtils.cloneMatterQARepo(steps,testConfigs,"main",certBinariesWorkspace,"controller")
+                // if (matterCloneStatus != 0)
+                //     throw new Exception("Matter-QA clone failed")
             }
 
             //load accessory binary
@@ -139,7 +139,7 @@ def buildAndinstallCertBinaries(def steps, Map testConfigs, String workSpace, St
             "Certification-tool build failed: ${e.getMessage()}"
         )
     }
-    return [success: buildSuccess,cntrlWorksSpace: homedir]
+    return [success: buildSuccess,cntrlWorksSpace: homedir, testConfigs: testConfigs]
 }
 
 
@@ -330,7 +330,7 @@ def call(testConfigs, testCasesList) {
                         def result = buildAndinstallCertBinaries(this, testConfigs, controllerBuildWorkSpace, raspiBinariesDirString, "CTRL")
                         if (!result.success)
                             error("Certification-tool controller build failed")
-
+                        testConfigs = result.testConfigs
                         cntlWorkSpace = result.cntrlWorksSpace
                     }
                 }
@@ -357,16 +357,14 @@ def call(testConfigs, testCasesList) {
             }
 
             //Install controller binaries
-            if (!raspiDecision.controllerMissing || controllerBuilt ) {
-                stage('Install controller binaries into controller node') {
+            //if (!raspiDecision.controllerMissing || controllerBuilt ) {
+            stage('Install controller binaries into controller node') {
+                node("${cntrlNode}") {
+                    def result = commonPipelineLib.installControllerBinaries(this,testConfigs,"raspi",raspiBinariesDirString)
+                    if (!result.success)
+                        error("Controller install failed")
 
-                    node("${cntrlNode}") {
-                        def result = commonPipelineLib.installControllerBinaries(this,testConfigs,"raspi",raspiBinariesDirString)
-                        if (!result.success)
-                            error("Controller install failed")
-
-                        cntlWorkSpace = result.cntrlWorksSpace
-                    }
+                    cntlWorkSpace = result.cntrlWorksSpace
                 }
             }
 

@@ -271,8 +271,8 @@ class RepoUtils implements Serializable {
                 testConfigs.ci_config.qa_repo_git_sha = "${qaRepoSha}"
             }
 
-            def repoSha = testConfigs.ci_config.controller_sdk_sha ?: 'master'
-            echo "Using controller SDK SHA for sparse checkout: ${repoSha}"
+            def repoSha = testConfigs.ci_config.controller_sdk_sha ?: 'c2175a1ee826fe66f1d40afc3fcf8e05689810aa'
+            steps.echo "Using controller SDK SHA for sparse checkout: ${repoSha}"
 
             setupCommand = """#!/bin/bash
                 cd ${controllerDir}

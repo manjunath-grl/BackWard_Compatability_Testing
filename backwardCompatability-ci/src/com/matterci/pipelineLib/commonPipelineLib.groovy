@@ -62,9 +62,7 @@ class commonPipelineLib implements Serializable {
 
                     if (status != 0) {
                         copyArtifactsSuccess = false
-                        steps.echo(
-                            "cloneMatterQARepo execution failed"
-                        )
+                        steps.echo("cloneMatterQARepo execution failed")
                     }
                 }
             }

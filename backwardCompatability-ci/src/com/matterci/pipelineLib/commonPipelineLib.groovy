@@ -34,7 +34,7 @@ class commonPipelineLib implements Serializable {
                     steps.sh """
                         set -e
                         jf rt dl \
-                        "${controllerPath}*.whl" \
+                        "${controllerPath}*" \
                         "${ctrlBinariesDir}/" \
                         --flat=true \
                         --insecure-tls=true

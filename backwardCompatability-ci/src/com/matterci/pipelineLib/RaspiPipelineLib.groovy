@@ -154,7 +154,7 @@ class RaspiPipelineLib implements Serializable {
                             steps.echo "Downloading binary: ${app.name}"
 
                             def basePath =commonPipelineLib.getResolvedArtifactBasePath(testConfigs,"apps",app.branch,app.sha,app.tag,app.pr)
-                            def jfrogPath = "${basePath}/apps/${app.name}/raspi/*"
+                            def jfrogPath = "${basePath}/apps/${app.name}/raspi/${app.name}"
 
                             steps.echo "JFrog path: ${jfrogPath}"
 

@@ -342,7 +342,7 @@ class commonPipelineLib implements Serializable {
                     ? "${jfRepo}/releases/${branch}"
                     : "${jfRepo}/branches/${branch}/${sha}"
 
-                def appPath = "${appBasePath}/apps/${appName}/${platformName}/${appName}"
+                def appPath = "${appBasePath}/apps/${appName}/${platformName}/${appName}*"
 
                 boolean appExists = jfrogFileExists(steps, appPath)
                 boolean appMissing = !appExists
@@ -412,16 +412,16 @@ class commonPipelineLib implements Serializable {
         def basePath
 
         if (isReleaseBranch(branch)) {
-            basePath = "${jfRepo}/releases/${branch}"
+            basePath = "${jfRepo}/releases/${branch}/apps"
         }
         else if (sha) {
-            basePath = "${jfRepo}/branches/${branch}/${sha}"
+            basePath = "${jfRepo}/branches/${branch}/${sha}/apps"
         }
         else if (tag) {
-            basePath = "${jfRepo}/tags/${tag}"
+            basePath = "${jfRepo}/tags/${tag}/apps"
         }
         else if (pr) {
-            basePath = "${jfRepo}/pull-requests/PR-${pr}"
+            basePath = "${jfRepo}/pull-requests/PR-${pr}/apps"
         }
         else {
             steps.error("Unable to determine artifact upload path")
@@ -485,7 +485,6 @@ class commonPipelineLib implements Serializable {
         """
         steps.echo "Upload completed successfully for ${appName}"
     }
-
 
     static Map resolveBranchSHA(def steps, Map testConfigs) {
         def cloneCfg = testConfigs.ci_config.clone_sdk_code_stage

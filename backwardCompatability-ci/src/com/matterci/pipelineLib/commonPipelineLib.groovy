@@ -395,10 +395,6 @@ class commonPipelineLib implements Serializable {
             "${binariesDir}/controller/*.whl" \
             "${basePath}/controller/${platformCfg.controller_os}/${platformCfg.controller_type}/" \
             --flat=true
-            jf rt u \
-            "${binariesDir}/controller/requirements.txt" \
-            "${basePath}/controller/${platformCfg.controller_os}/${platformCfg.controller_type}/" \
-            --flat=true
         """
     }
 
@@ -460,7 +456,7 @@ class commonPipelineLib implements Serializable {
         }
 
         //connectedhomeip logic Upload single requested binary
-        def binaryPath = "${binariesDir}/${appName}/${appName}"
+        def binaryPath = "${binariesDir}/${appName}"
 
 
         steps.sh """

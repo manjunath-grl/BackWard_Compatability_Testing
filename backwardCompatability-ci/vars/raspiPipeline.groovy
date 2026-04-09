@@ -263,7 +263,7 @@ def call(testConfigs, testCasesList) {
                     appsBuildWorkSpace = sdkFrmArtifactsResult.appsBuildWorkSpace
 
                     appStorePath = "${appsBuildWorkSpace}/../${raspiBinariesDirString}/apps"
-                    binariesStorePath = "${controllerBuildWorkSpace}/../${raspiBinariesDirString}/controller"
+                    binariesStorePath = "${raspiBinariesDirString}/controller"
 
                     //BUILD CONTROLLER (connectedhomeip only)
                     if (controllerRepo == "connectedhomeip" && controllerMissing ) {
@@ -272,7 +272,7 @@ def call(testConfigs, testCasesList) {
                             error("Controller build failed")
 
                         controllerBuilt = true
-                        commonPipelineLib.uploadControllerBinary(this,testConfigs,"raspi",binariesStorePath)
+                        commonPipelineLib.uploadControllerBinary(this,testConfigs,"raspi",raspiBinariesDirString)
                     }
 
                     //BUILD APPS (connectedhomeip only)

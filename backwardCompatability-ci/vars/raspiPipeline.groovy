@@ -231,6 +231,7 @@ def call(testConfigs, testCasesList) {
     def controllerMissing =raspiDecision.controllerMissing
     def appStorePath = ''
     def binariesStorePath = ''
+    def binaryUploadPath = ''
 
     def controllerBuilt = false
     echo "Controller Repo : ${controllerRepo}"
@@ -264,6 +265,7 @@ def call(testConfigs, testCasesList) {
 
                     appStorePath = "${appsBuildWorkSpace}/../${raspiBinariesDirString}/apps"
                     binariesStorePath = "${raspiBinariesDirString}/controller"
+                    binaryUploadPath = "${controllerBuildWorkSpace}/../${raspiBinariesDirString}"
 
                     //BUILD CONTROLLER (connectedhomeip only)
                     if (controllerRepo == "connectedhomeip" && controllerMissing ) {
@@ -272,7 +274,7 @@ def call(testConfigs, testCasesList) {
                             error("Controller build failed")
 
                         controllerBuilt = true
-                        commonPipelineLib.uploadControllerBinary(this,testConfigs,"raspi","${controllerBuildWorkSpace}/${raspiBinariesDirString}")
+                        commonPipelineLib.uploadControllerBinary(this,testConfigs,"raspi",binaryUploadPath)
                     }
 
                     //BUILD APPS (connectedhomeip only)

@@ -456,7 +456,7 @@ class commonPipelineLib implements Serializable {
         }
 
         //connectedhomeip logic Upload single requested binary
-        def binaryPath = "${binariesDir}/${appName}"
+        def binaryPath = "${binariesDir}/${appName}/${appName}"
 
 
         steps.sh """

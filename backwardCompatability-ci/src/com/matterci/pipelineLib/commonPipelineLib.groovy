@@ -463,7 +463,7 @@ class commonPipelineLib implements Serializable {
             set -ex
             ls -la "${binaryPath}"
         """
-        def uploadTargetPath = "${basePath}/apps/${appName}/${platform}/"
+        def uploadTargetPath = "${basePath}/${appName}/${platform}/"
 
         steps.echo """
         Uploading connectedhomeip binary

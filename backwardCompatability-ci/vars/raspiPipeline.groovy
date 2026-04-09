@@ -154,7 +154,7 @@ def buildController(testConfigs, testCasesList, workSpace, raspiBinariesDir){
         echo "This stage Build For Raspi inside Docker is running on: ${env.NODE_NAME}"
         echo "Work space to build controller : ${workSpace}"
         echo "raspi binaries copied into ${raspiBinariesDir}"
-        def binariesStorePath = "${raspiBinariesDir}/controller"
+        def binariesStorePath = "${raspiBinariesDir}"
         echo "Controller binaries will be stored in ${binariesStorePath}"
 
         def raspiStages = testConfigs.ci_config?.raspi_pipeline?.stages

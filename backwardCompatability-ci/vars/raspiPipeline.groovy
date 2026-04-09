@@ -272,7 +272,7 @@ def call(testConfigs, testCasesList) {
                             error("Controller build failed")
 
                         controllerBuilt = true
-                        commonPipelineLib.uploadControllerBinary(this,testConfigs,"raspi",raspiBinariesDirString)
+                        commonPipelineLib.uploadControllerBinary(this,testConfigs,"raspi","${controllerBuildWorkSpace}/${raspiBinariesDirString}")
                     }
 
                     //BUILD APPS (connectedhomeip only)

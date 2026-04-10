@@ -9,7 +9,7 @@ class RunTests {
     def runTests(def steps, String workspace, String runnerConfigFile, Map appConfig) {
         def hasFailures = false
         // Extract app name from log path for better stage labeling
-        def appName = appConfig?.appName
+        def appName = appConfig?.name
         def reference = appConfig?.branch ?: appConfig?.sha ?: appConfig?.tag ?: appConfig?.pr ?: "master"
         steps.stage("Run Tests - ${reference} => ${appName}") {
             steps.catchError(buildResult: 'SUCCESS',stageResult: 'FAILURE') {

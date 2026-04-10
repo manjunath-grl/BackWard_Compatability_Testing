@@ -234,6 +234,7 @@ def call(testConfigs, testCasesList) {
     def binaryUploadPath = ''
 
     def controllerBuilt = false
+    def controllerMissing = decision.platforms.values().any {it.controllerMissing && it.controllerRepo == "connectedhomeip"}
     echo "Controller Repo : ${controlleRepo}"
     echo "Controller Missing : ${controllerMissing}"
 
@@ -245,8 +246,6 @@ def call(testConfigs, testCasesList) {
         raspiDecision.apps.any {
             it.missing && it.repo == "certification-tool"
         }
-    
-    def controllerMissing = decision.platforms.values().any {it.controllerMissing && it.controllerRepo == "connectedhomeip"}
     
     echo """
             Controller Repo: ${controlleRepo}

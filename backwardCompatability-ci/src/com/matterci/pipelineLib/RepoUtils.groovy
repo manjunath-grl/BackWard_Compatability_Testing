@@ -169,8 +169,6 @@ class RepoUtils implements Serializable {
             echo "Looking for wheels in: \$WHEEL_PATH"
             ls -la "\$WHEEL_PATH"
 
-            sudo apt install libevent-pthreads-2.1-7
-
             sudo rm -rf /tmp/chip* || true
 
             python3 -m venv .venv

@@ -147,6 +147,11 @@ class RepoUtils implements Serializable {
         def qaRepoSha = ''
         def cmdStatus
         def decision = testConfigs.ci_config.artifactDecision
+        def controllerCfg = testConfigs.ci_config?.clone_sdk_code_stage?.controller_sdk
+        def branch  = controllerCfg?.branch
+        def repoSha = 'master' 
+        def connectedhomeIPSha = decision.platforms.values().any {it.controllerMissing && it.controllerRepo == "connectedhomeip"}
+        def certControllerSHA = decision.platforms.values().any {it.controllerRepo != "connectedhomeip"}
 
         steps.echo "controllerDir  : ${controllerDir}"
         steps.echo "ctrlBinariesDir : ${ctrlBinariesDir}"
@@ -163,6 +168,8 @@ class RepoUtils implements Serializable {
 
             echo "Looking for wheels in: \$WHEEL_PATH"
             ls -la "\$WHEEL_PATH"
+
+            sudo apt install libevent-pthreads-2.1-7
 
             sudo rm -rf /tmp/chip* || true
 
@@ -221,8 +228,14 @@ class RepoUtils implements Serializable {
 
                 testConfigs.ci_config.qa_repo_git_sha = "${qaRepoSha}"
             }
-
-            def repoSha = testConfigs.ci_config.controller_sdk_sha ?: '4bf7cfcdf31d42f1c7b00a5880c37a9c5ac4aa4b'
+            // Determine the correct SHA to use for the sparse checkout based on the decision engine's output
+            if (connectedhomeIPSha) {
+                repoSha = testConfigs.ci_config.controller_sdk_sha
+            }
+            else if (certControllerSHA) {
+                repoSha = commonPipelineLib.CERTIFICATION_TOOL_RELEASE_MAP[branch]
+            }
+            
             steps.echo "Using controller SDK SHA for sparse checkout: ${repoSha}"
 
             setupCommand = """#!/bin/bash

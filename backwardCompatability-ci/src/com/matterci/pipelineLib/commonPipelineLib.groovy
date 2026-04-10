@@ -684,7 +684,8 @@ class commonPipelineLib implements Serializable {
         "v2.14-beta2.1+fall2025" : "a82e43e06e35c707f9016c38ee83712c2ab58966",
         "v2.14-beta2+winter2025" : "7b245457e2950177398765f28cc37f94dab1a0c2",
         "v2.15-beta2.2+spring2026" : "4bf7cfcdf31d42f1c7b00a5880c37a9c5ac4aa4b",
-        "v2.14.1+winter2026" : "e9ecfc2138887d3221dcc2995ad629c8bd4313e4"
+        "v2.14.1+winter2026" : "e9ecfc2138887d3221dcc2995ad629c8bd4313e4",
+        "v2.15-beta3.1+spring2026" : "96b1d9b9415310d61c844466fe2e1338902f662d"
     ]
 
     static void overrideDockerImageForRelease(def steps, Map testConfigs) {
@@ -711,20 +712,6 @@ class commonPipelineLib implements Serializable {
             steps.echo "Branch: ${branch}"
             steps.echo "Image SHA: ${imageSha}"
         }
-    }
-
-    static String resolveCertDockerSha(Map testConfigs) {
-        def controllerBranch = testConfigs.ci_config.clone_sdk_code_stage.controller_sdk.branch
-        def raspiStages = testConfigs.ci_config.raspi_pipeline?.stages
-
-        if (CERTIFICATION_TOOL_RELEASE_MAP.containsKey(controllerBranch)) {
-            return CERTIFICATION_TOOL_RELEASE_MAP[controllerBranch]
-        }
-        def fallbackSha = raspiStages?.build_firmware?.chip_cert_bins
-
-        if (fallbackSha) {
-            return fallbackSha
-        }
-        throw new IllegalStateException("Unable to resolve chip-cert-bins docker image SHA for branch: ${controllerBranch}")
+        return testConfigs
     }
 }

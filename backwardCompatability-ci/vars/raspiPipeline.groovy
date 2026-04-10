@@ -112,16 +112,11 @@ def buildAndinstallCertBinaries(def steps, Map testConfigs, String workSpace, St
             //load controller binaries
             if ( artifactType == "CTRL" ) {
                 //tract controller + accessory binaries from docker
-                imageSha = commonPipelineLib.resolveCertDockerSha(testConfigs)
+                imageSha = commonPipelineLib.CERTIFICATION_TOOL_RELEASE_MAP[branch]
                 testConfigs.ci_config.controller_sdk_sha = imageSha
                 extractDockerArtifacts(this, imageSha, certBinariesWorkspace)
                 steps.echo "Uploading certification-tool controller binaries"
                 commonPipelineLib.uploadControllerBinary(steps,testConfigs,"raspi",certBinariesWorkspace)
-
-                //Clone Matter-QA repo (required for test execution)
-                // def matterCloneStatus = RepoUtils.cloneMatterQARepo(steps,testConfigs,"main",certBinariesWorkspace,"controller")
-                // if (matterCloneStatus != 0)
-                //     throw new Exception("Matter-QA clone failed")
             }
 
             //load accessory binary
@@ -310,6 +305,7 @@ def call(testConfigs, testCasesList) {
             def deviceNode = ''
             def deviceNodeIPAddress = ''
             def deviceWorkSpace = ''
+            def deviceBuildWorkSpace = ''
             def certificationControllerMissing = decision.platforms.values().any {it.controllerMissing && it.controllerRepo == "certification-tool"}
             
             stage('Get nodes of controller and device raspi') {

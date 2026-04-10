@@ -6,10 +6,12 @@ import com.matterci.pipelineLib.commonPipelineLib
 
 class RunTests {
 
-    def runTests(def steps, String workspace, String runnerConfigFile, String appName) {
+    def runTests(def steps, String workspace, String runnerConfigFile, Map appConfig) {
         def hasFailures = false
         // Extract app name from log path for better stage labeling
-        steps.stage("Run Tests - ${appName}") {
+        def appName = appConfig?.appName
+        def reference = appConfig?.branch ?: appConfig?.sha ?: appConfig?.tag ?: appConfig?.pr ?: "master"
+        steps.stage("Run Tests - ${reference} => ${appName}") {
             steps.catchError(buildResult: 'SUCCESS',stageResult: 'FAILURE') {
 
                 def currentDate = new Date().format("dd_MM_yyyy")

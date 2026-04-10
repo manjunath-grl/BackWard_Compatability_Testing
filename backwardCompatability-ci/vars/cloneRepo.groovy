@@ -12,7 +12,7 @@ def call(testConfigs, decision) {
     stage("clone code") {
         node(testConfigs.ci_config.clone_sdk_code_stage.node_to_clone_code) {
             //Detect controller clone requirement
-            def controllerMissing = decision.platforms.values().any {it.controllerMissing}
+            def controllerMissing = decision.platforms.values().any {it.controllerMissing && it.controllerRepo == "connectedhomeip"}
 
             //Detect connectedhomeip apps clone requirement
             def connectedhomeipAppsMissing = decision.platforms.values().any { platform ->
@@ -25,7 +25,7 @@ def call(testConfigs, decision) {
             echo "decision connectedhomeipAppsMissing: ${connectedhomeipAppsMissing}"
 
             //certification-tool apps NEVER cloned here
-            def result =  RepoUtils.cloneSDKRepo(this, testConfigs,controllerMissing,connectedhomeipAppsMissing)
+            def result = RepoUtils.cloneSDKRepo(this, testConfigs,controllerMissing,connectedhomeipAppsMissing)
 
             if (result.success) {
                 updatedTestConfigs = result.updatedTestConfigs

@@ -225,16 +225,16 @@ def call(testConfigs, testCasesList) {
     def logTransferConfig = testConfigs.execution_log_transfer_config
     def decision = testConfigs.ci_config.artifactDecision
     def raspiDecision = decision.platforms["raspi"]
-    def platformCfg =testConfigs.ci_config.clone_sdk_code_stage.platforms.raspi
-    def controllerBranch =testConfigs.ci_config.clone_sdk_code_stage.controller_sdk.branch
-    def controllerRepo =commonPipelineLib.resolveRepo(controllerBranch)
-    def controllerMissing =raspiDecision.controllerMissing
+    def platformCfg = testConfigs.ci_config.clone_sdk_code_stage.platforms.raspi
+    def controllerBranch = testConfigs.ci_config.clone_sdk_code_stage.controller_sdk.branch
+    def controlleRepo = commonPipelineLib.resolveRepo(controllerBranch)
+    //def controllerMissing = raspiDecision.controllerMissing
     def appStorePath = ''
     def binariesStorePath = ''
     def binaryUploadPath = ''
 
     def controllerBuilt = false
-    echo "Controller Repo : ${controllerRepo}"
+    echo "Controller Repo : ${controlleRepo}"
     echo "Controller Missing : ${controllerMissing}"
 
     def connectedhomeipAppsMissing =
@@ -246,14 +246,16 @@ def call(testConfigs, testCasesList) {
             it.missing && it.repo == "certification-tool"
         }
     
+    def controllerMissing = decision.platforms.values().any {it.controllerMissing && it.controllerRepo == "connectedhomeip"}
+    
     echo """
-            Controller Repo: ${controllerRepo}
+            Controller Repo: ${controlleRepo}
             Controller Missing: ${raspiDecision.controllerMissing}
             Certification Apps Missing: ${certificationAppsMissing}
             Controller Built Earlier: ${controllerBuilt}
       """
 
-    if (( controllerMissing && controllerRepo == "connectedhomeip" ) || connectedhomeipAppsMissing) {
+    if ( controllerMissing || connectedhomeipAppsMissing ) {
         stage('Build For Raspi inside Docker') {
             node(raspiStages.build_firmware.node) {
                 try {
@@ -268,7 +270,7 @@ def call(testConfigs, testCasesList) {
                     binaryUploadPath = "${controllerBuildWorkSpace}/../${raspiBinariesDirString}"
 
                     //BUILD CONTROLLER (connectedhomeip only)
-                    if (controllerRepo == "connectedhomeip" && controllerMissing ) {
+                    if ( controllerMissing ) {
                         def buildCntrlResult = buildController(testConfigs,testCasesList,controllerBuildWorkSpace,binariesStorePath)
                         if (buildCntrlResult != 0)
                             error("Controller build failed")
@@ -309,9 +311,8 @@ def call(testConfigs, testCasesList) {
             def deviceNode = ''
             def deviceNodeIPAddress = ''
             def deviceWorkSpace = ''
-
-            def certificationControllerMissing = controllerRepo == "certification-tool" && raspiDecision.controllerMissing
-
+            def certificationControllerMissing = decision.platforms.values().any {it.controllerMissing && it.controllerRepo == "certification-tool"}
+            
             stage('Get nodes of controller and device raspi') {
                 def result = RaspiPipelineLib.getCntrlDeviceRaspiNodes(this,"On-Network",testConfigs)
 
@@ -323,7 +324,7 @@ def call(testConfigs, testCasesList) {
             }
 
             //Certification-tool build (controller + apps)
-            if (controllerRepo == "certification-tool" && raspiDecision.controllerMissing ) {
+            if (certificationControllerMissing ) {
                 stage('Build certification-tool controller binaries') {
 
                     node("${cntrlNode}") {

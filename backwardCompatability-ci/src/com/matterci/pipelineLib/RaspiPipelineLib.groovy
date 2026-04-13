@@ -119,7 +119,7 @@ class RaspiPipelineLib implements Serializable {
         return [success: getNodesAssigned, nodesAllocated: allocatedNodes]
     }
 
-    static installDeviceBinaries(def steps,Map testConfigs,String nodeName,String stageName) {
+    static installDeviceBinaries(def steps,Map testConfigs,String nodeName) {
         def copyArtifactsSuccess = true
         def deviceIP = ''
         def deviceRaspiWorkspace = ''

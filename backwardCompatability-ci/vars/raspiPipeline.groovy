@@ -169,7 +169,7 @@ def call(testConfigs, testCasesList) {
             stage('Install DUT binaries into DEVICE_NODE') {
                 node("${deviceNode}") {
                     JfrogUtils.setupJfrog(this, testConfigs)
-                    def result =RaspiPipelineLib.installDeviceBinaries(this,testConfigs,deviceNode)
+                    def result = RaspiPipelineLib.installDeviceBinaries(this,testConfigs,deviceNode)
                     if (!result.success)
                         error("Device binary install failed")
 

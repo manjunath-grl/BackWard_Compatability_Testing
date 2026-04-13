@@ -305,19 +305,19 @@ class RaspiPipelineLib implements Serializable {
         def dockerCommands = """#!/bin/bash
             set -ex
 
-            export PATH=/usr/local/bin:$PATH
-            echo "PATH=$PATH"
+            export PATH=/usr/local/bin:\\\$PATH
+            echo "PATH=\$PATH"
             which docker
             docker --version
 
             docker run --rm --user root --platform=${dockerPlatform} -v ${workSpace}:/home/connectedhome \\
             -w /home/connectedhome ${docker_image}:latest \\
             /bin/bash -c \"
-                set -ex  # Stop execution on first error
-                git config --global --add safe.directory /home/connectedhome
-                git config --global --add safe.directory /home/connectedhome/third_party/pigweed/repo
-                git config --global http.version HTTP/1.1
-                git config --global http.postBuffer 524288000
+            set -ex  # Stop execution on first error
+            git config --global --add safe.directory /home/connectedhome
+            git config --global --add safe.directory /home/connectedhome/third_party/pigweed/repo
+            git config --global http.version HTTP/1.1
+            git config --global http.postBuffer 524288000
             git config --global http.lowSpeedLimit 0
             git config --global http.lowSpeedTime 999999
             ./scripts/checkout_submodules.py --allow-changing-global-git-config --shallow --platform linux

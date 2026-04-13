@@ -145,7 +145,7 @@ class RepoUtils implements Serializable {
         def decision = testConfigs.ci_config.artifactDecision
         def controllerCfg = testConfigs.ci_config?.clone_sdk_code_stage?.controller_sdk
         def branchSHA  = controllerCfg?.branch
-        def repoSha = 'master' 
+        def repoSha = 'master'
         def connectedhomeIPSha = decision.platforms.values().any {it.controllerMissing && it.controllerRepo == "connectedhomeip"}
         def certControllerSHA = decision.platforms.values().any {it.controllerRepo != "connectedhomeip"}
 
@@ -221,7 +221,7 @@ class RepoUtils implements Serializable {
             else if (certControllerSHA) {
                 repoSha = CertificationToolCatalog.getImageSha(branchSHA)
             }
-            
+
             steps.echo "Using controller SDK SHA for sparse checkout: ${repoSha}"
             setupCommand = """#!/bin/bash
                 cd ${controllerDir}

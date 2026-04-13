@@ -33,7 +33,7 @@ def call(testConfigs, testCasesList) {
         raspiDecision.apps.any {
             it.missing && it.repo == "certification-tool"
         }
-    
+
     echo """
             Controller Repo: ${controlleRepo}
             Controller Missing: ${raspiDecision.controllerMissing}
@@ -103,7 +103,7 @@ def call(testConfigs, testCasesList) {
             def deviceWorkSpace = ''
             def deviceBuildWorkSpace = ''
             def certificationControllerMissing = decision.platforms.values().any {it.controllerMissing && it.controllerRepo == "certification-tool"}
-            
+
             stage('Get nodes of controller and device raspi') {
                 def result = RaspiPipelineLib.getCntrlDeviceRaspiNodes(this, testConfigs)
                 if (!result.success)

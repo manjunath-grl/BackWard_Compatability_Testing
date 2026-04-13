@@ -50,7 +50,7 @@ class commonPipelineLib implements Serializable {
                         steps.error("No controller wheel files found in ${controllerPath}")
                     }
                     steps.echo("Controller binaries successfully downloaded")
-                    
+
                     //Clone Matter-QA repo for test execution environment
                     def status = RepoUtils.cloneMatterQARepo(steps,testConfigs,"main",controllerBinariesWorkspace,ctrlBinariesDir)
 
@@ -170,7 +170,7 @@ class commonPipelineLib implements Serializable {
         }
         return "connectedhomeip"
     }
-    
+
 
     static Map resolveBranchSHA(def steps, Map testConfigs) {
         def cloneCfg = testConfigs.ci_config.clone_sdk_code_stage

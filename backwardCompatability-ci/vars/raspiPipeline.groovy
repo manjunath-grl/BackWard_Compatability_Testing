@@ -1,229 +1,21 @@
 import com.matterci.pipelineLib.RaspiPipelineLib
 import com.matterci.pipelineLib.RunTests
-import com.matterci.pipelineLib.TestParamDefaults
 import com.matterci.pipelineLib.RepoUtils
 import com.matterci.pipelineLib.commonPipelineLib
+import com.matterci.pipelineLib.JfrogUtils
 
-
-
-/*Ideally we want to build controller and apps in seperate lib but raspi binaries
-are to be built with docker. Docker has some issues when called from sharedLib. So
-calling the these APIs inside jenkins files.
-*/
-
-def waitForNodeAfterReboot(int timeoutMinutes = 10) {
-    echo "Waiting for node to come back after reboot..."
-
-    timeout(time: timeoutMinutes, unit: 'MINUTES') {
-        waitUntil {
-            try {
-                sh(script: "echo node-up", returnStatus: true) == 0
-            } catch (e) {
-                sleep 10
-                return false
-            }
-        }
-    }
-    echo "Node is back online"
-}
-
-def extractDockerArtifacts(def steps, String imageSha, String certBinariesWorkspace) {
-    def containerName = "chip-cert-temp"
-    try {
-
-        sh """
-            set -ex
-            BASE_DIR="${certBinariesWorkspace}/controller"
-            echo "Preparing controller artifact directory: \$BASE_DIR"
-            docker rm -f ${containerName} || true
-
-            rm -rf "\$BASE_DIR"
-            mkdir -p "\$BASE_DIR"
-            mkdir -p "\$BASE_DIR/python_scripts"
-            echo "Launching chip-cert-bins:${imageSha}"
-
-            docker run --name ${containerName} -dit \
-                connectedhomeip/chip-cert-bins:${imageSha} bash
-
-            echo "Copying controller wheels"
-            docker cp ${containerName}:/root/python_lib/controller/python/. "\$BASE_DIR/" || true
-            docker cp ${containerName}:/root/python_lib/obj/src/python_testing/matter_testing_infrastructure/matter-testing._build_wheel/. "\$BASE_DIR/" || true
-            docker cp ${containerName}:/root/python_lib/python/obj/scripts/py_matter_idl/matter-idl._build_wheel/. "\$BASE_DIR/" || true
-            docker cp ${containerName}:/root/python_lib/python/obj/scripts/py_matter_yamltests/matter-yamltests._build_wheel/. "\$BASE_DIR/" || true
-            docker cp ${containerName}:/root/python_lib/obj/scripts/matter_yamltests_distribution._build_wheel/. "\$BASE_DIR/" || true
-            docker cp ${containerName}:/root/python_testing/scripts/sdk/. "\$BASE_DIR/python_scripts/" || true
-            docker rm -f ${containerName} || true
-        """
-        steps.echo "Docker artifact extraction successful"
-    }
-    catch (Exception e) {
-        steps.echo("Docker artifact extraction failed: ${e.getMessage()}")
-        steps.error("Failed extracting controller artifacts from chip-cert-bins:${imageSha}")
-    }
-}
-
-
-def buildAndinstallCertBinaries(def steps, Map testConfigs, String workSpace, String raspiBinariesDir, String artifactType, Map appConfig = null) {
-    boolean buildSuccess = false
-    def status = 0
-    def homedir = ""
-    def raspiStages = testConfigs.ci_config?.raspi_pipeline?.stages
-    def controllerCfg = testConfigs.ci_config?.clone_sdk_code_stage?.controller_sdk
-
-    def repoUrl = controllerCfg?.repoUrl ?: "git@github.com:project-chip/certification-tool.git"
-    def branch  = controllerCfg?.branch
-
-    def certBinariesWorkspace = "${steps.env.WORKSPACE}/${steps.env.BUILD_NUMBER}/copied_cert_binaries"
-
-    def hostname = steps.sh(script: "hostname",returnStdout: true).trim()
-
-    steps.echo "Artifact type: ${artifactType}"
-
-    //homedir = "/home/${hostname}"
-    homedir = "\$HOME"
-    def imageSha = ''
-    try {
-        steps.ws(workSpace) {
-            steps.echo "Preparing certification-tool repo"
-            status = steps.sh(
-                script: """
-                    set -ex
-                    export PATH="\$HOME/.local/bin:\$PATH"
-                    sudo docker ps -q | xargs -r sudo docker kill
-                    if [ ! -d certification-tool ]; then
-                        git clone -b "${branch}" "${repoUrl}" --recurse-submodules certification-tool
-                    fi
-
-                    cd certification-tool
-                    git fetch
-                    git checkout "${branch}"
-                    git pull --recurse-submodules
-                    yes 1 | ./scripts/pi-setup/auto-install.sh || true
-
-                """,
-                returnStatus: true
-            )
-
-            if (status != 0)
-                throw new Exception("certification-tool checkout failed")
-
-            def dutBinariesPath = "${homedir}/apps"
-
-            //load controller binaries
-            if ( artifactType == "CTRL" ) {
-                //tract controller + accessory binaries from docker
-                imageSha = commonPipelineLib.CERTIFICATION_TOOL_RELEASE_MAP[branch]
-                testConfigs.ci_config.controller_sdk_sha = imageSha
-                extractDockerArtifacts(this, imageSha, certBinariesWorkspace)
-                steps.echo "Uploading certification-tool controller binaries"
-                commonPipelineLib.uploadControllerBinary(steps,testConfigs,"raspi",certBinariesWorkspace)
-            }
-
-            //load accessory binary
-            if ( artifactType == "DUT" ) {
-                steps.echo "Uploading certification-tool accessory: ${appConfig.name}"
-                commonPipelineLib.uploadAppBinary(steps,testConfigs,"raspi",dutBinariesPath,appConfig.name,appConfig.branch,appConfig.sha,appConfig.tag,appConfig.pr)
-            }
-
-            buildSuccess = true
-        }
-    }
-    catch (Exception e) {
-        buildSuccess = false
-        steps.echo(
-            "Certification-tool build failed: ${e.getMessage()}"
-        )
-    }
-    return [success: buildSuccess,cntrlWorksSpace: homedir, testConfigs: testConfigs]
-}
-
-
-def buildController(testConfigs, testCasesList, workSpace, raspiBinariesDir){
-
-    stage ('build controller on raspi'){
-
-        def arch = sh(script: "uname -m", returnStdout: true).trim()
-        echo "HW arch ${arch}"
-        def dockerPlatform = (arch == "x86_64") ? "linux/amd64" : "linux/arm64"
-        echo "dockerPlatform arch ${dockerPlatform}"
-        echo "This stage Build For Raspi inside Docker is running on: ${env.NODE_NAME}"
-        echo "Work space to build controller : ${workSpace}"
-        echo "raspi binaries copied into ${raspiBinariesDir}"
-        def binariesStorePath = "${raspiBinariesDir}"
-        echo "Controller binaries will be stored in ${binariesStorePath}"
-
-        def raspiStages = testConfigs.ci_config?.raspi_pipeline?.stages
-        def docker_image = raspiStages.build_firmware?.docker_image ?:"testing_partof_chip_cert_bins_dockerfile"
-
-        // TODO add swapfile to docker arguments
-        def dockerCommands = """#!/bin/bash
-            set -ex
-
-            export PATH=/usr/local/bin:$PATH
-            echo "PATH=$PATH"
-            which docker
-            docker --version
-
-            docker run --rm --user root --platform=${dockerPlatform} -v ${workSpace}:/home/connectedhome \\
-            -w /home/connectedhome ${docker_image}:latest \\
-            /bin/bash -c \"
-                set -ex  # Stop execution on first error
-                git config --global --add safe.directory /home/connectedhome
-                git config --global --add safe.directory /home/connectedhome/third_party/pigweed/repo
-                git config --global http.version HTTP/1.1
-                git config --global http.postBuffer 524288000
-                git config --global http.lowSpeedLimit 0
-                git config --global http.lowSpeedTime 999999
-                ./scripts/checkout_submodules.py --allow-changing-global-git-config --shallow --platform linux
-                source scripts/bootstrap.sh
-                pw cli-analytics --opt-out
-                source scripts/activate.sh
-                # TODO: -n false is a temporary workaround needs to be updated it to dynamic bases on the configuration.
-                scripts/build_python.sh -m platform -d true -i out/python_env -n false -M false
-            \"
-        """
-        echo "Docker command used to build App ${dockerCommands}"
-
-        def status = sh(
-            script: dockerCommands,
-            returnStatus: true
-        )
-        //TODO: we may need to fix this .. path in the below command
-        if (status ==0){
-            ws("${workSpace}")
-            {
-                def copyCommand = """#!/bin/bash
-                    set -ex
-                    mkdir -p ../${binariesStorePath}
-                    mv out/python_lib/controller/python/*.whl ../${binariesStorePath}
-                    mv out/python_lib/obj/src/python_testing/matter_testing_infrastructure/matter-testing._build_wheel/matter_testing-*.whl ../${binariesStorePath}
-                """
-                def cmdStatus = sh(
-                    script: copyCommand,
-                    returnStatus: true
-                )
-
-                return cmdStatus
-            }
-        }
-        return status
-    }
-}
 
 def call(testConfigs, testCasesList) {
     def buildSuccess = true
     def raspiStages = testConfigs.ci_config?.raspi_pipeline?.stages
     def raspiBinariesDirString = "raspi_binaries"
-    def appToTest = "chip-all-clusters-app" //TODO remove this, initializing to test
     def controllerBuildWorkSpace = ''
     def appsBuildWorkSpace = ''
     def logTransferConfig = testConfigs.execution_log_transfer_config
     def decision = testConfigs.ci_config.artifactDecision
     def raspiDecision = decision.platforms["raspi"]
-    def platformCfg = testConfigs.ci_config.clone_sdk_code_stage.platforms.raspi
     def controllerBranch = testConfigs.ci_config.clone_sdk_code_stage.controller_sdk.branch
     def controlleRepo = commonPipelineLib.resolveRepo(controllerBranch)
-    //def controllerMissing = raspiDecision.controllerMissing
     def appStorePath = ''
     def binariesStorePath = ''
     def binaryUploadPath = ''
@@ -263,32 +55,36 @@ def call(testConfigs, testCasesList) {
                     binariesStorePath = "${raspiBinariesDirString}/controller"
                     binaryUploadPath = "${controllerBuildWorkSpace}/../${raspiBinariesDirString}"
 
-                    //BUILD CONTROLLER (connectedhomeip only)
-                    if ( controllerMissing ) {
-                        def buildCntrlResult = buildController(testConfigs,testCasesList,controllerBuildWorkSpace,binariesStorePath)
-                        if (buildCntrlResult != 0)
-                            error("Controller build failed")
+                    // Build the connectedhomeip controller once, then reuse the uploaded wheels during install.
+                    stage ('Build Controller on raspi'){
+                        if ( controllerMissing ) {
+                            def buildCntrlResult = RaspiPipelineLib.buildController(this,testConfigs,testCasesList,controllerBuildWorkSpace,binariesStorePath)
+                            if (buildCntrlResult != 0)
+                                error("Controller build failed")
 
-                        controllerBuilt = true
-                        commonPipelineLib.uploadControllerBinary(this,testConfigs,"raspi",binaryUploadPath)
+                            controllerBuilt = true
+                            JfrogUtils.uploadControllerBinary(this,testConfigs,"raspi",binaryUploadPath)
+                        }
                     }
 
-                    //BUILD APPS (connectedhomeip only)
-                    raspiDecision.apps.each { app ->
-                        if (!app.missing)
-                            return
-                        if (app.repo != "connectedhomeip")
-                            return
-                        echo "Building connectedhomeip app: ${app.name}"
+                    // Each DUT app may point to a different SDK ref, so checkout/build/upload runs per accessory.
+                    stage ('Build Apps on raspi'){
+                        raspiDecision.apps.each { app ->
+                            if (!app.missing)
+                                return
+                            if (app.repo != "connectedhomeip")
+                                return
+                            echo "Building connectedhomeip app: ${app.name}"
 
-                        RepoUtils.checkoutGitRef(this,appsBuildWorkSpace,app.branch,app.sha,app.tag,app.pr)
-                        //app.sha = resolvedSha
-                        def buildAppResult = RaspiPipelineLib.buildApps(this,testConfigs,testCasesList,appsBuildWorkSpace,appStorePath,app.name)
+                            RepoUtils.checkoutGitRef(this,appsBuildWorkSpace,app.branch,app.sha,app.tag,app.pr)
+                            stage ('Building app: ' + app.name){
+                                def buildAppResult = RaspiPipelineLib.buildApps(this,testConfigs,testCasesList,appsBuildWorkSpace,appStorePath,app.name)
+                                if (!buildAppResult.success)
+                                    error("App build failed: ${app.name}")
 
-                        if (!buildAppResult.success)
-                            error("App build failed: ${app.name}")
-
-                        commonPipelineLib.uploadAppBinary(this,testConfigs,"raspi",appStorePath,app.name,app.branch,app.sha,app.tag,app.pr)
+                                JfrogUtils.uploadAppBinary(this,testConfigs,"raspi",appStorePath,app.name,app.branch,app.sha,app.tag,app.pr)
+                            }
+                        }
                     }
                 } catch (Exception e) {
                     buildSuccess = false
@@ -319,43 +115,46 @@ def call(testConfigs, testCasesList) {
             }
 
             //Certification-tool build (controller + apps)
-            if (certificationControllerMissing ) {
-                stage('Build certification-tool controller binaries') {
+            stage('Certification-tool build for Controller') {
+                if (certificationControllerMissing ) {
+                    stage('Build certification-tool controller binaries') {
 
-                    node("${cntrlNode}") {
-                        controllerBuildWorkSpace ="${env.WORKSPACE}/controller_sdk"
-                        echo "Building certification-tool controller"
-                        def result = buildAndinstallCertBinaries(this, testConfigs, controllerBuildWorkSpace, raspiBinariesDirString, "CTRL")
-                        if (!result.success)
-                            error("Certification-tool controller build failed")
-                        testConfigs = result.testConfigs
-                        cntlWorkSpace = result.cntrlWorksSpace
+                        node("${cntrlNode}") {
+                            controllerBuildWorkSpace ="${env.WORKSPACE}/controller_sdk"
+                            echo "Building certification-tool controller"
+                            def result = RaspiPipelineLib.buildAndinstallCertBinaries(this, testConfigs, controllerBuildWorkSpace, raspiBinariesDirString, "CTRL")
+                            if (!result.success)
+                                error("Certification-tool controller build failed")
+                            testConfigs = result.testConfigs
+                            cntlWorkSpace = result.cntrlWorksSpace
+                        }
                     }
                 }
             }
 
             //Build certification-tool accessories (loop)
-            raspiDecision.apps.each { app ->
+            stage('Certification-tool build for Apps') {
+                raspiDecision.apps.each { app ->
 
-                if (!app.missing)
-                    return
+                    if (!app.missing)
+                        return
 
-                if (app.repo != "certification-tool")
-                    return
+                    if (app.repo != "certification-tool")
+                        return
 
-                stage("Build certification-tool app: ${app.name}") {
-                    node("${deviceNode}") {
-                        deviceBuildWorkSpace ="${env.WORKSPACE}/controller_sdk"
-                        echo "Building certification-tool accessory: ${app.name}"
-                        def result = buildAndinstallCertBinaries(this, testConfigs, deviceBuildWorkSpace, raspiBinariesDirString, "DUT", app )
-                        if (!result.success)
-                            error("Certification-tool app build failed: ${app.name}")
+                    stage("Build certification-tool app: ${app.name}") {
+                        node("${deviceNode}") {
+                            deviceBuildWorkSpace ="${env.WORKSPACE}/controller_sdk"
+                            echo "Building certification-tool accessory: ${app.name}"
+                            def result = RaspiPipelineLib.buildAndinstallCertBinaries(this, testConfigs, deviceBuildWorkSpace, raspiBinariesDirString, "DUT", app )
+                            if (!result.success)
+                                error("Certification-tool app build failed: ${app.name}")
+                        }
                     }
                 }
             }
 
             //Install controller binaries
-            //if (!raspiDecision.controllerMissing || controllerBuilt ) {
             stage('Install controller binaries into controller node') {
                 node("${cntrlNode}") {
                     def result = commonPipelineLib.installControllerBinaries(this,testConfigs,"raspi",raspiBinariesDirString)
@@ -366,7 +165,7 @@ def call(testConfigs, testCasesList) {
                 }
             }
 
-            //Install ALL DUT binaries after ALL builds complete
+            // Install all DUT binaries only after every missing app has been built or confirmed in JFrog.
             stage('Install DUT binaries into DEVICE_NODE') {
                 node("${deviceNode}") {
                     def result =RaspiPipelineLib.installDeviceBinaries(this,testConfigs,deviceNode,"On-Network")

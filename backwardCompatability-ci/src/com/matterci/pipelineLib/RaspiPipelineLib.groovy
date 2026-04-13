@@ -2,11 +2,12 @@
 package com.matterci.pipelineLib
 
 import com.matterci.pipelineLib.TestUtils
-import com.matterci.pipelineLib.TestParamDefaults
 import com.matterci.pipelineLib.RepoUtils
 import com.matterci.pipelineLib.commonPipelineLib
+import com.matterci.pipelineLib.JfrogUtils
+import com.matterci.pipelineLib.CertificationToolCatalog
 
-import groovy.json.*
+import groovy.json.JsonOutput
 
 class RaspiPipelineLib implements Serializable {
 
@@ -18,13 +19,6 @@ class RaspiPipelineLib implements Serializable {
         listOfAvaialbelRaspis = []
         raspiBinariesDirString = "raspi_binaries"
     }
-
-    private static String getPlatform(def steps) {
-        def arch = steps.sh(script: "uname -m", returnStdout: true).trim()
-        steps.echo "Detected host architecture: ${arch}"
-        return arch == "x86_64" ? "linux/amd64" : "linux/arm64"
-    }
-    //TODO: optimize this code to use one single function call
 
     static getCntrlDeviceRaspiNodes(def steps, String stageName, Map testConfigs){
         def getNodesAssigned = true
@@ -131,7 +125,7 @@ class RaspiPipelineLib implements Serializable {
         def deviceRaspiWorkspace = ''
         def refFolder = ''
         def targetDir = ''
-            commonPipelineLib.setupJfrog(steps, testConfigs)
+        JfrogUtils.setupJfrog(steps, testConfigs)
             steps.timeout(time: 60, unit: 'MINUTES') {
                 try {
                     steps.echo "Running on device node: ${nodeName}"
@@ -153,7 +147,8 @@ class RaspiPipelineLib implements Serializable {
                         raspiDecision.apps.each { app ->
                             steps.echo "Downloading binary: ${app.name}"
 
-                            def basePath =commonPipelineLib.getResolvedArtifactBasePath(testConfigs,"apps",app.branch,app.sha,app.tag,app.pr)
+                            def basePath = JfrogUtils.getResolvedArtifactBasePath(testConfigs,"apps",app.branch,app.sha,app.tag,app.pr)
+                            // Download into a ref-specific folder so one controller run can test multiple DUT refs safely.
                             def jfrogPath = "${basePath}/apps/${app.name}/raspi/${app.name}"
 
                             steps.echo "JFrog path: ${jfrogPath}"
@@ -198,41 +193,6 @@ class RaspiPipelineLib implements Serializable {
                 }
                 return [success: copyArtifactsSuccess,deviceWorksSpace: deviceRaspiWorkspace,deviceIPAddress: deviceIP,updatedTestConfig: testConfigs]
             }
-    }
-
-    static Map initRaspiOnNetworkTestParams(def steps,Map testConfigs,String cntrlWorkSpace, String deviceWorkSpace, String deviceNodeIPAddress, String appToTest) {
-        // Files under vars/ (like vars/TestParamDefaults.groovy) are exposed as global script steps, not class methods.
-        // but I changed into seperate class , as calling jenkins throwing error when calling TestParamDefaults multiple times in same class
-
-        steps.echo "cntrl workspace passed : ${cntrlWorkSpace}"
-        steps.echo "device workspace passed : ${deviceWorkSpace}"
-        def localTestParams = TestUtils.deepCopy(testConfigs)
-        steps.echo "local Test Params before updating : ${localTestParams}"
-        steps.echo "TestConfigs : ${testConfigs}"
-        steps.echo "Discriminator used : ${testConfigs.Testcase_runner_config.dut_config.rpi.app_config.discriminator}"
-        // This will be used to append test_results folder in the run tests method
-        localTestParams.ci_config.ci_ws_path = "${cntrlWorkSpace}"
-
-        //TestUtils.updateOrCreateKeyValue(localTestParams,"testConfigs.Testcase_runner_config.platform" ,"rpi")
-        //get the controller name from the Jenkins steps.
-        TestUtils.updateOrCreateKeyValue(localTestParams, "Testcase_runner_config.dut_config.rpi.rpi_hostname", "${deviceNodeIPAddress}")
-        TestUtils.updateOrCreateKeyValue(localTestParams, "Testcase_runner_config.dut_config.rpi.app_config.discriminator", testConfigs.Testcase_runner_config.dut_config.rpi.app_config.discriminator)
-        //TODO:Fix it such that we can pass app also from the config
-        TestUtils.updateOrCreateKeyValue(localTestParams, "Testcase_runner_config.dut_config.rpi.app_config.matter_app", "${appToTest}")
-        //TestUtils.updateOrCreateKeyValue(localTestParams, "Testcase_runner_config.python_scripts.matter_app", "${deviceWorkSpace}/${RaspiPipelineLib.raspiBinariesDirString}/${appToTest} --wifi")
-
-        //TestUtils.updateOrCreateKeyValue(localTestParams, "Testcase_runner_config.dut_config.rpi.commissioning_method",["on-network"])
-
-        //TestUtils.updateOrCreateKeyValue(localTestParams,"test_case_config.TC_Darwin_Pair.manual_code", testConfigs.Testcase_runner_config.dut_config.rpi.on_network_manual_code)
-        //TestUtils.updateOrCreateKeyValue(localTestParams,"test_case_config.TC_Android_Pair.manual_code", testConfigs.Testcase_runner_config.dut_config.rpi.on_network_manual_code)
-
-        steps.echo "discriminator params ${localTestParams.Testcase_runner_config.dut_config.rpi.app_config.discriminator}"
-        steps.echo "updated local params ${localTestParams}"
-
-        def test_params_json = JsonOutput.toJson(localTestParams)
-        steps.echo "JSON params ${test_params_json}"
-
-        return localTestParams
     }
 
     static Map buildApps(def steps,Map testConfigs,List testCasesList,String workSpace,String raspiBinariesDir,String appName) {
@@ -313,7 +273,6 @@ class RaspiPipelineLib implements Serializable {
                 ls -la ${outputPath}
             """
         }
-
         //Move binary into raspi_binaries/apps/<appName>/
         steps.ws(workSpace) {
             steps.sh """
@@ -325,5 +284,191 @@ class RaspiPipelineLib implements Serializable {
             """
         }
         return [success : true, appToTest : binaryName]
+    }
+
+    static def buildController(def steps, Map testConfigs, List testCasesList, String workSpace, String raspiBinariesDir){
+        def arch = steps.sh(script: "uname -m", returnStdout: true).trim()
+        steps.echo "HW arch ${arch}"
+        def dockerPlatform = (arch == "x86_64") ? "linux/amd64" : "linux/arm64"
+        steps.echo "dockerPlatform arch ${dockerPlatform}"
+        steps.echo "This stage Build For Raspi inside Docker is running on: ${steps.env.NODE_NAME}"
+        steps.echo "Work space to build controller : ${workSpace}"
+        steps.echo "raspi binaries copied into ${raspiBinariesDir}"
+        def binariesStorePath = "${raspiBinariesDir}"
+        steps.echo "Controller binaries will be stored in ${binariesStorePath}"
+
+        def raspiStages = testConfigs.ci_config?.raspi_pipeline?.stages
+        def docker_image = raspiStages.build_firmware?.docker_image ?:"testing_partof_chip_cert_bins_dockerfile"
+        // Keep the current behavior as default, but allow Jenkins/YAML to override build flags.
+        def buildPythonArgs = commonPipelineLib.getBuildPythonArgs(testConfigs, "-d true -n false -M false")
+
+        def dockerCommands = """#!/bin/bash
+            set -ex
+
+            export PATH=/usr/local/bin:$PATH
+            echo "PATH=$PATH"
+            which docker
+            docker --version
+
+            docker run --rm --user root --platform=${dockerPlatform} -v ${workSpace}:/home/connectedhome \\
+            -w /home/connectedhome ${docker_image}:latest \\
+            /bin/bash -c \"
+                set -ex  # Stop execution on first error
+                git config --global --add safe.directory /home/connectedhome
+                git config --global --add safe.directory /home/connectedhome/third_party/pigweed/repo
+                git config --global http.version HTTP/1.1
+                git config --global http.postBuffer 524288000
+            git config --global http.lowSpeedLimit 0
+            git config --global http.lowSpeedTime 999999
+            ./scripts/checkout_submodules.py --allow-changing-global-git-config --shallow --platform linux
+            source scripts/bootstrap.sh
+            pw cli-analytics --opt-out
+            source scripts/activate.sh
+            scripts/build_python.sh -m platform -i out/python_env ${buildPythonArgs}
+            \"
+        """
+        steps.echo "Docker command used to build App ${dockerCommands}"
+
+        def status = steps.sh(
+            script: dockerCommands,
+            returnStatus: true
+        )
+        if (status ==0){
+            steps.ws("${workSpace}"){
+                def copyCommand = """#!/bin/bash
+                    set -ex
+                    mkdir -p ../${binariesStorePath}
+                    mv out/python_lib/controller/python/*.whl ../${binariesStorePath}
+                    mv out/python_lib/obj/src/python_testing/matter_testing_infrastructure/matter-testing._build_wheel/matter_testing-*.whl ../${binariesStorePath}
+                """
+                def cmdStatus = steps.sh(
+                    script: copyCommand,
+                    returnStatus: true
+                )
+                return cmdStatus
+            }
+        }
+        return status
+    }
+
+    static def buildAndinstallCertBinaries(def steps, Map testConfigs, String workSpace, String raspiBinariesDir, String artifactType, Map appConfig = null) {
+        boolean buildSuccess = false
+        def status = 0
+        def controllerCfg = testConfigs.ci_config?.clone_sdk_code_stage?.controller_sdk
+
+        def repoUrl = controllerCfg?.repoUrl ?: "git@github.com:project-chip/certification-tool.git"
+        def branch  = controllerCfg?.branch
+        def certBinariesWorkspace = "${steps.env.WORKSPACE}/${steps.env.BUILD_NUMBER}/copied_cert_binaries"
+        def hostname = steps.sh(script: "hostname",returnStdout: true).trim()
+        steps.echo "Artifact type: ${artifactType}"
+
+        def homedir = "\$HOME"
+        def imageSha = ''
+        try {
+            steps.ws(workSpace) {
+                steps.echo "Preparing certification-tool repo"
+                status = steps.sh(
+                    script: """
+                        set -ex
+                        export PATH="\$HOME/.local/bin:\$PATH"
+                        sudo docker ps -q | xargs -r sudo docker kill
+                        if [ ! -d certification-tool ]; then
+                            git clone -b "${branch}" "${repoUrl}" --recurse-submodules certification-tool
+                        fi
+
+                        cd certification-tool
+                        git fetch
+                        git checkout "${branch}"
+                        git pull --recurse-submodules
+                        yes 1 | ./scripts/pi-setup/auto-install.sh || true
+
+                    """,
+                    returnStatus: true
+                )
+
+                if (status != 0)
+                    throw new Exception("certification-tool checkout failed")
+
+                def dutBinariesPath = "${homedir}/apps"
+
+                // certification-tool controller binaries are extracted from the release docker image and then uploaded to JFrog.
+                if ( artifactType == "CTRL" ) {
+                    imageSha = CertificationToolCatalog.getImageSha(branch)
+                    testConfigs.ci_config.controller_sdk_sha = imageSha
+                    extractDockerArtifacts(steps, imageSha, certBinariesWorkspace)
+                    steps.echo "Uploading certification-tool controller binaries"
+                    JfrogUtils.uploadControllerBinary(steps,testConfigs,"raspi",certBinariesWorkspace)
+                }
+
+                // certification-tool DUT binaries are already produced on the device node under $HOME/apps.
+                if ( artifactType == "DUT" ) {
+                    steps.echo "Uploading certification-tool accessory: ${appConfig.name}"
+                    JfrogUtils.uploadAppBinary(steps,testConfigs,"raspi",dutBinariesPath,appConfig.name,appConfig.branch,appConfig.sha,appConfig.tag,appConfig.pr)
+                }
+                buildSuccess = true
+            }
+        }
+        catch (Exception e) {
+            buildSuccess = false
+            steps.echo("Certification-tool build failed: ${e.getMessage()}")
+        }
+        return [success: buildSuccess,cntrlWorksSpace: homedir, testConfigs: testConfigs]
+    }
+
+    static Map initRaspiOnNetworkTestParams(def steps,Map testConfigs,String cntrlWorkSpace, String deviceWorkSpace, String deviceNodeIPAddress, String appToTest) {
+        steps.echo "cntrl workspace passed : ${cntrlWorkSpace}"
+        steps.echo "device workspace passed : ${deviceWorkSpace}"
+        def localTestParams = TestUtils.deepCopy(testConfigs)
+        steps.echo "local Test Params before updating : ${localTestParams}"
+        steps.echo "TestConfigs : ${testConfigs}"
+        steps.echo "Discriminator used : ${testConfigs.Testcase_runner_config.dut_config.rpi.app_config.discriminator}"
+        localTestParams.ci_config.ci_ws_path = "${cntrlWorkSpace}"
+
+        TestUtils.updateOrCreateKeyValue(localTestParams, "Testcase_runner_config.dut_config.rpi.rpi_hostname", "${deviceNodeIPAddress}")
+        TestUtils.updateOrCreateKeyValue(localTestParams, "Testcase_runner_config.dut_config.rpi.app_config.discriminator", testConfigs.Testcase_runner_config.dut_config.rpi.app_config.discriminator)
+        // matter_app points to the downloaded DUT binary path for the specific accessory/ref under test.
+        TestUtils.updateOrCreateKeyValue(localTestParams, "Testcase_runner_config.dut_config.rpi.app_config.matter_app", "${appToTest}")
+
+        steps.echo "discriminator params ${localTestParams.Testcase_runner_config.dut_config.rpi.app_config.discriminator}"
+        steps.echo "updated local params ${localTestParams}"
+
+        def test_params_json = JsonOutput.toJson(localTestParams)
+        steps.echo "JSON params ${test_params_json}"
+
+        return localTestParams
+    }
+
+    static def extractDockerArtifacts(def steps, String imageSha, String certBinariesWorkspace) {
+        def containerName = "chip-cert-temp"
+        try {
+            steps.sh """
+                set -ex
+                BASE_DIR="${certBinariesWorkspace}/controller"
+                echo "Preparing controller artifact directory: \$BASE_DIR"
+                docker rm -f ${containerName} || true
+
+                rm -rf "\$BASE_DIR"
+                mkdir -p "\$BASE_DIR"
+                mkdir -p "\$BASE_DIR/python_scripts"
+                echo "Launching chip-cert-bins:${imageSha}"
+
+                docker run --name ${containerName} -dit \
+                    connectedhomeip/chip-cert-bins:${imageSha} bash
+
+                echo "Copying controller wheels"
+                docker cp ${containerName}:/root/python_lib/controller/python/. "\$BASE_DIR/" || true
+                docker cp ${containerName}:/root/python_lib/obj/src/python_testing/matter_testing_infrastructure/matter-testing._build_wheel/. "\$BASE_DIR/" || true
+                docker cp ${containerName}:/root/python_lib/python/obj/scripts/py_matter_idl/matter-idl._build_wheel/. "\$BASE_DIR/" || true
+                docker cp ${containerName}:/root/python_lib/python/obj/scripts/py_matter_yamltests/matter-yamltests._build_wheel/. "\$BASE_DIR/" || true
+                docker cp ${containerName}:/root/python_lib/obj/scripts/matter_yamltests_distribution._build_wheel/. "\$BASE_DIR/" || true
+                docker cp ${containerName}:/root/python_testing/scripts/sdk/. "\$BASE_DIR/python_scripts/" || true
+                docker rm -f ${containerName} || true
+            """
+            steps.echo "Docker artifact extraction successful"
+        }
+        catch (Exception e) {
+            steps.echo("Docker artifact extraction failed: ${e.getMessage()}")
+            steps.error("Failed extracting controller artifacts from chip-cert-bins:${imageSha}")
+        }
     }
 }

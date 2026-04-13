@@ -1,6 +1,7 @@
 @Library('backwardCompatibility-ci-lib') _
 import com.matterci.pipelineLib.ConfigLoader
 import com.matterci.pipelineLib.commonPipelineLib
+import com.matterci.pipelineLib.JfrogUtils
 
 node {
     properties([
@@ -20,14 +21,14 @@ node {
     def testConfigs = ConfigLoader.loadMergedConfig(this)
     def testCasesList = []
     echo "Loaded test cases: ${testCasesList}"
-    commonPipelineLib.setupJfrog(this, testConfigs)
+    JfrogUtils.setupJfrog(this, testConfigs)
     testConfigs = commonPipelineLib.resolveBranchSHA(this, testConfigs)
     commonPipelineLib.validateSdkConfig(this, testConfigs)
     testConfigs = commonPipelineLib.overrideDockerImageForRelease(this, testConfigs)
 
     //Artifact Decision Engine
 
-    def decision =commonPipelineLib.resolveArtifactAndBuildDecision(this, testConfigs)
+    def decision = JfrogUtils.resolveArtifactAndBuildDecision(this, testConfigs)
     testConfigs.ci_config.artifactDecision = decision
 
     //Clone Decision Logic

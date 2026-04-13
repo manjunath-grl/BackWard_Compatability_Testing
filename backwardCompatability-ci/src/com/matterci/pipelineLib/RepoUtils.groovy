@@ -1,5 +1,6 @@
 package com.matterci.pipelineLib
 import com.matterci.pipelineLib.commonPipelineLib
+import com.matterci.pipelineLib.CertificationToolCatalog
 
 class RepoUtils implements Serializable {
 
@@ -42,8 +43,8 @@ class RepoUtils implements Serializable {
         def cloneControllerSuccess = true
         def controller_sdk_sha = ''
 
+        // Clone the controller SDK
         if (cloneController) {
-            // Clone the controller SDK
             if (controllerConfig) {
                 def controllerGitRef = controllerConfig?.branch ?: 'master'
                 def controllerShaRef = controllerConfig?.sha
@@ -53,7 +54,6 @@ class RepoUtils implements Serializable {
                 try {
                     steps.timeout(time: 60, unit: 'MINUTES') {
                         steps.ws(controllerWorkspace) {
-                            // Clone the controller SDK
                             controller_sdk_sha = RepoUtils.cloneGitRepo(steps, controllerRepoUrl, "connectedhomeip", controllerGitRef,controllerShaRef, controllerTagRef, controllerPrRef)
                             steps.echo "controller SDK SHA cloned : ${controller_sdk_sha}"
                             if (!controller_sdk_sha) {
@@ -79,14 +79,12 @@ class RepoUtils implements Serializable {
         def cloneAppSuccess = true
         def app_sdk_sha = ''
 
-
         // Clone the app SDK
         if (cloneApps) {
             def appRepoUrl = 'git@github.com:project-chip/connectedhomeip.git' // Default to app repo URL
             try {
                 steps.timeout(time: 60, unit: 'MINUTES') {
                     steps.ws(appWorkspace) {
-                        // Clone the app SDK
                         steps.sh """
                             set -ex
                             git config --global http.version HTTP/1.1
@@ -118,7 +116,6 @@ class RepoUtils implements Serializable {
                     echo "Workspace ${buildIDWorkspace} does not exist. Skipping archive."
                     exit 0
                 fi
-
                 cd ${buildIDWorkspace}
 
                 files=""
@@ -136,7 +133,6 @@ class RepoUtils implements Serializable {
                 tar -czvf ${archivePath} \$files
             """
         }
-
         return [success: cloneSuccess, archivePath: "${nodeWorkspace}", updatedTestConfigs: testConfigs]
     }
 
@@ -163,29 +159,22 @@ class RepoUtils implements Serializable {
             shopt -s nullglob
 
             echo "ControllerDir: ${wheelsDir}"
-
             WHEEL_PATH="${wheelsDir}"
 
             echo "Looking for wheels in: \$WHEEL_PATH"
             ls -la "\$WHEEL_PATH"
-
             sudo rm -rf /tmp/chip* || true
 
             python3 -m venv .venv
             source .venv/bin/activate
 
             cd "\$WHEEL_PATH"
-
             echo "Installing wheels sequentially..."
-
             for wheel in *.whl; do
                 echo "Installing \$wheel"
                 pip3 install "\$wheel" || true
             done
-
-            echo "Installing requirements.txt dependencies..."
-
-            pip3 install -r requirements.txt || true
+            echo "Installed python whl files from ${wheelsDir}"
         """
 
         cmdStatus = steps.sh(script: setupCommand, returnStatus: true)
@@ -223,7 +212,6 @@ class RepoUtils implements Serializable {
                 // Echo and set the environment variable
                 steps.echo "QA repo SHA ${qaRepoSha}"
                 steps.env.qa_repo_git_sha = "${qaRepoSha}"
-
                 testConfigs.ci_config.qa_repo_git_sha = "${qaRepoSha}"
             }
             // Determine the correct SHA to use for the sparse checkout based on the decision engine's output
@@ -231,11 +219,10 @@ class RepoUtils implements Serializable {
                 repoSha = testConfigs.ci_config.controller_sdk_sha
             }
             else if (certControllerSHA) {
-                repoSha = commonPipelineLib.CERTIFICATION_TOOL_RELEASE_MAP[branchSHA]
+                repoSha = CertificationToolCatalog.getImageSha(branchSHA)
             }
             
             steps.echo "Using controller SDK SHA for sparse checkout: ${repoSha}"
-
             setupCommand = """#!/bin/bash
                 cd ${controllerDir}
                 source .venv/bin/activate
@@ -250,11 +237,7 @@ class RepoUtils implements Serializable {
                 git checkout FETCH_HEAD
                 cd ..
             """
-
-            cmdStatus = steps.sh(
-                                script: setupCommand,
-                                returnStatus: true
-                            )
+            cmdStatus = steps.sh(script: setupCommand,returnStatus: true)
         }
         return cmdStatus
     }
@@ -266,7 +249,6 @@ class RepoUtils implements Serializable {
 
         try {
             steps.echo "Running git clone for repository: ${repoUrl}"
-
             // Debugging step to check steps object
             steps.echo "Steps object: ${steps}"
 
@@ -289,7 +271,7 @@ class RepoUtils implements Serializable {
                 git config --global http.lowSpeedLimit 0
                 git config --global http.lowSpeedTime 999999
                 git clone --progress --verbose ${repoUrl} .
-                    """
+                """
 
                 if (gitRef != 'master') {
                     steps.sh """
@@ -298,7 +280,6 @@ class RepoUtils implements Serializable {
                         echo "Checked out branch ${gitRef}"
                     """
                 }
-
                 // If a SHA is provided, checkout that specific SHA
                 if (shaRef) {
                     steps.sh """
@@ -339,12 +320,10 @@ class RepoUtils implements Serializable {
         steps.ws(workspaceDir) {
             steps.sh """
                 set -ex
-
                 echo "Cleaning previous build artifacts..."
 
                 git reset --hard
                 git clean -xfd
-
                 rm -rf out
                 rm -rf .environment
                 rm -rf third_party/pigweed/.environment
@@ -380,17 +359,7 @@ class RepoUtils implements Serializable {
                 """
             }
 
-            /*
-            CRITICAL: sync submodules after checkout
-            */
-            // steps.sh """
-            //     set -ex
-            //     git submodule sync
-            //     git submodule update --init --recursive
-            // """
-            /*
-            Resolve actual checked-out commit SHA
-            */
+            //Resolve actual checked-out commit SHA
             resolvedSha = steps.sh(
                 script: "git rev-parse HEAD",
                 returnStdout: true
@@ -439,19 +408,16 @@ class RepoUtils implements Serializable {
                                     returnStatus: true)
                     steps.echo "status of the command tar -xzf matter_repo_archive.tgz is : ${cmdStatus}"
 
-
                     if (cmdStatus !=0){
                         unzipSuccesful = false
                         steps.error(" getSDKCodeFromArtifacts failed. Build stopped.")
                     }
                 }
-
             }
         }catch (Exception e) {
             unzipSuccesful = false
             steps.echo "Error during downloading artifacts : ${e.getMessage()}"
         }
-
         return [success: unzipSuccesful, cntrlBuildWorkSpace: "${controllerBuildWorkSpace}", appsBuildWorkSpace: "${appsBuildWorkSpace}" , workSpaceSDKCopied: "${workSpaceToCopySDK}" ]
     }
 }

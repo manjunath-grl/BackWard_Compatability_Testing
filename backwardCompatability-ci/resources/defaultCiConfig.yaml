@@ -51,5 +51,7 @@ ci_config:
         chip_cert_bins: ca9d1118e097fe947b2aec1ba84f265d6cf2447e
         docker_image: "chip_image"
         node: "local_mac_node"
+        # Optional override for scripts/build_python.sh flags.
+        build_python_args: "-d true -n false -M false"
       run_tests:
         enabled: true

@@ -271,20 +271,20 @@ class commonPipelineLib implements Serializable {
         steps.echo "SDK configuration validation passed"
     }
 
-    static void overrideDockerImageForRelease(def steps, Map testConfigs) {
+    static Map overrideDockerImageForRelease(def steps, Map testConfigs) {
         def cloneCfg = testConfigs.ci_config.clone_sdk_code_stage
         def controllerCfg = cloneCfg.controller_sdk
 
         if (!controllerCfg?.branch)
-            return
+            return testConfigs
 
         def branch = controllerCfg.branch
 
         if (!isReleaseBranch(branch))
-            return
+            return testConfigs
 
         if (!CertificationToolCatalog.isReleaseBranch(branch))
-            return
+            return testConfigs
 
         def imageSha = CertificationToolCatalog.getImageSha(branch)
         def raspiStages = testConfigs.ci_config?.raspi_pipeline?.stages

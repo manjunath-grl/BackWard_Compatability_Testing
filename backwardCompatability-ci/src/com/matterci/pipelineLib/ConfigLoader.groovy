@@ -73,7 +73,7 @@ class ConfigLoader {
 
         // Merge default configs
         Map defaultConfig = ConfigLoader.deepMergeConfigs(defaultCiConfig, defaultTestRunConfig)
-        steps.echo "✅ Merged default configs with combined keys: ${defaultConfig.keySet()}"
+        steps.echo "Merged default configs with combined keys: ${defaultConfig.keySet()}"
 
         // Load user YAML files
         Map uploadedConfig = [:]
@@ -82,8 +82,8 @@ class ConfigLoader {
         def ciConfigPath = steps.env.ci_config_file
         def testRunConfigPath = steps.env.test_run_config_file
 
-        steps.echo "📄 CI config file path: ${ciConfigPath}"
-        steps.echo "📄 Test run config file path: ${testRunConfigPath}"
+        steps.echo "CI config file path: ${ciConfigPath}"
+        steps.echo "Test run config file path: ${testRunConfigPath}"
 
         // Load CI config file
         if (ciConfigPath && steps.fileExists(ciConfigPath)) {
@@ -123,7 +123,7 @@ class ConfigLoader {
         // Append CI config
         mergedConfig = ConfigLoader.appendCIConfig(steps, mergedConfig)
 
-        steps.echo "🎯 Configuration loading completed successfully!"
+        steps.echo "Configuration loading completed successfully!"
 
         return mergedConfig
 

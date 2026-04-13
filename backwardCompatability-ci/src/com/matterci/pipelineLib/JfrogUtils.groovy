@@ -1,5 +1,7 @@
 package com.matterci.pipelineLib
 
+import com.matterci.pipelineLib.CertificationToolCatalog
+
 class JfrogUtils implements Serializable {
 
     static final String DEFAULT_JFROG_REPO = "matter-Binaries"
@@ -61,7 +63,7 @@ class JfrogUtils implements Serializable {
         def cloneCfg = testConfigs.ci_config.clone_sdk_code_stage
         def platformsCfg = cloneCfg.platforms ?: [:]
         def controllerCfg = cloneCfg.controller_sdk
-        def controllerRepo = commonPipelineLib.resolveRepo(controllerCfg.branch)
+        def controllerRepo = resolveRepo(controllerCfg.branch)
         def controllerBasePath = buildBasePath(testConfigs, controllerCfg.branch, controllerCfg.sha, controllerCfg.tag, controllerCfg.pr)
 
         steps.echo "Controller Repo     = ${controllerRepo}"
@@ -88,7 +90,7 @@ class JfrogUtils implements Serializable {
 
             def appsDecisionList = []
             (platformCfg.apps ?: []).each { appCfg ->
-                def appRepo = commonPipelineLib.resolveRepo(appCfg.branch)
+                def appRepo = resolveRepo(appCfg.branch)
                 def appBasePath = buildBasePath(testConfigs, appCfg.branch, appCfg.sha, appCfg.tag, appCfg.pr)
                 def appPath = "${appBasePath}/apps/${appCfg.name}/${platformName}/${appCfg.name}*"
 
@@ -129,7 +131,16 @@ class JfrogUtils implements Serializable {
         def cloneCfg = testConfigs.ci_config.clone_sdk_code_stage
         def controllerCfg = cloneCfg.controller_sdk
         def platformCfg = cloneCfg.platforms[platform]
-        def basePath = buildBasePath(testConfigs, controllerCfg.branch, controllerCfg.sha, controllerCfg.tag, controllerCfg.pr)
+        // Resolve the controller upload path using the same branch/sha/tag/pr rules used by download checks.
+        def basePath = getResolvedArtifactBasePath(testConfigs, "controller", controllerCfg.branch, controllerCfg.sha, controllerCfg.tag, controllerCfg.pr)
+        steps.echo """
+        Controller artifact reference
+        -----------------------------
+        Branch : ${controllerCfg.branch}
+        SHA    : ${controllerCfg.sha}
+        Tag    : ${controllerCfg.tag}
+        PR     : ${controllerCfg.pr}
+        """
 
         steps.echo "Uploading controller to ${basePath}"
         steps.sh """
@@ -144,7 +155,7 @@ class JfrogUtils implements Serializable {
         setupJfrog(steps, testConfigs)
 
         def basePath = buildBasePath(testConfigs, branch, sha, tag, pr)
-        def isCertificationToolRepo = commonPipelineLib.isReleaseBranch(branch)
+        def isCertificationToolRepo = CertificationToolCatalog.isReleaseBranch(branch)
 
         steps.echo "Is certification-tool repo: ${isCertificationToolRepo}"
 
@@ -246,7 +257,7 @@ class JfrogUtils implements Serializable {
         def jfRepo = testConfigs.ci_config.jfrog_config.jfrog_repo ?: DEFAULT_JFROG_REPO
 
         // Keep upload/download/existence checks on the same path convention for every ref type.
-        if (commonPipelineLib.isReleaseBranch(branch))
+        if (CertificationToolCatalog.isReleaseBranch(branch))
             return "${jfRepo}/releases/${branch}"
 
         if (sha)
@@ -262,5 +273,12 @@ class JfrogUtils implements Serializable {
             return "${jfRepo}/branches/${branch}/${branch}"
 
         throw new IllegalArgumentException("Unable to determine JFrog base path")
+    }
+
+    private static String resolveRepo(String branch) {
+        if (!branch)
+            return "connectedhomeip"
+
+        return CertificationToolCatalog.isReleaseBranch(branch) ? "certification-tool" : "connectedhomeip"
     }
 }

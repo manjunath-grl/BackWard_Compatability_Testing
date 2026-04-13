@@ -28,7 +28,6 @@ class commonPipelineLib implements Serializable {
                     def controllerPath = "${basePath}/controller/${platformCfg.controller_os}/${platformCfg.controller_type}/"
 
                     steps.echo("Downloading controller binaries from: ${controllerPath}")
-                    JfrogUtils.setupJfrog(steps, testConfigs)
                     steps.sh """
                         set -e
                         jf rt dl \

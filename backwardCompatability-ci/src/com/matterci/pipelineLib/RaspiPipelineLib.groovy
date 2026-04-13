@@ -20,7 +20,7 @@ class RaspiPipelineLib implements Serializable {
         raspiBinariesDirString = "raspi_binaries"
     }
 
-    static getCntrlDeviceRaspiNodes(def steps, String stageName, Map testConfigs){
+    static getCntrlDeviceRaspiNodes(def steps, Map testConfigs){
         def getNodesAssigned = true
         def allocatedNodes = [:]
         def MINIMUM_REQUIRED_NODES = 1
@@ -109,8 +109,8 @@ class RaspiPipelineLib implements Serializable {
                         throw new RuntimeException("No available dedicated Controller or Device nodes after filtering used nodes!")
                     }
                 }
-                steps.echo "Selected ${stageName} Controller Node: ${allocatedNodes["controllerNode"]}"
-                steps.echo "Selected ${stageName} Device Node: ${allocatedNodes["deviceNode"]}"
+                steps.echo "Selected Controller Node: ${allocatedNodes["controllerNode"]}"
+                steps.echo "Selected Device Node: ${allocatedNodes["deviceNode"]}"
             }
         } catch (Exception e) {
             getNodesAssigned = false
@@ -125,74 +125,66 @@ class RaspiPipelineLib implements Serializable {
         def deviceRaspiWorkspace = ''
         def refFolder = ''
         def targetDir = ''
-        JfrogUtils.setupJfrog(steps, testConfigs)
-            steps.timeout(time: 60, unit: 'MINUTES') {
-                try {
-                    steps.echo "Running on device node: ${nodeName}"
-                    def hostname = steps.sh(
-                        script: "hostname",
-                        returnStdout: true
-                    ).trim()
-                    deviceIP = steps.sh(
-                        script: "hostname -I | awk '{print \$1}'",
-                        returnStdout: true
-                    ).trim()
+        steps.timeout(time: 60, unit: 'MINUTES') {
+            try {
+                steps.echo "Running on device node: ${nodeName}"
+                def hostname = steps.sh(
+                    script: "hostname",
+                    returnStdout: true
+                ).trim()
+                deviceIP = steps.sh(
+                    script: "hostname -I | awk '{print \$1}'",
+                    returnStdout: true
+                ).trim()
+                steps.echo "Device IP: ${deviceIP}"
+                // steps.echo "${stageName} Device IP: ${deviceIP}"
+                deviceRaspiWorkspace = "${steps.env.WORKSPACE}/${steps.env.BUILD_NUMBER}/copied_device_binaries"
 
-                    steps.echo "${stageName} Device IP: ${deviceIP}"
-                    deviceRaspiWorkspace = "${steps.env.WORKSPACE}/${steps.env.BUILD_NUMBER}/copied_device_binaries"
+                steps.echo "Device workspace: ${deviceRaspiWorkspace}"
+                def raspiDecision = testConfigs.ci_config.artifactDecision.platforms.raspi
+                steps.ws(deviceRaspiWorkspace) {
+                    raspiDecision.apps.each { app ->
+                        steps.echo "Downloading binary: ${app.name}"
 
-                    steps.echo "Device workspace: ${deviceRaspiWorkspace}"
-                    def raspiDecision = testConfigs.ci_config.artifactDecision.platforms.raspi
-                    steps.ws(deviceRaspiWorkspace) {
-                        raspiDecision.apps.each { app ->
-                            steps.echo "Downloading binary: ${app.name}"
-
-                            def basePath = JfrogUtils.getResolvedArtifactBasePath(testConfigs,"apps",app.branch,app.sha,app.tag,app.pr)
+                        def basePath = JfrogUtils.getResolvedArtifactBasePath(testConfigs,"apps",app.branch,app.sha,app.tag,app.pr)
                             // Download into a ref-specific folder so one controller run can test multiple DUT refs safely.
-                            def jfrogPath = "${basePath}/apps/${app.name}/raspi/${app.name}"
+                        def jfrogPath = "${basePath}/apps/${app.name}/raspi/${app.name}"
 
-                            steps.echo "JFrog path: ${jfrogPath}"
-
-                            refFolder = app.sha ?: app.tag ?: (app.pr ? "PR-${app.pr}" : app.branch)
-                            targetDir = "${deviceRaspiWorkspace}/${refFolder}"
-                            steps.sh "mkdir -p ${targetDir}"
-                            steps.dir(targetDir) {
-                                steps.sh """
-                                    set -e
-                                    jf rt dl \
-                                    "${jfrogPath}" \
-                                    "./" \
-                                    --flat=true \
-                                    --insecure-tls=true
-
-                                    chmod +x * || true
-                                """
-                            }
-
-                            def binaryCount = steps.sh(
-                                script: """
-                                    ls ${targetDir}/${app.name}* \
-                                    2>/dev/null | wc -l
-                                """,
-                                returnStdout: true
-                            ).trim()
-
-                            if (binaryCount == "0") {
-                                steps.error("Binary missing for ${app.name}")
-                            }
-                            steps.echo("Downloaded binary for ${app.name}")
+                        steps.echo "JFrog path: ${jfrogPath}"
+                        refFolder = app.sha ?: app.tag ?: (app.pr ? "PR-${app.pr}" : app.branch)
+                        targetDir = "${deviceRaspiWorkspace}/${refFolder}"
+                        steps.sh "mkdir -p ${targetDir}"
+                        steps.dir(targetDir) {
+                            steps.sh """
+                                set -e
+                                jf rt dl \
+                                "${jfrogPath}" \
+                                "./" \
+                                --flat=true \
+                                --insecure-tls=true
+                                chmod +x * || true
+                            """
                         }
+                        def binaryCount = steps.sh(
+                            script: """
+                                ls ${targetDir}/${app.name}* \
+                                2>/dev/null | wc -l
+                            """,
+                            returnStdout: true
+                        ).trim()
+                        if (binaryCount == "0") {
+                            steps.error("Binary missing for ${app.name}")
+                        }
+                        steps.echo("Downloaded binary for ${app.name}")
                     }
-
                 }
-                catch (Exception e) {
-                    copyArtifactsSuccess = false
-                    steps.echo(
-                        "Device binary install failure: ${e.getMessage()}"
-                    )
-                }
-                return [success: copyArtifactsSuccess,deviceWorksSpace: deviceRaspiWorkspace,deviceIPAddress: deviceIP,updatedTestConfig: testConfigs]
             }
+            catch (Exception e) {
+                copyArtifactsSuccess = false
+                steps.echo("Device binary install failure: ${e.getMessage()}")
+            }
+            return [success: copyArtifactsSuccess,deviceWorksSpace: deviceRaspiWorkspace,deviceIPAddress: deviceIP,updatedTestConfig: testConfigs]
+        }
     }
 
     static Map buildApps(def steps,Map testConfigs,List testCasesList,String workSpace,String raspiBinariesDir,String appName) {

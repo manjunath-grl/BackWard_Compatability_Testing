@@ -105,8 +105,7 @@ def call(testConfigs, testCasesList) {
             def certificationControllerMissing = decision.platforms.values().any {it.controllerMissing && it.controllerRepo == "certification-tool"}
             
             stage('Get nodes of controller and device raspi') {
-                def result = RaspiPipelineLib.getCntrlDeviceRaspiNodes(this,"On-Network",testConfigs)
-
+                def result = RaspiPipelineLib.getCntrlDeviceRaspiNodes(this, testConfigs)
                 if (!result.success)
                     error("Get nodes of controller and device raspi failed")
 
@@ -157,6 +156,7 @@ def call(testConfigs, testCasesList) {
             //Install controller binaries
             stage('Install controller binaries into controller node') {
                 node("${cntrlNode}") {
+                    JfrogUtils.setupJfrog(steps, testConfigs)
                     def result = commonPipelineLib.installControllerBinaries(this,testConfigs,"raspi",raspiBinariesDirString)
                     if (!result.success)
                         error("Controller install failed")
@@ -168,7 +168,8 @@ def call(testConfigs, testCasesList) {
             // Install all DUT binaries only after every missing app has been built or confirmed in JFrog.
             stage('Install DUT binaries into DEVICE_NODE') {
                 node("${deviceNode}") {
-                    def result =RaspiPipelineLib.installDeviceBinaries(this,testConfigs,deviceNode,"On-Network")
+                    JfrogUtils.setupJfrog(steps, testConfigs)
+                    def result =RaspiPipelineLib.installDeviceBinaries(this,testConfigs,deviceNode)
                     if (!result.success)
                         error("Device binary install failed")
 

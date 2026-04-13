@@ -134,14 +134,13 @@ class JfrogUtils implements Serializable {
         // Resolve the controller upload path using the same branch/sha/tag/pr rules used by download checks.
         def basePath = getResolvedArtifactBasePath(testConfigs, "controller", controllerCfg.branch, controllerCfg.sha, controllerCfg.tag, controllerCfg.pr)
         steps.echo """
-        Controller artifact reference
-        -----------------------------
-        Branch : ${controllerCfg.branch}
-        SHA    : ${controllerCfg.sha}
-        Tag    : ${controllerCfg.tag}
-        PR     : ${controllerCfg.pr}
+            Controller artifact reference
+            -----------------------------
+            Branch : ${controllerCfg.branch}
+            SHA    : ${controllerCfg.sha}
+            Tag    : ${controllerCfg.tag}
+            PR     : ${controllerCfg.pr}
         """
-
         steps.echo "Uploading controller to ${basePath}"
         steps.sh """
             jf rt u \
@@ -225,7 +224,7 @@ class JfrogUtils implements Serializable {
                 pr = cloneCfg.controller_sdk.pr
             } else if (component != "apps") {
                 throw new IllegalArgumentException("Invalid component: ${component}")
-            } else {
+            } else if (!sha && !tag && !pr) {
                 throw new IllegalArgumentException("Apps component requires branch parameter for multi-accessory support")
             }
         }

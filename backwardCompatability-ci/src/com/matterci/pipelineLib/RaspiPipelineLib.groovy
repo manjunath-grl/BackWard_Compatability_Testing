@@ -307,8 +307,6 @@ class RaspiPipelineLib implements Serializable {
 
             export PATH=/usr/local/bin:\\\$PATH
             echo "PATH=\$PATH"
-            which docker
-            docker --version
 
             docker run --rm --user root --platform=${dockerPlatform} -v ${workSpace}:/home/connectedhome \\
             -w /home/connectedhome ${docker_image}:latest \\

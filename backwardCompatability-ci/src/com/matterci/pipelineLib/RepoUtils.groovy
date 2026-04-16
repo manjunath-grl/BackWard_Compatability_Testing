@@ -235,6 +235,7 @@ class RepoUtils implements Serializable {
                 git sparse-checkout set src scripts credentials data_model
                 git fetch --depth 1 origin ${repoSha}
                 git checkout FETCH_HEAD
+                pip3 install -r src/python_testing/requirements.txt
                 cd ..
             """
             cmdStatus = steps.sh(script: setupCommand,returnStatus: true)

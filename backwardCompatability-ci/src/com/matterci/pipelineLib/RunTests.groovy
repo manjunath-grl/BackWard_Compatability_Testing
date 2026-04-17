@@ -40,7 +40,7 @@ class RunTests {
                         #    --runner-test-config "${runnerConfigFile}" \\
                         #    --log-path "\$HOME/${dateLogPath}"
 
-                        python3 "${workspace}/matter-qa/src/matter_qa/scripts/Testcase_Runner.py" \\
+                        python3 "${workspace}/matter_qa/src/matter_qa/scripts/Testcase_Runner.py" \\
                             --runner-test-config "${runnerConfigFile}" \\
                             --log-path "\$HOME/${dateLogPath}"
                     """,

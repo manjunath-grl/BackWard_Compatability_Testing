@@ -36,13 +36,13 @@ class RunTests {
                         fi
                         source .venv/bin/activate
 
-                        python3 "\$HOME/testcase_runner.py" \\
-                            --runner-test-config "${runnerConfigFile}" \\
-                            --log-path "\$HOME/${dateLogPath}"
-
-                        #python3 "${workspace}/matter-qa/src/matter_qa/scripts/testcase_runner.py" \\
+                        #python3 "\$HOME/testcase_runner.py" \\
                         #    --runner-test-config "${runnerConfigFile}" \\
                         #    --log-path "\$HOME/${dateLogPath}"
+
+                        python3 "${workspace}/matter-qa/src/matter_qa/scripts/testcase_runner.py" \\
+                            --runner-test-config "${runnerConfigFile}" \\
+                            --log-path "\$HOME/${dateLogPath}"
                     """,
                     returnStatus: true
                 )

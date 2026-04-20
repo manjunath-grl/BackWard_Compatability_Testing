@@ -12,7 +12,8 @@ class CertificationToolCatalog implements Serializable {
         "v2.14-beta2+winter2025"   : "7b245457e2950177398765f28cc37f94dab1a0c2",
         "v2.15-beta2.2+spring2026" : "4bf7cfcdf31d42f1c7b00a5880c37a9c5ac4aa4b",
         "v2.14.1+winter2026"       : "e9ecfc2138887d3221dcc2995ad629c8bd4313e4",
-        "v2.15-beta3.1+spring2026" : "96b1d9b9415310d61c844466fe2e1338902f662d"
+        "v2.15-beta3.1+spring2026" : "96b1d9b9415310d61c844466fe2e1338902f662d",
+        "v2.15-beta1+winter2025"   : "bab3aa0773551c0661e17b34b0e97b4e5813b45e"
     ]
 
     static boolean isReleaseBranch(String branch) {

@@ -418,10 +418,10 @@ class RaspiPipelineLib implements Serializable {
         TestUtils.updateOrCreateKeyValue(localTestParams, "Testcase_runner_config.dut_config.rpi.app_config.matter_app", "${appToTest}")
 
         //Override commissioning_arg with log-path
-        String updatedCommissioningArg ="${localTestParams.Testcase_runner_config.commissioning_arg} " +"--log-path ${cntrlWorkSpace}/logs"
-        TestUtils.updateOrCreateKeyValue(localTestParams,"Testcase_runner_config.commissioning_arg",updatedCommissioningArg)
+        //String updatedCommissioningArg ="${localTestParams.Testcase_runner_config.commissioning_arg} " +"--logs-path ${cntrlWorkSpace}/logs"
+        //TestUtils.updateOrCreateKeyValue(localTestParams,"Testcase_runner_config.commissioning_arg",updatedCommissioningArg)
 
-        steps.echo "Updated commissioning_arg : ${updatedCommissioningArg}"
+        //steps.echo "Updated commissioning_arg : ${updatedCommissioningArg}"
         def test_params_json = JsonOutput.toJson(localTestParams)
         steps.echo "JSON params ${test_params_json}"
         return localTestParams

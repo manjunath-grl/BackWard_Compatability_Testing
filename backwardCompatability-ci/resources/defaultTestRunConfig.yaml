@@ -66,8 +66,6 @@ Testcase_runner_config:
         clear_bluetoothd_state: false
 
       app_config: # These parameters are used to start the DUT application os user's choice, provide full app path and the arguments
-        # matter_app: "/home/ubuntu/connectedhomeip/examples/lighting-app/linux/out/lighting-app/chip-lighting-app"
-        # matter_app: "/home/ubuntu/connectedhomeip/examples/lit-icd-app/linux/out/lit-icd-app/lit-icd-app"
         matter_app: "/home/ubuntu/chip-all-clusters-app"
         discriminator: 3722
         passcode: 20202021

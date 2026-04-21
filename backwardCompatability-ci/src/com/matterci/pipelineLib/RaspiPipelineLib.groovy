@@ -405,7 +405,7 @@ class RaspiPipelineLib implements Serializable {
         return [success: buildSuccess,cntrlWorksSpace: homedir, testConfigs: testConfigs]
     }
 
-    static Map initRaspiOnNetworkTestParams(def steps,Map testConfigs,String cntrlWorkSpace, String deviceWorkSpace, String deviceNodeIPAddress, String appToTest) {
+    static Map initRaspiOnNetworkTestParams(def steps, Map testConfigs, String cntrlWorkSpace, String deviceWorkSpace, String deviceNodeIPAddress, String appToTest) {
         steps.echo "cntrl workspace passed : ${cntrlWorkSpace}"
         steps.echo "device workspace passed : ${deviceWorkSpace}"
         def localTestParams = TestUtils.deepCopy(testConfigs)
@@ -413,18 +413,17 @@ class RaspiPipelineLib implements Serializable {
         steps.echo "TestConfigs : ${testConfigs}"
         steps.echo "Discriminator used : ${testConfigs.Testcase_runner_config.dut_config.rpi.app_config.discriminator}"
         localTestParams.ci_config.ci_ws_path = "${cntrlWorkSpace}"
-
         TestUtils.updateOrCreateKeyValue(localTestParams, "Testcase_runner_config.dut_config.rpi.rpi_hostname", "${deviceNodeIPAddress}")
         TestUtils.updateOrCreateKeyValue(localTestParams, "Testcase_runner_config.dut_config.rpi.app_config.discriminator", testConfigs.Testcase_runner_config.dut_config.rpi.app_config.discriminator)
-        // matter_app points to the downloaded DUT binary path for the specific accessory/ref under test.
         TestUtils.updateOrCreateKeyValue(localTestParams, "Testcase_runner_config.dut_config.rpi.app_config.matter_app", "${appToTest}")
 
-        steps.echo "discriminator params ${localTestParams.Testcase_runner_config.dut_config.rpi.app_config.discriminator}"
-        steps.echo "updated local params ${localTestParams}"
+        //Override commissioning_arg with log-path
+        String updatedCommissioningArg ="${localTestParams.Testcase_runner_config.commissioning_arg} " +"--log-path ${cntrlWorkSpace}/logs"
+        TestUtils.updateOrCreateKeyValue(localTestParams,"Testcase_runner_config.commissioning_arg",updatedCommissioningArg)
 
+        steps.echo "Updated commissioning_arg : ${updatedCommissioningArg}"
         def test_params_json = JsonOutput.toJson(localTestParams)
         steps.echo "JSON params ${test_params_json}"
-
         return localTestParams
     }
 

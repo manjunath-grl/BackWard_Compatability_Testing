@@ -3,6 +3,7 @@ import com.matterci.pipelineLib.RunTests
 import com.matterci.pipelineLib.RepoUtils
 import com.matterci.pipelineLib.commonPipelineLib
 import com.matterci.pipelineLib.JfrogUtils
+import com.matterci.pipelineLib.HTMLReportGeneration
 
 
 def call(testConfigs, testCasesList) {
@@ -190,12 +191,21 @@ def call(testConfigs, testCasesList) {
                         echo "Running tests for app: ${app.name}"
                         echo "Reference folder: ${refFolder}"
 
-                        def localTestParams = RaspiPipelineLib.initRaspiOnNetworkTestParams(this,testConfigs,cntlWorkSpace,deviceWorkSpace,deviceNodeIPAddress,refPath)
+                        def localTestParams = RaspiPipelineLib.initRaspiOnNetworkTestParams(this,testConfigs,cntlWorkSpace,deviceWorkSpace,deviceNodeIPAddress,refPath,app)
                         def runnerConfigPath = "${cntlWorkSpace}/runnerConfig_${refFolder}_${app.name}.yaml"
                         def mergedYaml = writeYaml(returnText: true, data: localTestParams)
                         writeFile(file: runnerConfigPath,text: mergedYaml)
 
                         testrun.runTests(this, ctrlPath, runnerConfigPath, app)
+                    }
+                }
+            }
+            stage('Generate HTML Report') {
+                node(cntrlNode) {
+                    script {
+                        echo "Generating Backward Compatibility HTML report..."
+                        def reportGen = new HTMLReportGeneration()
+                        reportGen.generateReport(this,cntlWorkSpace,env.BUILD_NUMBER,testConfigs,raspiDecision.apps)
                     }
                 }
             }

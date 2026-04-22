@@ -405,7 +405,7 @@ class RaspiPipelineLib implements Serializable {
         return [success: buildSuccess,cntrlWorksSpace: homedir, testConfigs: testConfigs]
     }
 
-    static Map initRaspiOnNetworkTestParams(def steps, Map testConfigs, String cntrlWorkSpace, String deviceWorkSpace, String deviceNodeIPAddress, String appToTest) {
+    static Map initRaspiOnNetworkTestParams(def steps, Map testConfigs, String cntrlWorkSpace, String deviceWorkSpace, String deviceNodeIPAddress, String appToTest, Map appConfig) {
         steps.echo "cntrl workspace passed : ${cntrlWorkSpace}"
         steps.echo "device workspace passed : ${deviceWorkSpace}"
         def localTestParams = TestUtils.deepCopy(testConfigs)
@@ -418,7 +418,7 @@ class RaspiPipelineLib implements Serializable {
         TestUtils.updateOrCreateKeyValue(localTestParams, "Testcase_runner_config.dut_config.rpi.app_config.matter_app", "${appToTest}")
 
         //Override commissioning_arg with log-path
-        String updatedCommonArgs ="${localTestParams.Testcase_runner_config.common_args} " +"--logs-path ${cntrlWorkSpace}/logs"
+        String updatedCommonArgs ="${localTestParams.Testcase_runner_config.common_args} " +"--logs-path ${cntrlWorkSpace}/${appConfig.name}"
         TestUtils.updateOrCreateKeyValue(localTestParams,"Testcase_runner_config.common_args",updatedCommonArgs)
 
         steps.echo "Updated common_args : ${updatedCommonArgs}"

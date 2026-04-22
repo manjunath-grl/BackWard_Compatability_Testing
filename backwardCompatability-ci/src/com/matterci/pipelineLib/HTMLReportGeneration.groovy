@@ -104,7 +104,7 @@ class HTMLReportGeneration {
         apps.each { app ->
             def appName = app.name
             def dutRef =resolveDutRef(app)
-            def appLogPath = "${logRoot}/${appName}"
+            def appLogPath = "${logRoot}/${appName}/MatterTest"
             steps.echo "Processing DUT logs: ${appName}"
             def summaryFiles = steps.sh(
                 script: """
@@ -115,8 +115,10 @@ class HTMLReportGeneration {
                 returnStdout: true
             ).trim()
 
-            if (!summaryFiles)
+            if (!summaryFiles) {
+                steps.echo "No summary files found for ${appName}"
                 return
+            }
 
             html += """
             <h2>DUT: ${appName} (${dutRef})</h2>

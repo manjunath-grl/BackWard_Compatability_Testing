@@ -11,13 +11,13 @@ class RunTests {
         steps.stage("Run Tests - ${reference} => ${appName}") {
             steps.catchError(buildResult: 'SUCCESS',stageResult: 'FAILURE') {
 
-                def currentDate = new Date().format("dd_MM_yyyy")
+                //def currentDate = new Date().format("dd_MM_yyyy")
                 def buildNumber = steps.env.BUILD_NUMBER
-                def dateLogPath = "Backward_Compatability_LOGS/${buildNumber}/${currentDate}"
+                def logPath = "Backward_Compatability_LOGS/${buildNumber}"
 
-                steps.echo "Creating log directory: ${dateLogPath}"
+                steps.echo "Creating log directory: ${logPath}"
                 steps.sh """
-                    mkdir -p "\$HOME/${dateLogPath}"
+                    mkdir -p "\$HOME/${logPath}"
                 """
                 def configData = steps.readYaml(file: runnerConfigFile)
 
@@ -38,17 +38,17 @@ class RunTests {
 
                         #python3 "\$HOME/testcase_runner.py" \\
                         #    --runner-test-config "${runnerConfigFile}" \\
-                        #    --log-path "\$HOME/${dateLogPath}"
+                        #    --log-path "\$HOME/${logPath}"
 
                         python3 "${workspace}/matter_qa/src/matter_qa/scripts/Testcase_Runner.py" \\
                             --runner-test-config "${runnerConfigFile}" \\
-                            --log-path "\$HOME/${dateLogPath}"
+                            --log-path "\$HOME/${logPath}"
                     """,
                     returnStatus: true
                 )
 
                 if (status != 0) {
-                    steps.echo "Test execution failed for ${appName}. Check logs at ${dateLogPath} for details."
+                    steps.echo "Test execution failed for ${appName}. Check logs at ${logPath} for details."
                     hasFailures = true
                 }
             }

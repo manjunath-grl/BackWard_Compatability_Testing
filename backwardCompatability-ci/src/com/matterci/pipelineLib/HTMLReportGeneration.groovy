@@ -25,53 +25,79 @@ class HTMLReportGeneration {
         def logRoot = "${workspace}"
         steps.echo "Generating HTML report from: ${logRoot}"
 
-        def html = """
+        def html = """<!DOCTYPE html>
 <html>
 <head>
+<meta charset="UTF-8">
 <title>Backward Compatibility Report</title>
+
 <style>
+
 body {
-    font-family: Arial;
-    margin: 25px;
+    font-family: Segoe UI, Arial;
+    margin: 30px;
+    background: #f7f9fc;
 }
+
 h1 {
+    color: #1f2d3d;
+}
+
+h2 {
+    margin-top: 40px;
     color: #2c3e50;
 }
-h2 {
-    color: #34495e;
-}
+
 table {
     border-collapse: collapse;
     width: 100%;
-    margin-bottom: 20px;
+    background: white;
+    box-shadow: 0 2px 6px rgba(0,0,0,0.08);
 }
+
 th {
     background-color: #2c3e50;
     color: white;
-    padding: 10px;
-}
-td {
-    border-bottom: 1px solid #ddd;
-    padding: 8px;
-}
-.pass {
-    color: green;
-    font-weight: bold;
-}
-.fail {
-    color: red;
-    font-weight: bold;
-}
-.summary-box {
-    background-color: #ecf0f1;
     padding: 12px;
-    margin-bottom: 25px;
+    text-align: left;
 }
+
+td {
+    padding: 10px;
+    border-bottom: 1px solid #e6e6e6;
+}
+
+tr:nth-child(even) {
+    background-color: #f2f6fa;
+}
+
+.pass {
+    color: #1e8449;
+    font-weight: bold;
+}
+
+.fail {
+    color: #c0392b;
+    font-weight: bold;
+}
+
+.summary-box {
+    background: #ecf0f1;
+    padding: 15px;
+    border-left: 6px solid #2c3e50;
+    margin-bottom: 25px;
+    font-size: 15px;
+}
+
 </style>
 </head>
+
 <body>
+
 <h1>Backward Compatibility Report</h1>
+
 <div class="summary-box">
+
 <b>Controller Reference:</b> ${controllerRef}<br>
 <b>Build Number:</b> ${buildNumber}<br>
 <b>Execution Time:</b> ${new Date()}
@@ -176,7 +202,7 @@ Total: ${passCount + failCount}
         steps.publishHTML([
             reportDir: workspace,
             reportFiles: 'BackwardCompatibility_Report.html',
-            reportName: 'Backward Compatibility Report',
+            reportName: 'Backward-Compatibility-Report',
             keepAll: true,
             alwaysLinkToLastBuild: true,
             allowMissing: false

@@ -25,7 +25,7 @@ class HTMLReportGeneration {
 
     def generateReport(def steps,String workspace,String buildNumber,def testConfigs,List apps) {
         def controllerRef =resolveControllerRef(testConfigs)
-        def logRoot ="${workspace}/${buildNumber}"
+        def logRoot ="${workspace}"
         steps.echo "Generating HTML report from: ${logRoot}"
 
         def html = """

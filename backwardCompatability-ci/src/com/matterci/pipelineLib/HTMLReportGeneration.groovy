@@ -146,10 +146,8 @@ tr:nth-child(even) {
             summaryFiles.split("\\n").each { file ->
                 def docs = steps.readYaml(file: file, loadAll: true)
                 docs.each { doc ->
-                    if (doc?.Type == "Record"
-                        && doc["Requested Tests"]
-                        && doc["Requested Tests"][0] != "test_run_commissioning") {
-                        def testcaseName = doc["Requested Tests"][0].replaceFirst("^test_", "")
+                    if (doc?.Type == "Record" && doc["Test Name"] && doc["Test Name"] != "test_run_commissioning") {
+                        def testcaseName = doc["Test Name"].replaceFirst("^test_", "")
                         def duration = ((doc["End Time"] - doc["Begin Time"]) / 1000)
                         def statusClass = doc.Result == "PASS" ? "pass" : "fail"
                         if (doc.Result == "PASS")

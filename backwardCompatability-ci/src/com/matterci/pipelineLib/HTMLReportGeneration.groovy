@@ -30,73 +30,19 @@ class HTMLReportGeneration {
 <head>
 <meta charset="UTF-8">
 <title>Backward Compatibility Report</title>
-
-<style>
-
-body {
-    font-family: Segoe UI, Arial;
-    margin: 30px;
-    background: #f7f9fc;
-}
-
-h1 {
-    color: #1f2d3d;
-}
-
-h2 {
-    margin-top: 40px;
-    color: #2c3e50;
-}
-
-table {
-    border-collapse: collapse;
-    width: 100%;
-    background: white;
-    box-shadow: 0 2px 6px rgba(0,0,0,0.08);
-}
-
-th {
-    background-color: #2c3e50;
-    color: white;
-    padding: 12px;
-    text-align: left;
-}
-
-td {
-    padding: 10px;
-    border-bottom: 1px solid #e6e6e6;
-}
-
-tr:nth-child(even) {
-    background-color: #f2f6fa;
-}
-
-.pass {
-    color: #1e8449;
-    font-weight: bold;
-}
-
-.fail {
-    color: #c0392b;
-    font-weight: bold;
-}
-
-.summary-box {
-    background: #ecf0f1;
-    padding: 15px;
-    border-left: 6px solid #2c3e50;
-    margin-bottom: 25px;
-    font-size: 15px;
-}
-
-</style>
 </head>
 
-<body>
+<body style="font-family: Segoe UI, Arial; margin: 30px; background:#f7f9fc;">
 
-<h1>Backward Compatibility Report</h1>
+<h1 style="color:#1f2d3d;">Backward Compatibility Report</h1>
 
-<div class="summary-box">
+<div style="
+background:#ecf0f1;
+padding:15px;
+border-left:6px solid #2c3e50;
+margin-bottom:25px;
+font-size:15px;
+">
 
 <b>Controller Reference:</b> ${controllerRef}<br>
 <b>Build Number:</b> ${buildNumber}<br>
@@ -127,14 +73,23 @@ tr:nth-child(even) {
             }
 
             html += """
-<h2>DUT: ${appName} (${dutRef})</h2>
+<h2 style="color:#2c3e50; margin-top:40px;">
+DUT: ${appName} (${dutRef})
+</h2>
 
-<table>
+<table style="
+border-collapse:collapse;
+width:100%;
+background:white;
+box-shadow:0 2px 6px rgba(0,0,0,0.08);
+">
 
-<tr>
-<th>Testcase</th>
-<th>Status</th>
-<th>Duration (sec)</th>
+<tr style="background:#2c3e50; color:white;">
+
+<th style="padding:12px; text-align:left;">Testcase</th>
+<th style="padding:12px; text-align:left;">Status</th>
+<th style="padding:12px; text-align:left;">Duration (sec)</th>
+
 </tr>
 """
             def passCount = 0
@@ -153,15 +108,11 @@ tr:nth-child(even) {
                             failCount++
                         html += """
 <tr>
-
 <td>${testcaseName}</td>
-
-<td class="${statusClass}">
+<td style="color:${doc.Result == "PASS" ? "#1e8449" : "#c0392b"}; font-weight:bold;">
 ${doc.Result}
 </td>
-
 <td>${String.format("%.3f", duration)}</td>
-
 </tr>
 """
                     }
@@ -171,10 +122,14 @@ ${doc.Result}
             html += """
 </table>
 
-<div class="summary-box">
-
-<b>${appName} Summary</b><br>
-
+<div style="
+background:#ecf0f1;
+padding:15px;
+border-left:6px solid #2c3e50;
+margin-bottom:25px;
+font-size:15px;
+">
+<b>Test Summary</b><br>
 Passed: ${passCount}<br>
 Failed: ${failCount}<br>
 Total: ${passCount + failCount}
@@ -202,6 +157,7 @@ Total: ${passCount + failCount}
             alwaysLinkToLastBuild: true,
             allowMissing: false
         ])
+        archiveArtifacts artifacts:"${reportPath}",fingerprint: true,allowEmptyArchive: true
 
         steps.echo "HTML report generated successfully."
     }

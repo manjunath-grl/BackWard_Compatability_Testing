@@ -92,7 +92,7 @@ DUT: ${appName} (${dutRef})
                     if (doc?.Type == "Record" && doc["Test Name"] && doc["Test Name"] != "test_run_commissioning") {
                         def testcaseName = doc["Test Name"].replaceFirst("^test_", "")
                         def duration = ((doc["End Time"] - doc["Begin Time"]) / 1000)
-                        def statusClass = doc.Result == "PASS" ? "pass" : "fail"
+                        def statusColor = doc.Result == "PASS" ? "#1e8449" : "#c0392b"
                         if (doc.Result == "PASS")
                             passCount++
                         else

@@ -132,23 +132,29 @@ Total: ${passCount + failCount}
 </body>
 </html>
 """
-        def reportPath = "${workspace}/BackwardCompatibility_Report.html"
-        steps.writeFile(
-            file: reportPath,
-            text: html
-        )
+        steps.ws(workSpace) {
+            steps.sh "mkdir -p reports"
+            steps.writeFile(
+                file: "reports/BackwardCompatibility_Report.html",
+                text: html
+            )
+            steps.publishHTML(target: [
+                reportDir: 'reports',
+                reportFiles: 'BackwardCompatibility_Report.html',
+                reportName: 'Backward Compatibility Report',
+                reportTitles: 'Backward Compatibility Report',
+                keepAll: true,
+                alwaysLinkToLastBuild: true,
+                allowMissing: false,
+                escapeUnderscores: false
+            ])
+            steps.archiveArtifacts(
+                artifacts: "reports/BackwardCompatibility_Report.html",
+                fingerprint: true,
+                allowEmptyArchive: true
+            )
 
-        steps.publishHTML(target: [
-            reportDir: workspace,
-            reportFiles: 'BackwardCompatibility_Report.html',
-            reportName: 'Backward Compatibility Report',
-            keepAll: true,
-            alwaysLinkToLastBuild: true,
-            allowMissing: false,
-            escapeUnderscores: false
-        ])
-        steps.archiveArtifacts artifacts:"BackwardCompatibility_Report.html",fingerprint: true,allowEmptyArchive: true
-
-        steps.echo "HTML report generated successfully."
+            steps.echo "HTML report generated successfully."
+        }
     }
 }

@@ -132,7 +132,7 @@ Total: ${passCount + failCount}
 </body>
 </html>
 """
-        steps.ws(workSpace) {
+        steps.ws(${workspace}) {
             steps.sh "mkdir -p reports"
             steps.writeFile(
                 file: "reports/BackwardCompatibility_Report.html",

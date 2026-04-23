@@ -32,17 +32,13 @@ class HTMLReportGeneration {
 <title>Backward Compatibility Report</title>
 </head>
 
-<body style="font-family: Segoe UI, Arial; margin: 30px; background:#f7f9fc;">
+<body style="font-family:Arial; margin:25px; background-color:#f7f9fc;">
 
-<h1 style="color:#1f2d3d;">Backward Compatibility Report</h1>
+<h1 style="color:#1f2d3d;">
+Backward Compatibility Report
+</h1>
 
-<div style="
-background:#ecf0f1;
-padding:15px;
-border-left:6px solid #2c3e50;
-margin-bottom:25px;
-font-size:15px;
-">
+<div style="background-color:#ecf0f1; padding:12px; border-left:6px solid #2c3e50; margin-bottom:25px;">
 
 <b>Controller Reference:</b> ${controllerRef}<br>
 <b>Build Number:</b> ${buildNumber}<br>
@@ -73,22 +69,17 @@ font-size:15px;
             }
 
             html += """
-<h2 style="color:#2c3e50; margin-top:40px;">
+<h2 style="color:#2c3e50; margin-top:35px;">
 DUT: ${appName} (${dutRef})
 </h2>
 
-<table style="
-border-collapse:collapse;
-width:100%;
-background:white;
-box-shadow:0 2px 6px rgba(0,0,0,0.08);
-">
+<table style="border-collapse:collapse; width:100%; background-color:white;">
 
-<tr style="background:#2c3e50; color:white;">
+<tr style="background-color:#2c3e50; color:white;">
 
-<th style="padding:12px; text-align:left;">Testcase</th>
-<th style="padding:12px; text-align:left;">Status</th>
-<th style="padding:12px; text-align:left;">Duration (sec)</th>
+<th style="padding:10px; text-align:left;">Testcase</th>
+<th style="padding:10px; text-align:left;">Status</th>
+<th style="padding:10px; text-align:left;">Duration (sec)</th>
 
 </tr>
 """
@@ -108,11 +99,16 @@ box-shadow:0 2px 6px rgba(0,0,0,0.08);
                             failCount++
                         html += """
 <tr>
-<td>${testcaseName}</td>
-<td style="color:${doc.Result == "PASS" ? "#1e8449" : "#c0392b"}; font-weight:bold;">
+<td style="padding:8px; border-bottom:1px solid #ddd;">
+${testcaseName}
+</td>
+<td style="padding:8px; border-bottom:1px solid #ddd; color:${statusColor}; font-weight:bold;">
 ${doc.Result}
 </td>
-<td>${String.format("%.3f", duration)}</td>
+<td style="padding:8px; border-bottom:1px solid #ddd;">
+${String.format("%.3f", duration)}
+</td>
+
 </tr>
 """
                     }
@@ -121,15 +117,9 @@ ${doc.Result}
 
             html += """
 </table>
-
-<div style="
-background:#ecf0f1;
-padding:15px;
-border-left:6px solid #2c3e50;
-margin-bottom:25px;
-font-size:15px;
-">
+<div style="background-color:#ecf0f1; padding:12px; border-left:6px solid #2c3e50; margin-top:15px; margin-bottom:25px;">
 <b>Test Summary</b><br>
+
 Passed: ${passCount}<br>
 Failed: ${failCount}<br>
 Total: ${passCount + failCount}
@@ -140,7 +130,6 @@ Total: ${passCount + failCount}
 
         html += """
 </body>
-
 </html>
 """
         def reportPath = "${workspace}/BackwardCompatibility_Report.html"
@@ -149,17 +138,16 @@ Total: ${passCount + failCount}
             text: html
         )
 
-        steps.publishHTML([
+        steps.publishHTML(target: [
             reportDir: workspace,
             reportFiles: 'BackwardCompatibility_Report.html',
-            reportName: 'Backward-Compatibility-Report',
+            reportName: 'Backward Compatibility Report',
             keepAll: true,
             alwaysLinkToLastBuild: true,
             allowMissing: false,
-            includes: '**/*',
             escapeUnderscores: false
         ])
-        steps.archiveArtifacts artifacts:"${reportPath}",fingerprint: true,allowEmptyArchive: true
+        steps.archiveArtifacts artifacts:"BackwardCompatibility_Report.html",fingerprint: true,allowEmptyArchive: true
 
         steps.echo "HTML report generated successfully."
     }

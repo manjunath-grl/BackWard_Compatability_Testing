@@ -155,9 +155,11 @@ Total: ${passCount + failCount}
             reportName: 'Backward-Compatibility-Report',
             keepAll: true,
             alwaysLinkToLastBuild: true,
-            allowMissing: false
+            allowMissing: false,
+            includes: '**/*',
+            escapeUnderscores: false
         ])
-        archiveArtifacts artifacts:"${reportPath}",fingerprint: true,allowEmptyArchive: true
+        steps.archiveArtifacts artifacts:"${reportPath}",fingerprint: true,allowEmptyArchive: true
 
         steps.echo "HTML report generated successfully."
     }

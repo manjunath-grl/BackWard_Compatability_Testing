@@ -105,15 +105,12 @@ tr:nth-child(even) {
 </div>
 """
         apps.each { app ->
-
             def appName = app.name
-
             def dutRef = resolveDutRef(app)
-
-            def appLogPath = "${logRoot}/${appName}/MatterTest"
+            def safeRef = dutRef.replaceAll("[^a-zA-Z0-9._+-]", "_")
+            def appLogPath = "${logRoot}/${appName}_${safeRef}/MatterTest"
 
             steps.echo "Processing DUT logs: ${appName}"
-
 
             def summaryFiles = steps.sh(
                 script: """

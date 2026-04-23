@@ -418,7 +418,9 @@ class RaspiPipelineLib implements Serializable {
         TestUtils.updateOrCreateKeyValue(localTestParams, "Testcase_runner_config.dut_config.rpi.app_config.matter_app", "${appToTest}")
 
         //Override commissioning_arg with log-path
-        String updatedCommonArgs ="${localTestParams.Testcase_runner_config.common_args} " +"--logs-path ${cntrlWorkSpace}/${appConfig.name}"
+        def refFolder = appConfig.sha ?: appConfig.tag ?: (appConfig.pr ? "PR-${appConfig.pr}" :  appConfig.branch)
+
+        String updatedCommonArgs = "${localTestParams.Testcase_runner_config.common_args} " + "--logs-path ${cntrlWorkSpace}/${appConfig.name}_${refFolder}"
         TestUtils.updateOrCreateKeyValue(localTestParams,"Testcase_runner_config.common_args",updatedCommonArgs)
 
         steps.echo "Updated common_args : ${updatedCommonArgs}"

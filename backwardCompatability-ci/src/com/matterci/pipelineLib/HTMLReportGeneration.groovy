@@ -88,15 +88,25 @@ DUT: ${appName} (${dutRef})
 
             summaryFiles.split("\\n").each { file ->
                 def docs = steps.readYaml(file: file, loadAll: true)
-                docs.each { doc ->
+                def orderedDocs = docs.findAll {
+                    it?.Type == "Record" &&
+                    it["Test Name"] &&
+                    it["Test Name"] != "test_run_commissioning"
+                }
+                .sort { it["Begin Time"] }
+
+                orderedDocs.each { doc ->
                     if (doc?.Type == "Record" && doc["Test Name"] && doc["Test Name"] != "test_run_commissioning") {
                         def testcaseName = doc["Test Name"].replaceFirst("^test_", "")
                         def duration = ((doc["End Time"] - doc["Begin Time"]) / 1000)
                         def statusColor = doc.Result == "PASS" ? "#1e8449" : "#c0392b"
-                        if (doc.Result == "PASS")
+                        if (doc.Result == "PASS") {
                             passCount++
-                        else
+                        } else {
                             failCount++
+                            def reason = doc.Stacktrace ?: doc.Details ?: doc["Termination Signal Type"] ?: doc["Extra Errors"] ?: "Test failed without specific reason"
+                            failureDetails.add("${testcaseName} → ${reason.toString().take(120)}")
+                        }
                         html += """
 <tr>
 <td style="padding:8px; border-bottom:1px solid #ddd;">
@@ -117,15 +127,28 @@ ${String.format("%.3f", duration)}
 
             html += """
 </table>
-<div style="background-color:#ecf0f1; padding:12px; border-left:6px solid #2c3e50; margin-top:15px; margin-bottom:25px;">
+<div style="background-color:#ecf0f1; padding:12px; border-left:6px solid #2c3e50; margin-top:15px; margin-bottom:10px;">
 <b>Test Summary</b><br>
-
 Passed: ${passCount}<br>
 Failed: ${failCount}<br>
 Total: ${passCount + failCount}
-
 </div>
 """
+        if (failureDetails && failureDetails.size() > 0) {
+            html += """
+<div style="background-color:#fdecea; padding:12px; border-left:6px solid #c0392b; margin-bottom:25px;">
+<b>Failure Details</b><br>
+"""
+            failureDetails.each { failure ->
+            html += """
+${failure}<br>
+"""
+                }
+
+        html += """
+</div>
+"""
+            }
         }
 
         html += """

@@ -85,6 +85,7 @@ DUT: ${appName} (${dutRef})
 """
             def passCount = 0
             def failCount = 0
+            def failureDetails = []
 
             summaryFiles.split("\\n").each { file ->
                 def docs = steps.readYaml(file: file, loadAll: true)

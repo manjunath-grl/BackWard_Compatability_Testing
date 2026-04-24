@@ -106,7 +106,7 @@ DUT: ${appName} (${dutRef})
                         } else {
                             failCount++
                             def reason = doc.Stacktrace ?: doc.Details ?: doc["Termination Signal Type"] ?: doc["Extra Errors"] ?: "Test failed without specific reason"
-                            failureDetails.add("${testcaseName} → ${reason.toString().take(120)}")
+                            failureDetails.add("${testcaseName} → ${reason.toString()}")
                         }
                         html += """
 <tr>

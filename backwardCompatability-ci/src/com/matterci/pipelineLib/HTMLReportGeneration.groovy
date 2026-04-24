@@ -172,8 +172,13 @@ ${failure}<br>
                 allowMissing: false,
                 escapeUnderscores: false
             ])
+
+            steps.sh """
+                mkdir -p Report
+                cp reports/BackwardCompatibility_Report.html Report/BackwardCompatibility_Report.html
+            """
             steps.archiveArtifacts(
-                artifacts: "reports/BackwardCompatibility_Report.html",
+                artifacts: "Report/BackwardCompatibility_Report.html",
                 fingerprint: true,
                 allowEmptyArchive: true
             )

@@ -30,8 +30,48 @@ class HTMLReportGeneration {
         def html = """<!DOCTYPE html>
 <html>
 <head>
+
 <meta charset="UTF-8">
 <title>Backward Compatibility Report</title>
+
+<script>
+
+(function () {
+
+function loadChart(callback) {
+
+if (typeof Chart !== "undefined") {
+callback();
+return;
+}
+
+var localScript = document.createElement("script");
+localScript.src = "js/chart.js";
+
+localScript.onload = callback;
+
+localScript.onerror = function () {
+
+var cdnScript = document.createElement("script");
+cdnScript.src =
+"https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.0/chart.umd.min.js";
+
+cdnScript.onload = callback;
+
+document.head.appendChild(cdnScript);
+
+};
+
+document.head.appendChild(localScript);
+
+}
+
+window.loadChartJS = loadChart;
+
+})();
+
+</script>
+
 </head>
 
 <body style="font-family:Arial; margin:25px; background-color:#f7f9fc;">

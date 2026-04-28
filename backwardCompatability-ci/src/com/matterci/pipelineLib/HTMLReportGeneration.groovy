@@ -108,8 +108,9 @@ DUT: ${appName} (${dutRef})
                         }
 
                         // Store duration per app per testcase
+                        def appKey = appName + "_" + dutRef
                         durationMatrix[testcaseName] = durationMatrix[testcaseName] ?: [:]
-                        durationMatrix[testcaseName][appName] = duration
+                        durationMatrix[testcaseName][appKey] = duration
                         def statusColor = doc.Result == "PASS" ? "#1e8449" : "#c0392b"
                         if (doc.Result == "PASS") {
                             passCount++
@@ -136,7 +137,7 @@ ${String.format("%.3f", duration)}
                 }
             }
 
-            def chartId = "summaryChart_" + appName.replaceAll('[^a-zA-Z0-9]', '_')
+            def chartId = "summaryChart_" + appName + "_" + dutRef
             html += """
 </table>
 
@@ -206,16 +207,17 @@ ${failure}<br>
         }
 
         // Sort testcases based on execution order
+        testcaseExecutionOrder.sort()
         def labels = testcaseExecutionOrder.collect { "\"${it}\"" }
         // Prepare datasets per app
         def datasets = apps.collect { app ->
             def values = testcaseExecutionOrder.collect {
-                durationMatrix[it]?.get(app.name) ?: null
+                durationMatrix[it]?.get(app.name + "_" + resolveDutRef(app)) ?: null
             }
 
             return """
             {
-            label: "${app.name}",
+            label: "${app.name} (${resolveDutRef(app)})",
             data: ${values},
             fill:false,
             tension:0.35,
@@ -275,7 +277,7 @@ plugins: {
 
 title: {
 display: true,
-text: 'Testcase Duration Comparison Across DUT Apps'
+text: 'Test Execution Duration Comparison Across DUT Versions'
 },
 
 legend: {

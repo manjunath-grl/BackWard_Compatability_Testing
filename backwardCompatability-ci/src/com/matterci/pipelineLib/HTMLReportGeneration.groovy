@@ -136,14 +136,57 @@ ${String.format("%.3f", duration)}
                 }
             }
 
+            def chartId = "summaryChart_" + appName.replaceAll('[^a-zA-Z0-9]', '_')
             html += """
 </table>
-<div style="background-color:#ecf0f1; padding:12px; border-left:6px solid #2c3e50; margin-top:15px; margin-bottom:10px;">
+
+<div style="
+background-color:white;
+padding:15px;
+border-left:6px solid #2c3e50;
+margin-top:15px;
+margin-bottom:15px;
+border-radius:6px;
+box-shadow:0 2px 6px rgba(0,0,0,0.08);
+">
+
 <b>Test Summary</b><br>
+
 Passed: ${passCount}<br>
 Failed: ${failCount}<br>
 Total: ${passCount + failCount}
+
+<br>
+
+<canvas id="${chartId}" width="120"></canvas>
+
 </div>
+
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+<script>
+
+new Chart(document.getElementById("${chartId}"),{
+
+type:"pie",
+
+data:{
+labels:["PASS","FAIL"],
+datasets:[{
+data:[${passCount},${failCount}],
+backgroundColor:["#27ae60","#e74c3c"]
+}]
+},
+
+options:{
+plugins:{
+legend:{position:"bottom"}
+}
+}
+
+});
+
+</script>
 """
         if (failureDetails && failureDetails.size() > 0) {
             html += """
@@ -163,31 +206,29 @@ ${failure}<br>
         }
 
         // Sort testcases based on execution order
-        def labels = testcaseExecutionOrder
-
+        def labels = testcaseExecutionOrder.collect { "\"${it}\"" }
         // Prepare datasets per app
         def datasets = apps.collect { app ->
-
-            def values = labels.collect { tc ->
-                durationMatrix[tc]?.get(app.name) ?: null
+            def values = testcaseExecutionOrder.collect {
+                durationMatrix[it]?.get(app.name) ?: null
             }
 
             return """
             {
-            label: '${app.name}',
+            label: "${app.name}",
             data: ${values},
-            fill: false,
-            tension: 0.35,
-            pointRadius: 5,
-            pointHoverRadius: 8,
-            borderWidth: 2
+            fill:false,
+            tension:0.35,
+            pointRadius:5,
+            pointHoverRadius:8,
+            borderWidth:2
             }
             """
             }.join(",")
 
         html += """
 <h2 style="margin-top:45px; color:#2c3e50;">
-Testcase Pairing Duration Comparison Across DUT Apps
+Testcase Execution Duration Comparison Across DUT Apps
 </h2>
 
 <div style="
@@ -211,7 +252,7 @@ type: 'line',
 
 data: {
 
-labels: ${labels},
+labels: [${labels.join(",")}],
 
 datasets: [
 

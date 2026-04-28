@@ -42,45 +42,6 @@ class HTMLReportGeneration {
 ${chartJS}
 </script>
 
-
-<script>
-
-(function () {
-
-function loadChart(callback) {
-
-if (typeof Chart !== "undefined") {
-callback();
-return;
-}
-
-var localScript = document.createElement("script");
-localScript.src = "js/chart.js";
-
-localScript.onload = callback;
-
-localScript.onerror = function () {
-
-var cdnScript = document.createElement("script");
-cdnScript.src =
-"https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.0/chart.umd.min.js";
-
-cdnScript.onload = callback;
-
-document.head.appendChild(cdnScript);
-
-};
-
-document.head.appendChild(localScript);
-
-}
-
-window.loadChartJS = loadChart;
-
-})();
-
-</script>
-
 </head>
 
 <body style="font-family:Arial; margin:25px; background-color:#f7f9fc;">
@@ -202,7 +163,7 @@ border-radius:6px;
 box-shadow:0 2px 6px rgba(0,0,0,0.08);
 display:flex;
 justify-content:space-between;
-align-items:center;
+align-items:right;
 max-width:600px;
 ">
 
@@ -224,41 +185,7 @@ Total: ${passCount + failCount}
 
 /* Chart.js minimal embedded loader */
 <script>
-(function () {
-
-function loadChart(callback) {
-
-if (typeof Chart !== "undefined") {
-callback();
-return;
-}
-
-var localScript = document.createElement("script");
-localScript.src = "js/chart.js";
-
-localScript.onload = callback;
-
-localScript.onerror = function () {
-
-var cdnScript = document.createElement("script");
-cdnScript.src =
-"https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.0/chart.umd.min.js";
-
-cdnScript.onload = callback;
-
-document.head.appendChild(cdnScript);
-
-};
-
-document.head.appendChild(localScript);
-
-}
-
-window.loadChartJS = loadChart;
-
-})();
-</script>
-<script>
+window.addEventListener("load", function() {
 new Chart(document.getElementById("${chartId}"),
 {
 type:"pie",
@@ -278,6 +205,7 @@ legend:{position:"bottom"}
 }
 }
 
+});
 });
 
 </script>
@@ -300,12 +228,12 @@ ${failure}<br>
         }
 
         // Sort testcases based on execution order
-        testcaseExecutionOrder.sort()
+        testcaseExecutionOrder = testcaseExecutionOrder.unique()
         def labels = testcaseExecutionOrder.collect { "\"${it}\"" }
         // Prepare datasets per app
         def datasets = apps.collect { app ->
             def values = testcaseExecutionOrder.collect {
-                durationMatrix[it]?.get(app.name + "_" + resolveDutRef(app)) ?: null
+                durationMatrix[it]?.get(app.name + "_" + resolveDutRef(app)) ?: 0
             }
 
             return """
@@ -333,7 +261,7 @@ border-radius:8px;
 box-shadow:0 2px 8px rgba(0,0,0,0.08);
 ">
 
-<div style="width:900px; height:400px;">
+<div style="width:100%; max-width:800px; height:320px;">
 <canvas id="durationComparisonChart"></canvas>
 </div>
 
@@ -341,6 +269,10 @@ box-shadow:0 2px 8px rgba(0,0,0,0.08);
 
 <script>
 /* Chart.js minimal embedded loader */
+
+<script>
+
+window.addEventListener("load", function() {
 
 new Chart(document.getElementById('durationComparisonChart'), {
 
@@ -365,29 +297,22 @@ interaction: {
 mode: 'index',
 intersect: false
 },
-
 plugins: {
-
 title: {
 display: true,
 text: 'Test Execution Duration Comparison Across DUT Versions'
 },
-
 legend: {
 position: 'top'
 }
-
 },
-
 scales: {
-
 x: {
 title: {
 display: true,
 text: 'Testcases'
 }
 },
-
 y: {
 title: {
 display: true,
@@ -395,9 +320,7 @@ text: 'Duration (seconds)'
 },
 beginAtZero: true
 }
-
 }
-
 }
 
 });

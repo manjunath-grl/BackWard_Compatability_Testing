@@ -30,9 +30,13 @@ class HTMLReportGeneration {
         def html = """<!DOCTYPE html>
 <html>
 <head>
-
 <meta charset="UTF-8">
 <title>Backward Compatibility Report</title>
+
+<script>
+${chartJS}
+</script>
+
 
 <script>
 
@@ -414,11 +418,10 @@ beginAtZero: true
 """
         steps.ws(workspace) {
             steps.sh "mkdir -p reports"
-            steps.sh """
-                mkdir -p reports/js
-                curl -L https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.0/chart.umd.min.js \
-                -o reports/js/chart.js
-                """
+            def chartJS = steps.sh(
+                script: "curl -L https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.0/chart.umd.min.js",
+                returnStdout: true
+            )
             steps.writeFile(
                 file: "reports/BackwardCompatibility_Report.html",
                 text: html

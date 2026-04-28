@@ -24,6 +24,14 @@ class HTMLReportGeneration {
         def controllerRef = resolveControllerRef(testConfigs)
         def logRoot = "${workspace}"
         steps.echo "Generating HTML report from: ${logRoot}"
+        def logRoot = "${workspace}"
+        steps.echo "Generating HTML report from: ${logRoot}"
+
+        def chartJS = steps.sh(
+            script: "curl -L https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.0/chart.umd.min.js",
+            returnStdout: true
+        )
+
         def durationMatrix = [:]
         def testcaseExecutionOrder = []
 
@@ -253,15 +261,9 @@ window.loadChartJS = loadChart;
 })();
 </script>
 <script>
-
-loadChartJS(function () {
-
-new Chart(
-document.getElementById("${chartId}"),
+new Chart(document.getElementById("${chartId}"),
 {
-
 type:"pie",
-
 data:{
 labels:["PASS","FAIL"],
 datasets:[{
@@ -343,11 +345,6 @@ box-shadow:0 2px 8px rgba(0,0,0,0.08);
 
 <script>
 /* Chart.js minimal embedded loader */
-</script>
-<script src="js/chart.js"></script>
-
-<script>
-loadChartJS(function () {
 
 new Chart(document.getElementById('durationComparisonChart'), {
 

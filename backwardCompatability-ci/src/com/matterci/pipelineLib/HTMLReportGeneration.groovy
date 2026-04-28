@@ -201,8 +201,9 @@ margin-bottom:15px;
 border-radius:6px;
 box-shadow:0 2px 6px rgba(0,0,0,0.08);
 display:flex;
+justify-content:space-between;
 align-items:center;
-gap:40px;
+max-width:600px;
 ">
 
 <div>
@@ -276,8 +277,6 @@ plugins:{
 legend:{position:"bottom"}
 }
 }
-
-});
 
 });
 

@@ -172,14 +172,49 @@ Total: ${passCount + failCount}
 
 </div>
 
-<script>
 /* Chart.js minimal embedded loader */
-</script>
-<script src="js/chart.js"></script>
+<script>
+(function () {
 
+function loadChart(callback) {
+
+if (typeof Chart !== "undefined") {
+callback();
+return;
+}
+
+var localScript = document.createElement("script");
+localScript.src = "js/chart.js";
+
+localScript.onload = callback;
+
+localScript.onerror = function () {
+
+var cdnScript = document.createElement("script");
+cdnScript.src =
+"https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.0/chart.umd.min.js";
+
+cdnScript.onload = callback;
+
+document.head.appendChild(cdnScript);
+
+};
+
+document.head.appendChild(localScript);
+
+}
+
+window.loadChartJS = loadChart;
+
+})();
+</script>
 <script>
 
-new Chart(document.getElementById("${chartId}"),{
+loadChartJS(function () {
+
+new Chart(
+document.getElementById("${chartId}"),
+{
 
 type:"pie",
 
@@ -198,6 +233,8 @@ plugins:{
 legend:{position:"bottom"}
 }
 }
+
+});
 
 });
 
@@ -266,6 +303,7 @@ box-shadow:0 2px 8px rgba(0,0,0,0.08);
 <script src="js/chart.js"></script>
 
 <script>
+loadChartJS(function () {
 
 new Chart(document.getElementById('durationComparisonChart'), {
 
@@ -324,6 +362,8 @@ beginAtZero: true
 }
 
 }
+
+});
 
 });
 

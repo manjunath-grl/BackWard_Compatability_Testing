@@ -42,9 +42,11 @@ Backward Compatibility Report
 
 <div style="background-color:#ecf0f1; padding:12px; border-left:6px solid #2c3e50; margin-bottom:25px;">
 
+<h2 style="color:#2c3e50; margin-top:35px;">
 <b>Controller Reference:</b> ${controllerRef}<br>
 <b>Build Number:</b> ${buildNumber}<br>
 <b>Execution Time:</b> ${new Date()}
+</h2>
 
 </div>
 """
@@ -159,11 +161,16 @@ Total: ${passCount + failCount}
 
 <br>
 
-<canvas id="${chartId}" width="120"></canvas>
+<div style="width:180px; height:180px;">
+<canvas id="${chartId}"></canvas>
+</div>
 
 </div>
 
-<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script>
+/* Chart.js minimal embedded loader */
+</script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.0/chart.umd.min.js"></script>
 
 <script>
 
@@ -180,6 +187,8 @@ backgroundColor:["#27ae60","#e74c3c"]
 },
 
 options:{
+responsive:true,
+maintainAspectRatio:false,
 plugins:{
 legend:{position:"bottom"}
 }
@@ -240,11 +249,16 @@ border-radius:8px;
 box-shadow:0 2px 8px rgba(0,0,0,0.08);
 ">
 
+<div style="width:900px; height:400px;">
 <canvas id="durationComparisonChart"></canvas>
+</div>
 
 </div>
 
-<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script>
+/* Chart.js minimal embedded loader */
+</script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.0/chart.umd.min.js"></script>
 
 <script>
 
@@ -265,9 +279,8 @@ ${datasets}
 },
 
 options: {
-
 responsive: true,
-
+maintainAspectRatio:false,
 interaction: {
 mode: 'index',
 intersect: false

@@ -24,9 +24,6 @@ class HTMLReportGeneration {
         def controllerRef = resolveControllerRef(testConfigs)
         def logRoot = "${workspace}"
         steps.echo "Generating HTML report from: ${logRoot}"
-        def logRoot = "${workspace}"
-        steps.echo "Generating HTML report from: ${logRoot}"
-
         def chartJS = steps.sh(
             script: "curl -L https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.0/chart.umd.min.js",
             returnStdout: true
@@ -415,10 +412,6 @@ beginAtZero: true
 """
         steps.ws(workspace) {
             steps.sh "mkdir -p reports"
-            def chartJS = steps.sh(
-                script: "curl -L https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.0/chart.umd.min.js",
-                returnStdout: true
-            )
             steps.writeFile(
                 file: "reports/BackwardCompatibility_Report.html",
                 text: html

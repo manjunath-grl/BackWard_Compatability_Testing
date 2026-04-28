@@ -24,6 +24,8 @@ class HTMLReportGeneration {
         def controllerRef = resolveControllerRef(testConfigs)
         def logRoot = "${workspace}"
         steps.echo "Generating HTML report from: ${logRoot}"
+        def durationMatrix = [:]
+        def testcaseExecutionOrder = []
 
         def html = """<!DOCTYPE html>
 <html>
@@ -100,6 +102,14 @@ DUT: ${appName} (${dutRef})
                     if (doc?.Type == "Record" && doc["Test Name"] && doc["Test Name"] != "test_run_commissioning") {
                         def testcaseName = doc["Test Name"].replaceFirst("^test_", "")
                         def duration = ((doc["End Time"] - doc["Begin Time"]) / 1000)
+                        // Store testcase order only once
+                        if (!testcaseExecutionOrder.contains(testcaseName)) {
+                            testcaseExecutionOrder.add(testcaseName)
+                        }
+
+                        // Store duration per app per testcase
+                        durationMatrix[testcaseName] = durationMatrix[testcaseName] ?: [:]
+                        durationMatrix[testcaseName][appName] = duration
                         def statusColor = doc.Result == "PASS" ? "#1e8449" : "#c0392b"
                         if (doc.Result == "PASS") {
                             passCount++
@@ -152,7 +162,112 @@ ${failure}<br>
             }
         }
 
+        // Sort testcases based on execution order
+        def labels = testcaseExecutionOrder
+
+        // Prepare datasets per app
+        def datasets = apps.collect { app ->
+
+            def values = labels.collect { tc ->
+                durationMatrix[tc]?.get(app.name) ?: null
+            }
+
+            return """
+            {
+            label: '${app.name}',
+            data: ${values},
+            fill: false,
+            tension: 0.35,
+            pointRadius: 5,
+            pointHoverRadius: 8,
+            borderWidth: 2
+            }
+            """
+            }.join(",")
+
         html += """
+<h2 style="margin-top:45px; color:#2c3e50;">
+Testcase Pairing Duration Comparison Across DUT Apps
+</h2>
+
+<div style="
+background:white;
+padding:20px;
+border-radius:8px;
+box-shadow:0 2px 8px rgba(0,0,0,0.08);
+">
+
+<canvas id="durationComparisonChart"></canvas>
+
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+<script>
+
+new Chart(document.getElementById('durationComparisonChart'), {
+
+type: 'line',
+
+data: {
+
+labels: ${labels},
+
+datasets: [
+
+${datasets}
+
+]
+
+},
+
+options: {
+
+responsive: true,
+
+interaction: {
+mode: 'index',
+intersect: false
+},
+
+plugins: {
+
+title: {
+display: true,
+text: 'Testcase Duration Comparison Across DUT Apps'
+},
+
+legend: {
+position: 'top'
+}
+
+},
+
+scales: {
+
+x: {
+title: {
+display: true,
+text: 'Testcases'
+}
+},
+
+y: {
+title: {
+display: true,
+text: 'Duration (seconds)'
+},
+beginAtZero: true
+}
+
+}
+
+}
+
+});
+
+</script>
+
 </body>
 </html>
 """

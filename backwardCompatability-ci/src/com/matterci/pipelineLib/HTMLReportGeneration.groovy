@@ -144,14 +144,19 @@ ${String.format("%.3f", duration)}
 </table>
 
 <div style="
-background-color:white;
+background:white;
 padding:15px;
 border-left:6px solid #2c3e50;
 margin-top:15px;
 margin-bottom:15px;
 border-radius:6px;
 box-shadow:0 2px 6px rgba(0,0,0,0.08);
+display:flex;
+align-items:center;
+gap:40px;
 ">
+
+<div>
 
 <b>Test Summary</b><br>
 
@@ -159,9 +164,9 @@ Passed: ${passCount}<br>
 Failed: ${failCount}<br>
 Total: ${passCount + failCount}
 
-<br>
+</div>
 
-<div style="width:180px; height:180px;">
+<div style="width:160px;height:160px">
 <canvas id="${chartId}"></canvas>
 </div>
 
@@ -170,7 +175,7 @@ Total: ${passCount + failCount}
 <script>
 /* Chart.js minimal embedded loader */
 </script>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.0/chart.umd.min.js"></script>
+<script src="js/chart.js"></script>
 
 <script>
 
@@ -258,7 +263,7 @@ box-shadow:0 2px 8px rgba(0,0,0,0.08);
 <script>
 /* Chart.js minimal embedded loader */
 </script>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.0/chart.umd.min.js"></script>
+<script src="js/chart.js"></script>
 
 <script>
 
@@ -329,6 +334,11 @@ beginAtZero: true
 """
         steps.ws(workspace) {
             steps.sh "mkdir -p reports"
+            steps.sh """
+                mkdir -p reports/js
+                curl -L https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.0/chart.umd.min.js \
+                -o reports/js/chart.js
+                """
             steps.writeFile(
                 file: "reports/BackwardCompatibility_Report.html",
                 text: html

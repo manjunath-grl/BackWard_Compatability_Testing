@@ -270,8 +270,6 @@ box-shadow:0 2px 8px rgba(0,0,0,0.08);
 <script>
 /* Chart.js minimal embedded loader */
 
-<script>
-
 window.addEventListener("load", function() {
 
 new Chart(document.getElementById('durationComparisonChart'), {

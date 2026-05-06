@@ -200,12 +200,13 @@ def call(testConfigs, testCasesList) {
                     }
                 }
             }
-            stage('Generate HTML Report') {
+            stage('Generate Reports') {
                 node(cntrlNode) {
                     script {
-                        echo "Generating Backward Compatibility HTML report..."
+                        def logDir = "${env.HOME}/Backward_Compatability_LOGS/${env.BUILD_NUMBER}"
+                        echo "Aggregating data from: ${logDir}"
                         def reportGen = new HTMLReportGeneration()
-                        reportGen.generateReport(this,cntlWorkSpace,env.BUILD_NUMBER,testConfigs,raspiDecision.apps)
+                        reportGen.generateReport(this, logDir, env.BUILD_NUMBER, testConfigs)
                     }
                 }
             }

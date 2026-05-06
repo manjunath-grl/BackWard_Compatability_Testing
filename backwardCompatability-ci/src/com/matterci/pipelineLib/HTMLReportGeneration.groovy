@@ -21,24 +21,28 @@ class HTMLReportGeneration {
 
     def generateReport(def steps, String logDir, String buildNumber, def testConfigs) {
         def controllerRef = resolveControllerRef(testConfigs)
-        // Fix: Use steps.dir to set the context to your absolute path, 
-        // then search relatively.
+        
         def jsonFiles = []
         steps.dir(logDir) {
             jsonFiles = steps.findFiles(glob: "**/execution_results.json")
         }
         
         if (jsonFiles.length == 0) {
-            steps.error "No execution_results.json files found in ${logDir}. Ensure Python runner is creating them."
+            steps.error "No execution_results.json files found. Ensure Python runner is creating them."
         }
 
         def masterData = [:]
         jsonFiles.each { file ->
-            // Since we are inside the directory, we read the path relative to logDir
             def data = steps.readJSON(file: "${logDir}/${file.path}")
             masterData << data
         }
-        def testcaseExecutionOrder = []
+
+        // --- FIX: Encapsulate state into a single 'state' map ---
+        def state = [
+            durationMatrix: [:],
+            testcaseExecutionOrder: []
+        ]
+        
         def chartJSUrl = "https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.0/chart.umd.min.js"
 
         def html = """<!DOCTYPE html>
@@ -56,7 +60,6 @@ class HTMLReportGeneration {
 """
 
         masterData.each { appKey, testCases ->
-            // Use appKey (which now includes Name + Ref) for the header
             def chartId = "chart_" + appKey.replaceAll(/[^a-zA-Z0-9]/, '_')
             
             html += """<h2 style="color:#2c3e50; margin-top:35px;">DUT: ${appKey}</h2>
@@ -68,9 +71,15 @@ class HTMLReportGeneration {
                 </tr>"""
 
             testCases.each { testName, data ->
-                if (!testcaseExecutionOrder.contains(testName)) testcaseExecutionOrder.add(testName)
-                durationMatrix[testName] = durationMatrix[testName] ?: [:]
-                durationMatrix[testName][appKey] = data.duration
+                // Access via the state object
+                if (!state.testcaseExecutionOrder.contains(testName)) {
+                    state.testcaseExecutionOrder.add(testName)
+                }
+                
+                if (!state.durationMatrix[testName]) {
+                    state.durationMatrix[testName] = [:]
+                }
+                state.durationMatrix[testName][appKey] = data.duration
 
                 html += """<tr>
                     <td style="padding:8px; border-bottom:1px solid #ddd;">${testName}</td>
@@ -81,10 +90,10 @@ class HTMLReportGeneration {
             html += "</table><div style='height:150px;'><canvas id='${chartId}'></canvas></div>"
         }
 
-        // Global Charting
-        def labels = testcaseExecutionOrder.collect { "'${it}'" }.join(",")
+        // Global Charting - Access via state object
+        def labels = state.testcaseExecutionOrder.collect { "'${it}'" }.join(",")
         def datasets = masterData.collect { appKey, testCases ->
-            def values = testcaseExecutionOrder.collect { durationMatrix[it][appKey] ?: 0 }.join(",")
+            def values = state.testcaseExecutionOrder.collect { state.durationMatrix[it] ? (state.durationMatrix[it][appKey] ?: 0) : 0 }.join(",")
             return "{ label: '${appKey}', data: [${values}], fill: false, tension: 0.1, borderWidth: 2 }"
         }.join(",")
 

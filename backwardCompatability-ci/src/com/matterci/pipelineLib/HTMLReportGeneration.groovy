@@ -21,19 +21,23 @@ class HTMLReportGeneration {
 
     def generateReport(def steps, String logDir, String buildNumber, def testConfigs) {
         def controllerRef = resolveControllerRef(testConfigs)
-        def jsonFiles = steps.findFiles(glob: "${logDir}/**/execution_results.json")
+        // Fix: Use steps.dir to set the context to your absolute path, 
+        // then search relatively.
+        def jsonFiles = []
+        steps.dir(logDir) {
+            jsonFiles = steps.findFiles(glob: "**/execution_results.json")
+        }
         
         if (jsonFiles.length == 0) {
-            steps.error "No execution_results.json files found. Ensure Python runner is creating them."
+            steps.error "No execution_results.json files found in ${logDir}. Ensure Python runner is creating them."
         }
 
         def masterData = [:]
         jsonFiles.each { file ->
-            def data = steps.readJSON(file: file.path)
+            // Since we are inside the directory, we read the path relative to logDir
+            def data = steps.readJSON(file: "${logDir}/${file.path}")
             masterData << data
         }
-
-        def durationMatrix = [:]
         def testcaseExecutionOrder = []
         def chartJSUrl = "https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.0/chart.umd.min.js"
 

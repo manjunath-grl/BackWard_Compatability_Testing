@@ -37,33 +37,94 @@ class HTMLReportGeneration {
     <meta charset="UTF-8">
     <script src="${chartJSUrl}"></script>
     <style>
-        body { font-family: 'Segoe UI', Arial, sans-serif; margin: 20px; background-color: #f8f9fa; width: 980px; }
-        .card { background: white; padding: 20px; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); margin-bottom: 25px; page-break-inside: avoid; }
+        /* Adaptive Layout */
+        body { 
+            font-family: 'Segoe UI', Tahoma, Arial, sans-serif; 
+            margin: 0; 
+            padding: 20px;
+            background-color: #f4f7f9; 
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
         
-        /* Flex layout for Side-by-Side Summary */
-        .dut-header { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 15px; }
-        .summary-stats { flex: 1; padding-top: 10px; }
-        .chart-box { width: 250px; height: 150px; }
-        
-        .stat-line { font-size: 14px; margin-bottom: 8px; color: #444; }
-        .stat-value { font-weight: bold; float: right; margin-right: 40px; }
+        .report-wrapper {
+            width: 95%;
+            max-width: 1400px;
+        }
 
-        table { border-collapse: collapse; width: 100%; margin-top: 10px; table-layout: fixed; }
-        th { background-color: #2c3e50; color: white; padding: 10px; text-align: left; font-size: 13px; }
-        td { padding: 8px; border-bottom: 1px solid #eee; font-size: 12px; word-wrap: break-word; }
+        .card { 
+            background: white; 
+            padding: 25px; 
+            border-radius: 10px; 
+            box-shadow: 0 4px 6px rgba(0,0,0,0.05); 
+            margin-bottom: 30px; 
+            width: 100%;
+            box-sizing: border-box;
+        }
+        
+        .header-strip {
+            background: #2c3e50;
+            color: white;
+            padding: 15px 20px;
+            border-radius: 8px;
+            margin-bottom: 25px;
+        }
+
+        .dut-header-row { 
+            display: flex; 
+            flex-wrap: wrap;
+            justify-content: space-between; 
+            align-items: center; 
+            margin-bottom: 20px;
+            border-bottom: 1px solid #eee;
+            padding-bottom: 15px;
+        }
+
+        .summary-text-stats { flex: 1; min-width: 250px; }
+        
+        .pie-chart-box { 
+            width: 300px; 
+            height: 180px; 
+            position: relative;
+        }
+        
+        .comparison-chart-box { 
+            width: 100%; 
+            height: 450px; 
+            position: relative;
+            margin-top: 20px;
+        }
+
+        .stat-item { font-size: 15px; margin-bottom: 10px; color: #34495e; }
+        .stat-label { font-weight: 600; min-width: 120px; display: inline-block; }
+
+        table { border-collapse: collapse; width: 100%; table-layout: fixed; margin-top: 15px; }
+        th { background-color: #ecf0f1; color: #2c3e50; padding: 12px; text-align: left; font-size: 13px; border-bottom: 2px solid #bdc3c7; }
+        td { padding: 10px; border-bottom: 1px solid #eee; font-size: 13px; word-wrap: break-word; }
         
         .status-pass { color: #27ae60; font-weight: bold; }
         .status-fail { color: #e74c3c; font-weight: bold; }
         
-        .line-container { width: 900px; height: 400px; margin: 20px auto; }
-        h1 { color: #2c3e50; border-bottom: 2px solid #2c3e50; padding-bottom: 10px; }
+        h1 { color: #2c3e50; margin-bottom: 10px; }
+        h2 { color: #2980b9; margin: 0; }
+
+        /* PDF / Print Specific Optimization */
+        @media print {
+            body { padding: 0; background: white; }
+            .report-wrapper { width: 950px; }
+            .card { box-shadow: none; border: 1px solid #eee; page-break-inside: avoid; }
+            .pie-chart-box { width: 280px !important; height: 160px !important; }
+            .comparison-chart-box { width: 900px !important; height: 400px !important; }
+        }
     </style>
 </head>
 <body>
-    <h1>Backward Compatibility Report</h1>
-    <div class="card" style="background: #2c3e50; color: white;">
-        <strong>Controller:</strong> ${controllerRef} | <strong>Build:</strong> #${buildNumber}
-    </div>
+    <div class="report-wrapper">
+        <h1>Backward Compatibility Report</h1>
+        <div class="header-strip">
+            <strong>Controller SDK:</strong> ${controllerRef} &nbsp;&nbsp;|&nbsp;&nbsp; <strong>Build ID:</strong> #${buildNumber}
+        </div>
 """
 
         def dutContent = ""
@@ -84,7 +145,7 @@ class HTMLReportGeneration {
                     <td>${name}</td>
                     <td class="${data.result == 'PASS' ? 'status-pass' : 'status-fail'}">${data.result}</td>
                     <td>${data.duration}s</td>
-                    <td style="color:#7f8c8d; font-style:italic;">${data.error ?: '-'}</td>
+                    <td style="color:#95a5a6; font-size: 0.9em;">${data.error ?: '-'}</td>
                 </tr>"""
             }
 
@@ -93,26 +154,26 @@ class HTMLReportGeneration {
 
             dutContent += """
             <div class="card">
-                <h2>DUT: ${appKey}</h2>
-                <div class="dut-header">
-                    <div class="summary-stats">
-                        <div class="stat-line">Passed: <span class="stat-value status-pass">${passCount}</span></div>
-                        <div class="stat-line">Failed: <span class="stat-value status-fail">${failCount}</span></div>
-                        <div class="stat-line">Total Tests: <span class="stat-value">${total}</span></div>
-                        <div class="stat-line">Pass Rate: <span class="stat-value">${rate}%</span></div>
+                <div class="dut-header-row">
+                    <div class="summary-text-stats">
+                        <h2>DUT: ${appKey}</h2>
+                        <div class="stat-item"><span class="stat-label">Passed:</span> <span class="status-pass">${passCount}</span></div>
+                        <div class="stat-item"><span class="stat-label">Failed:</span> <span class="status-fail">${failCount}</span></div>
+                        <div class="stat-item"><span class="stat-label">Total Tests:</span> <span>${total}</span></div>
+                        <div class="stat-item"><span class="stat-label">Pass Rate:</span> <span>${rate}%</span></div>
                     </div>
-                    <div class="chart-box">
-                        <canvas id="${chartId}" width="250" height="150"></canvas>
+                    <div class="pie-chart-box">
+                        <canvas id="${chartId}"></canvas>
                     </div>
                 </div>
                 
                 <table>
                     <thead>
                         <tr>
-                            <th style="width: 30%;">Testcase</th>
+                            <th style="width: 35%;">Testcase Name</th>
                             <th style="width: 15%;">Status</th>
                             <th style="width: 15%;">Duration</th>
-                            <th style="width: 40%;">Details</th>
+                            <th style="width: 35%;">Error / Details</th>
                         </tr>
                     </thead>
                     <tbody>${tableRows}</tbody>
@@ -126,25 +187,25 @@ class HTMLReportGeneration {
                         datasets: [{ data: [${passCount}, ${failCount}], backgroundColor: ['#27ae60', '#e74c3c'], borderWidth: 1 }]
                     },
                     options: { 
-                        animation: false, responsive: false, maintainAspectRatio: false,
-                        plugins: { legend: { position: 'right', labels: { boxWidth: 10, font: { size: 10 } } } }
+                        animation: false, responsive: true, maintainAspectRatio: false,
+                        plugins: { legend: { position: 'right', labels: { boxWidth: 12, font: { size: 11 } } } }
                     }
                 });
             </script>"""
         }
 
-        // Comparison Section
+        // Performance Comparison Logic
         def labels = state.testcaseExecutionOrder.collect { "'${it}'" }.join(",")
         def datasets = masterData.collect { appKey, testCases ->
             def values = state.testcaseExecutionOrder.collect { state.durationMatrix[it][appKey] ?: 0 }.join(",")
-            return "{ label: '${appKey}', data: [${values}], fill: false, tension: 0.1, borderWidth: 2 }"
+            return "{ label: '${appKey}', data: [${values}], fill: false, tension: 0.1, borderWidth: 2.5 }"
         }.join(",")
 
         def comparisonHtml = """
         <div class="card">
-            <h2>Performance Comparison (All Runs)</h2>
-            <div class="line-container">
-                <canvas id="compChart" width="900" height="400"></canvas>
+            <h2>Performance Trend Comparison (All DUTs)</h2>
+            <div class="comparison-chart-box">
+                <canvas id="compChart"></canvas>
             </div>
         </div>
         <script>
@@ -152,26 +213,26 @@ class HTMLReportGeneration {
                 type: 'line',
                 data: { labels: [${labels}], datasets: [${datasets}] },
                 options: { 
-                    animation: false, responsive: false, maintainAspectRatio: false,
+                    animation: false, responsive: true, maintainAspectRatio: false,
                     scales: { 
-                        y: { beginAtZero: true, title: { display: true, text: 'Duration (sec)' } },
+                        y: { beginAtZero: true, title: { display: true, text: 'Execution Time (Seconds)', font: { weight: 'bold' } } },
                         x: { ticks: { autoSkip: false, maxRotation: 45 } }
                     },
-                    plugins: { legend: { position: 'bottom' } }
+                    plugins: { legend: { position: 'bottom', labels: { padding: 20 } } }
                 }
             });
         </script>
         """
 
-        def finalHtml = htmlHeader + dutContent + comparisonHtml + "</body></html>"
+        def finalHtml = htmlHeader + dutContent + comparisonHtml + "</div></body></html>"
 
         steps.ws(logDir) {
             steps.writeFile(file: "BackwardCompatibility_Report.html", text: finalHtml)
             try {
-                // Increased delay to 20000 (20s) to ensure the big comparison chart renders
-                steps.sh "wkhtmltopdf --enable-javascript --javascript-delay 20000 --no-stop-slow-scripts --enable-local-file-access --viewport-size 1024x768 BackwardCompatibility_Report.html BackwardCompatibility_Report.pdf"
+                // High delay ensures the comparison chart is fully built in the PDF
+                steps.sh "wkhtmltopdf --enable-javascript --javascript-delay 15000 --no-stop-slow-scripts --enable-local-file-access --viewport-size 1024x768 BackwardCompatibility_Report.html BackwardCompatibility_Report.pdf"
             } catch (Exception e) {
-                steps.echo "PDF Generation Error: ${e.message}"
+                steps.echo "PDF Failed: ${e.message}"
             }
             steps.publishHTML(target: [reportDir: '.', reportFiles: 'BackwardCompatibility_Report.html', reportName: 'Compatibility Report'])
             steps.archiveArtifacts artifacts: '*.pdf, *.html', allowEmptyArchive: true

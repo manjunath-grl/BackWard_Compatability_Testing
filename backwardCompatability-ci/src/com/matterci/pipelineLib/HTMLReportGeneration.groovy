@@ -2,15 +2,28 @@ package com.matterci.pipelineLib
 
 class HTMLReportGeneration {
 
-    // helper to format the name like: chip-evse-app (master-04ff812)
-    def formatDutName(appKey, testConfigs) {
+    def resolveControllerRef(testConfigs) {
         def ctrl = testConfigs.ci_config.clone_sdk_code_stage.controller_sdk
-        def ref = ctrl.tag ?: ctrl.branch ?: (ctrl.pr ? "PR-${ctrl.pr}" : "unknown")
-        def sha = ctrl.sha ? ctrl.sha.take(7) : "no-sha"
-        return "${appKey} (${ref}-${sha})"
+        if (ctrl.sha) {
+            def baseRef = ctrl.branch ?: ctrl.tag ?: (ctrl.pr ? "PR-${ctrl.pr}" : "master")
+            return "${baseRef} (${ctrl.sha})"
+        }
+        return ctrl.tag ?: (ctrl.pr ? "PR-${ctrl.pr}" : ctrl.branch)
+    }
+
+    // Fixed Naming: chip-all-clusters-app - ( 6feac77 )
+    def formatDutName(appKey) {
+        if (appKey.contains('-')) {
+            def parts = appKey.tokenize('-')
+            def hash = parts[0]
+            def name = parts[1..-1].join('-')
+            return "${name} - ( ${hash} )"
+        }
+        return appKey
     }
 
     def generateReport(def steps, String logDir, String buildNumber, def testConfigs) {
+        def controllerRef = resolveControllerRef(testConfigs)
         def jsonFiles = []
         steps.dir(logDir) {
             jsonFiles = steps.findFiles(glob: "**/execution_results.json")
@@ -34,30 +47,25 @@ class HTMLReportGeneration {
 <head>
     <meta charset="UTF-8">
     <script src="${chartJSUrl}"></script>
-    <script>window.status = 'loading';</script>
     <style>
-        body { font-family: 'Segoe UI', Tahoma, sans-serif; margin: 0; padding: 20px; background-color: #f4f7f9; display: flex; flex-direction: column; align-items: center; }
-        .report-wrapper { width: 95%; max-width: 1400px; }
-        .card { background: white; padding: 25px; border-radius: 10px; box-shadow: 0 4px 6px rgba(0,0,0,0.05); margin-bottom: 30px; width: 100%; box-sizing: border-box; }
-        .header-strip { background: #2c3e50; color: white; padding: 15px 20px; border-radius: 8px; margin-bottom: 25px; font-size: 1.1em; }
-        .dut-header-row { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: center; margin-bottom: 20px; border-bottom: 2px solid #3498db; padding-bottom: 15px; }
-        .summary-text-stats { flex: 1; min-width: 280px; }
+        body { font-family: 'Segoe UI', Tahoma, Arial, sans-serif; margin: 0; padding: 20px; background-color: #f4f7f9; }
+        .report-wrapper { width: 95%; max-width: 1200px; margin: 0 auto; }
+        .header-strip { background: #2c3e50; color: white; padding: 20px; border-radius: 8px; margin-bottom: 25px; font-size: 14px; }
+        .card { background: white; padding: 25px; border-radius: 10px; box-shadow: 0 4px 6px rgba(0,0,0,0.05); margin-bottom: 30px; page-break-inside: avoid; border: 1px solid #e1e4e8; }
+        .dut-header-row { display: flex; justify-content: space-between; align-items: center; border-bottom: 2px solid #3498db; padding-bottom: 15px; margin-bottom: 20px; }
         .pie-chart-box { width: 300px; height: 180px; }
-        .comparison-chart-box { width: 100%; height: 500px; margin-top: 20px; }
-        .stat-item { font-size: 15px; margin-bottom: 8px; color: #34495e; }
-        .stat-label { font-weight: 600; width: 100px; display: inline-block; }
-        table { border-collapse: collapse; width: 100%; table-layout: fixed; margin-top: 15px; }
-        th { background-color: #f8f9fa; color: #2c3e50; padding: 12px; text-align: left; font-size: 13px; border-bottom: 2px solid #dee2e6; }
-        td { padding: 10px; border-bottom: 1px solid #eee; font-size: 13px; }
+        .comparison-chart-box { width: 100%; height: 450px; margin-top: 20px; }
+        table { border-collapse: collapse; width: 100%; margin-top: 15px; table-layout: fixed; }
+        th { background-color: #f8f9fa; color: #2c3e50; padding: 12px; text-align: left; border-bottom: 2px solid #dee2e6; font-size: 13px; }
+        td { padding: 10px; border-bottom: 1px solid #eee; font-size: 12px; word-wrap: break-word; }
         .status-pass { color: #27ae60; font-weight: bold; }
         .status-fail { color: #e74c3c; font-weight: bold; }
-        h1 { color: #2c3e50; margin-bottom: 5px; }
-        h2 { color: #2980b9; margin: 0; font-size: 1.3em; }
+        h1 { color: #2c3e50; }
+        h2 { color: #2980b9; margin: 0; }
         @media print {
             body { padding: 0; background: white; }
-            .report-wrapper { width: 950px; }
-            .card { box-shadow: none; border: 1px solid #eee; page-break-inside: avoid; }
-            .comparison-chart-box { height: 400px !important; }
+            .report-wrapper { width: 100%; max-width: none; }
+            .card { box-shadow: none; }
         }
     </style>
 </head>
@@ -65,14 +73,13 @@ class HTMLReportGeneration {
     <div class="report-wrapper">
         <h1>Backward Compatibility Report</h1>
         <div class="header-strip">
-            <strong>Execution Summary</strong> | Build ID: #${buildNumber}
+            <strong>Controller SDK:</strong> ${controllerRef} &nbsp;|&nbsp; <strong>Build ID:</strong> #${buildNumber}
         </div>
 """
 
         def dutContent = ""
         masterData.each { appKey, testCases ->
-            // Use the NEW formatted name
-            def formattedName = formatDutName(appKey, testConfigs)
+            def formattedName = formatDutName(appKey)
             def chartId = "pie_" + appKey.replaceAll(/[^a-zA-Z0-9]/, '_')
             int passCount = 0
             int failCount = 0
@@ -83,14 +90,7 @@ class HTMLReportGeneration {
                 if (!state.testcaseExecutionOrder.contains(name)) state.testcaseExecutionOrder.add(name)
                 if (!state.durationMatrix[name]) state.durationMatrix[name] = [:]
                 state.durationMatrix[name][appKey] = data.duration
-
-                tableRows += """
-                <tr>
-                    <td><strong>${name}</strong></td>
-                    <td class="${data.result == 'PASS' ? 'status-pass' : 'status-fail'}">${data.result}</td>
-                    <td>${data.duration}s</td>
-                    <td style="color:#7f8c8d; font-size: 0.85em;">${data.error ?: '-'}</td>
-                </tr>"""
+                tableRows += "<tr><td><b>${name}</b></td><td class='${data.result == 'PASS' ? 'status-pass' : 'status-fail'}'>${data.result}</td><td>${data.duration}s</td><td style='color:#7f8c8d; font-size:11px;'>${data.error ?: '-'}</td></tr>"
             }
 
             double rate = (passCount + failCount) > 0 ? (passCount / (passCount + failCount) * 100).toBigDecimal().setScale(1, java.math.RoundingMode.HALF_UP).doubleValue() : 0
@@ -98,112 +98,68 @@ class HTMLReportGeneration {
             dutContent += """
             <div class="card">
                 <div class="dut-header-row">
-                    <div class="summary-text-stats">
+                    <div>
                         <h2>DUT: ${formattedName}</h2>
-                        <div class="stat-item"><span class="stat-label">Passed:</span> <span class="status-pass">${passCount}</span></div>
-                        <div class="stat-item"><span class="stat-label">Failed:</span> <span class="status-fail">${failCount}</span></div>
-                        <div class="stat-item"><span class="stat-label">Total Tests:</span> <span>${passCount + failCount}</span></div>
-                        <div class="stat-item"><span class="stat-label">Pass Rate:</span> <span>${rate}%</span></div>
+                        <div style="font-size:15px; margin-top:10px;">
+                            <b>Passed:</b> <span class="status-pass">${passCount}</span> | 
+                            <b>Failed:</b> <span class="status-fail">${failCount}</span> | 
+                            <b>Pass Rate:</b> ${rate}%
+                        </div>
                     </div>
-                    <div class="pie-chart-box">
-                        <canvas id="${chartId}"></canvas>
-                    </div>
+                    <div class="pie-chart-box"><canvas id="${chartId}"></canvas></div>
                 </div>
                 <table>
-                    <thead>
-                        <tr>
-                            <th style="width: 30%;">Testcase Name</th>
-                            <th style="width: 15%;">Status</th>
-                            <th style="width: 15%;">Duration</th>
-                            <th style="width: 40%;">Error / Details</th>
-                        </tr>
-                    </thead>
+                    <thead><tr><th style="width:30%">Testcase</th><th style="width:15%">Status</th><th style="width:15%">Duration</th><th style="width:40%">Details</th></tr></thead>
                     <tbody>${tableRows}</tbody>
                 </table>
             </div>
             <script>
                 new Chart(document.getElementById('${chartId}'), {
                     type: 'pie',
-                    data: {
-                        labels: ['Pass', 'Fail'],
-                        datasets: [{ data: [${passCount}, ${failCount}], backgroundColor: ['#2ecc71', '#e74c3c'], borderWidth: 2 }]
-                    },
-                    options: { 
-                        animation: false, responsive: true, maintainAspectRatio: false,
-                        plugins: { legend: { position: 'right', labels: { boxWidth: 12, font: { size: 11 } } } }
-                    }
+                    data: { labels: ['Pass', 'Fail'], datasets: [{ data: [${passCount}, ${failCount}], backgroundColor: ['#2ecc71', '#e74c3c'] }] },
+                    options: { animation: false, responsive: true, maintainAspectRatio: false, plugins: { legend: { position: 'right' } } }
                 });
             </script>"""
         }
 
-        // IMPROVED Performance Comparison Graph
         def labels = state.testcaseExecutionOrder.collect { "'${it}'" }.join(",")
-        def datasetList = []
-        masterData.eachWithIndex { appKey, testCases, idx ->
-            def formattedName = formatDutName(appKey, testConfigs)
+        def datasets = masterData.collect { appKey, testCases ->
             def values = state.testcaseExecutionOrder.collect { state.durationMatrix[it][appKey] ?: 0 }.join(",")
-            // Added point styles for better visual distinction
-            datasetList << "{ label: '${formattedName}', data: [${values}], fill: false, tension: 0.3, borderWidth: 3, pointRadius: 5, pointHoverRadius: 8 }"
-        }
-        def datasets = datasetList.join(",")
+            return "{ label: '${formatDutName(appKey)}', data: [${values}], fill: false, tension: 0.2, borderWidth: 3, pointRadius: 4 }"
+        }.join(",")
 
         def comparisonHtml = """
         <div class="card">
-            <h2 style="margin-bottom: 15px; color: #2c3e50; border-left: 5px solid #2980b9; padding-left: 10px;">
-                Performance Trend Comparison (All DUTs)
-            </h2>
-            <p style="font-size: 13px; color: #7f8c8d; margin-bottom: 20px;">
-                Comparing execution duration (seconds) across all test runs to identify latency bottlenecks.
-            </p>
-            <div class="comparison-chart-box">
-                <canvas id="perfChart"></canvas>
-            </div>
+            <h2>Performance Trend Comparison (All DUTs)</h2>
+            <div class="comparison-chart-box"><canvas id="compChart"></canvas></div>
         </div>
         <script>
-            new Chart(document.getElementById('perfChart'), {
+            new Chart(document.getElementById('compChart'), {
                 type: 'line',
                 data: { labels: [${labels}], datasets: [${datasets}] },
                 options: { 
                     animation: false, responsive: true, maintainAspectRatio: false,
-                    scales: { 
-                        y: { 
-                            beginAtZero: true, 
-                            title: { display: true, text: 'Execution Time (Seconds)', font: { weight: 'bold', size: 14 } },
-                            grid: { color: '#ebedef' }
-                        },
-                        x: { 
-                            ticks: { autoSkip: false, maxRotation: 45, font: { size: 11 } },
-                            grid: { display: false }
-                        }
-                    },
-                    plugins: { 
-                        legend: { position: 'bottom', labels: { padding: 25, usePointStyle: true, font: { size: 12 } } },
-                        tooltip: { mode: 'index', intersect: false }
-                    }
+                    scales: { y: { beginAtZero: true, title: { display: true, text: 'Seconds' } } },
+                    plugins: { legend: { position: 'bottom' } }
                 }
             });
         </script>
         """
 
-        def footer = """
-        <script>
-            window.onload = function() {
-                setTimeout(function() { window.status = 'ready'; }, 3000); 
-            };
-        </script>
-        </div></body></html>"""
-
-        def finalHtml = htmlHeader + dutContent + comparisonHtml + footer
+        def finalHtml = htmlHeader + dutContent + comparisonHtml + "</div></body></html>"
 
         steps.ws(logDir) {
             steps.writeFile(file: "BackwardCompatibility_Report.html", text: finalHtml)
+            
+            // Ubuntu 2024 PDF FIX: Use Chromium Headless
             try {
-                steps.sh """
-                    wkhtmltopdf --enable-javascript --javascript-delay 15000 --window-status ready \
-                    --no-stop-slow-scripts --enable-local-file-access --viewport-size 1280x1024 \
-                    BackwardCompatibility_Report.html BackwardCompatibility_Report.pdf
-                """
-            } catch (Exception e) { steps.echo "PDF Failed: ${e.message}" }
+                steps.echo "Generating PDF using Chromium..."
+                steps.sh "chromium-browser --headless --disable-gpu --no-sandbox --print-to-pdf=BackwardCompatibility_Report.pdf --run-all-compositor-stages-before-draw --virtual-time-budget=10000 BackwardCompatibility_Report.html"
+            } catch (Exception e) {
+                steps.echo "Chromium failed: ${e.message}. Falling back to wkhtmltopdf..."
+                steps.sh "wkhtmltopdf --enable-javascript --javascript-delay 10000 BackwardCompatibility_Report.html BackwardCompatibility_Report.pdf"
+            }
+            
             steps.publishHTML(target: [reportDir: '.', reportFiles: 'BackwardCompatibility_Report.html', reportName: 'Compatibility Report'])
             steps.archiveArtifacts artifacts: '*.pdf, *.html', allowEmptyArchive: true
         }

@@ -28,46 +28,53 @@ class HTMLReportGeneration {
             masterData << data
         }
 
+        // Global Counters for Summary Dashboard
+        int totalPassed = 0
+        int totalFailed = 0
+
         def state = [durationMatrix: [:], testcaseExecutionOrder: []]
         def chartJSUrl = "https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"
 
-        def html = """<!DOCTYPE html>
+        def htmlHeader = """<!DOCTYPE html>
 <html>
 <head>
     <meta charset="UTF-8">
     <script src="${chartJSUrl}"></script>
     <style>
-        body { font-family: Arial, sans-serif; margin: 30px; background-color: #f4f7f6; width: 1000px; }
-        .card { background: white; padding: 20px; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); margin-bottom: 30px; page-break-inside: avoid; }
-        table { border-collapse: collapse; width: 100%; margin-bottom: 20px; table-layout: fixed; }
-        th { background-color: #2c3e50; color: white; padding: 10px; text-align: left; font-size: 14px; }
-        td { padding: 8px; border-bottom: 1px solid #eee; font-size: 13px; word-wrap: break-word; }
-        .status-pass { color: #27ae60; font-weight: bold; }
-        .status-fail { color: #e74c3c; font-weight: bold; }
-        .error-text { color: #7f8c8d; font-size: 0.85em; font-style: italic; }
-        
-        /* Container sizes for PDF stability */
-        .pie-container { width: 400px; height: 250px; margin: 10px auto; }
-        .line-container { width: 900px; height: 450px; margin: 20px auto; }
+        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; margin: 20px; background-color: #f8f9fa; color: #333; width: 950px; }
+        .card { background: white; padding: 15px; border-radius: 6px; box-shadow: 0 1px 3px rgba(0,0,0,0.1); margin-bottom: 20px; page-break-inside: avoid; }
+        .dashboard { display: flex; gap: 15px; margin-bottom: 20px; }
+        .stat-box { flex: 1; padding: 15px; border-radius: 6px; text-align: center; color: white; font-weight: bold; }
+        table { border-collapse: collapse; width: 100%; margin-bottom: 15px; table-layout: fixed; border: 1px solid #dee2e6; }
+        th { background-color: #343a40; color: white; padding: 8px; text-align: left; font-size: 13px; }
+        td { padding: 6px; border-bottom: 1px solid #dee2e6; font-size: 12px; word-wrap: break-word; }
+        .status-pass { color: #28a745; font-weight: bold; }
+        .status-fail { color: #dc3545; font-weight: bold; }
+        .pie-container { width: 300px; height: 180px; margin: 0 auto; }
+        .line-container { width: 850px; height: 400px; margin: 10px auto; }
+        h1, h2, h3 { margin-top: 0; color: #2c3e50; }
     </style>
 </head>
 <body>
     <h1>Backward Compatibility Report</h1>
-    <div class="card" style="border-left: 5px solid #2c3e50;">
-        <strong>Controller:</strong> ${controllerRef}<br>
-        <strong>Build Number:</strong> ${buildNumber}
+    
+    <div class="card" style="border-left: 5px solid #007bff;">
+        <strong>Controller SDK:</strong> ${controllerRef}<br>
+        <strong>Build ID:</strong> ${buildNumber}
     </div>
 """
 
+        def dutCardsHtml = ""
         masterData.each { appKey, testCases ->
             def chartId = "pie_" + appKey.replaceAll(/[^a-zA-Z0-9]/, '_')
             int passCount = 0
             int failCount = 0
             
-            // Generate Table Rows first
             def tableRows = ""
             testCases.each { name, data ->
-                if (data.result == 'PASS') passCount++ else failCount++
+                if (data.result == 'PASS') { passCount++; totalPassed++; } 
+                else { failCount++; totalFailed++; }
+                
                 if (!state.testcaseExecutionOrder.contains(name)) state.testcaseExecutionOrder.add(name)
                 if (!state.durationMatrix[name]) state.durationMatrix[name] = [:]
                 state.durationMatrix[name][appKey] = data.duration
@@ -77,28 +84,33 @@ class HTMLReportGeneration {
                     <td>${name}</td>
                     <td class="${data.result == 'PASS' ? 'status-pass' : 'status-fail'}">${data.result}</td>
                     <td>${data.duration}s</td>
-                    <td class="error-text">${data.error ?: '-'}</td>
+                    <td style="color:#6c757d; font-size:11px;">${data.error ?: '-'}</td>
                 </tr>"""
             }
 
-            html += """
+            def dutResult = failCount == 0 ? "PASS" : "FAIL"
+            def dutClass = failCount == 0 ? "status-pass" : "status-fail"
+
+            dutCardsHtml += """
             <div class="card">
-                <h2>DUT: ${appKey}</h2>
+                <div style="display:flex; justify-content: space-between; align-items: center; border-bottom: 2px solid #eee; margin-bottom:10px; padding-bottom:5px;">
+                    <h2 style="margin:0;">DUT: ${appKey}</h2>
+                    <span class="${dutClass}" style="font-size: 1.2em; border: 2px solid; padding: 2px 10px; border-radius: 4px;">Overall: ${dutResult}</span>
+                </div>
                 <table>
                     <thead>
                         <tr>
-                            <th style="width: 25%;">Testcase</th>
+                            <th style="width: 30%;">Testcase</th>
                             <th style="width: 15%;">Status</th>
                             <th style="width: 15%;">Duration</th>
-                            <th style="width: 45%;">Error / Details</th>
+                            <th style="width: 40%;">Error Details</th>
                         </tr>
                     </thead>
                     <tbody>${tableRows}</tbody>
                 </table>
 
-                <h3 style="text-align:center;">Test Execution Summary</h3>
                 <div class="pie-container">
-                    <canvas id="${chartId}" width="400" height="250"></canvas>
+                    <canvas id="${chartId}" width="300" height="180"></canvas>
                 </div>
             </div>
             <script>
@@ -106,30 +118,39 @@ class HTMLReportGeneration {
                     type: 'pie',
                     data: {
                         labels: ['Pass', 'Fail'],
-                        datasets: [{ data: [${passCount}, ${failCount}], backgroundColor: ['#27ae60', '#e74c3c'] }]
+                        datasets: [{ data: [${passCount}, ${failCount}], backgroundColor: ['#28a745', '#dc3545'] }]
                     },
                     options: { 
-                        animation: false, 
-                        responsive: false,
-                        maintainAspectRatio: false,
-                        plugins: { legend: { position: 'bottom' } }
+                        animation: false, responsive: false, maintainAspectRatio: false,
+                        plugins: { legend: { position: 'right', labels: { boxWidth: 12, font: { size: 10 } } } }
                     }
                 });
             </script>"""
         }
 
-        // Comparison Section (Big Chart)
+        // Dashboard Calculation
+        int totalTests = totalPassed + totalFailed
+        double passRate = totalTests > 0 ? (totalPassed / totalTests) * 100 : 0
+        def overallDashboard = """
+        <div class="dashboard">
+            <div class="stat-box" style="background-color: #28a745;">Total Passed: ${totalPassed}</div>
+            <div class="stat-box" style="background-color: #dc3545;">Total Failed: ${totalFailed}</div>
+            <div class="stat-box" style="background-color: #007bff;">Pass Rate: ${passRate.round(1)}%</div>
+        </div>
+        """
+
+        // Performance Comparison Logic
         def labels = state.testcaseExecutionOrder.collect { "'${it}'" }.join(",")
         def datasets = masterData.collect { appKey, testCases ->
             def values = state.testcaseExecutionOrder.collect { state.durationMatrix[it][appKey] ?: 0 }.join(",")
             return "{ label: '${appKey}', data: [${values}], fill: false, tension: 0.1, borderWidth: 2 }"
         }.join(",")
 
-        html += """
+        def comparisonHtml = """
         <div class="card">
-            <h2>Performance Comparison (All DUTs)</h2>
+            <h2>Performance Trend Comparison</h2>
             <div class="line-container">
-                <canvas id="compChart" width="900" height="450"></canvas>
+                <canvas id="compChart" width="850" height="400"></canvas>
             </div>
         </div>
         <script>
@@ -137,24 +158,23 @@ class HTMLReportGeneration {
                 type: 'line',
                 data: { labels: [${labels}], datasets: [${datasets}] },
                 options: { 
-                    animation: false, 
-                    responsive: false,
-                    maintainAspectRatio: false,
+                    animation: false, responsive: false, maintainAspectRatio: false,
                     scales: { 
-                        y: { beginAtZero: true, title: { display: true, text: 'Duration (sec)' } },
-                        x: { ticks: { autoSkip: false, maxRotation: 45, minRotation: 45 } }
+                        y: { beginAtZero: true, title: { display: true, text: 'Seconds' } },
+                        x: { ticks: { font: { size: 10 }, maxRotation: 45 } }
                     },
-                    plugins: { legend: { position: 'bottom' } }
+                    plugins: { legend: { position: 'bottom', labels: { boxWidth: 15 } } }
                 }
             });
         </script>
-</body></html>"""
+        """
+
+        def finalHtml = htmlHeader + overallDashboard + dutCardsHtml + comparisonHtml + "</body></html>"
 
         steps.ws(logDir) {
-            steps.writeFile(file: "BackwardCompatibility_Report.html", text: html)
+            steps.writeFile(file: "BackwardCompatibility_Report.html", text: finalHtml)
             try {
-                // PDF generation with specific fixes for Chart.js rendering
-                steps.sh "wkhtmltopdf --enable-javascript --javascript-delay 5000 --no-stop-slow-scripts --enable-local-file-access --smart-indexing --viewport-size 1024x768 BackwardCompatibility_Report.html BackwardCompatibility_Report.pdf"
+                steps.sh "wkhtmltopdf --enable-javascript --javascript-delay 8000 --enable-local-file-access --viewport-size 1024x768 BackwardCompatibility_Report.html BackwardCompatibility_Report.pdf"
             } catch (Exception e) {
                 steps.echo "PDF Failed: ${e.message}"
             }

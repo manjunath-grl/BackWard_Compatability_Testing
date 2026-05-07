@@ -111,8 +111,30 @@ class HTMLReportGeneration {
         // Write files
         steps.ws(logDir) {
             steps.writeFile(file: "BackwardCompatibility_Report.html", text: html)
-            steps.sh "wkhtmltopdf --enable-javascript --javascript-delay 3000 BackwardCompatibility_Report.html BackwardCompatibility_Report.pdf"
-            steps.publishHTML(target: [reportDir: '.', reportFiles: 'BackwardCompatibility_Report.html', reportName: 'Compatibility Report'])
+            
+            // Attempt to install dependency and convert to PDF
+            try {
+                steps.echo "Attempting to install wkhtmltopdf and generate PDF..."
+                // Update and install (standard for Ubuntu nodes)
+                steps.sh "sudo apt-get update && sudo apt-get install -y wkhtmltopdf"
+                
+                // Execute conversion
+                steps.sh "wkhtmltopdf --enable-javascript --javascript-delay 3000 BackwardCompatibility_Report.html BackwardCompatibility_Report.pdf"
+                steps.echo "PDF generated successfully."
+            } catch (Exception e) {
+                steps.echo "WARNING: PDF generation failed, but HTML report is preserved. Error: ${e.message}"
+                // We do not re-throw the error so the pipeline can continue to publish the HTML
+            }
+
+            // Publish the HTML report regardless of PDF success
+            steps.publishHTML(target: [
+                reportDir: '.', 
+                reportFiles: 'BackwardCompatibility_Report.html', 
+                reportName: 'Compatibility Report'
+            ])
+            
+            // Archive the PDF as an artifact if it exists
+            steps.archiveArtifacts artifacts: '*.pdf, *.html', allowEmptyArchive: true
         }
     }
 }

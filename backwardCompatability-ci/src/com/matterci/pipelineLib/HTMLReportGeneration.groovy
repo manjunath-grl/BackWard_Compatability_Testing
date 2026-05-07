@@ -150,7 +150,8 @@ class HTMLReportGeneration {
             }
 
             int total = passCount + failCount
-            double rate = total > 0 ? (passCount / total * 100).round(1) : 0
+            // Using setScale to round to 1 decimal place safely in Jenkins
+            double rate = total > 0 ? (passCount / total * 100).toBigDecimal().setScale(1, java.math.RoundingMode.HALF_UP).doubleValue() : 0
 
             dutContent += """
             <div class="card">

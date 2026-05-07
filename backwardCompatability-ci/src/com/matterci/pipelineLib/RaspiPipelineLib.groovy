@@ -435,7 +435,7 @@ class RaspiPipelineLib implements Serializable {
             sha      : appConfig.sha ?: "",
             tag      : appConfig.tag ?: "",
             pr       : appConfig.pr ?: "",
-            reference: ref // The finalized ID (e.g., "v2.15-beta2.1")
+            reference: ref
         ]
 
         steps.echo "Final log path suffix: ${logSubDir}"

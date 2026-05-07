@@ -119,7 +119,7 @@ class HTMLReportGeneration {
                 steps.sh "sudo apt-get update && sudo apt-get install -y wkhtmltopdf"
                 
                 // Execute conversion
-                steps.sh "wkhtmltopdf --enable-javascript --javascript-delay 3000 BackwardCompatibility_Report.html BackwardCompatibility_Report.pdf"
+                steps.sh "wkhtmltopdf --enable-javascript --javascript-delay 5000 BackwardCompatibility_Report.html BackwardCompatibility_Report.pdf"
                 steps.echo "PDF generated successfully."
             } catch (Exception e) {
                 steps.echo "WARNING: PDF generation failed, but HTML report is preserved. Error: ${e.message}"

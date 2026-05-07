@@ -406,33 +406,41 @@ class RaspiPipelineLib implements Serializable {
     }
 
     static Map initRaspiOnNetworkTestParams(def steps, Map testConfigs, String cntrlWorkSpace, String deviceWorkSpace, String deviceNodeIPAddress, String appToTest, Map appConfig) {
-        steps.echo "cntrl workspace passed : ${cntrlWorkSpace}"
-        steps.echo "device workspace passed : ${deviceWorkSpace}"
+        steps.echo "Initializing test parameters for: ${appConfig.name}"
+        // 1. Deep copy to ensure we don't mutate the original testConfigs object
         def localTestParams = TestUtils.deepCopy(testConfigs)
-        steps.echo "local Test Params before updating : ${localTestParams}"
-        steps.echo "TestConfigs : ${testConfigs}"
-        steps.echo "Discriminator used : ${testConfigs.Testcase_runner_config.dut_config.rpi.app_config.discriminator}"
+        // 2. Set basic CI workspace path
         localTestParams.ci_config.ci_ws_path = "${cntrlWorkSpace}"
+        // 3. Update Device and App configuration
         TestUtils.updateOrCreateKeyValue(localTestParams, "Testcase_runner_config.dut_config.rpi.rpi_hostname", "${deviceNodeIPAddress}")
-        TestUtils.updateOrCreateKeyValue(localTestParams, "Testcase_runner_config.dut_config.rpi.app_config.discriminator", testConfigs.Testcase_runner_config.dut_config.rpi.app_config.discriminator)
         TestUtils.updateOrCreateKeyValue(localTestParams, "Testcase_runner_config.dut_config.rpi.app_config.matter_app", "${appToTest}")
+        // Re-apply discriminator from base config to ensure it's preserved
+        def discriminator = testConfigs.Testcase_runner_config.dut_config.rpi.app_config.discriminator
+        TestUtils.updateOrCreateKeyValue(localTestParams, "Testcase_runner_config.dut_config.rpi.app_config.discriminator", discriminator)
+        // 4. Resolve the reference string (SHA -> TAG -> PR -> Branch)
+        def ref = appConfig.sha ?: appConfig.tag ?: (appConfig.pr ? "PR-${appConfig.pr}" : appConfig.branch ?: "master")
+        // 5. Sanitize the reference for file system paths (e.g., replace '/' with '_')
+        def safeRef = ref.replaceAll(/[^a-zA-Z0-9.-]/, "_")
+        def safeAppName = appConfig.name.replaceAll(/[^a-zA-Z0-9.-]/, "_")
+        // 6. Update common_args with a unique logs-path for this iteration
+        String logSubDir = "${safeAppName}_${safeRef}"
+        String updatedCommonArgs = "${localTestParams.Testcase_runner_config.common_args} --logs-path ${cntrlWorkSpace}/${logSubDir}"
+        
+        TestUtils.updateOrCreateKeyValue(localTestParams, "Testcase_runner_config.common_args", updatedCommonArgs)
 
-        //Override commissioning_arg with log-path
-        def refFolder = appConfig.sha ?: appConfig.tag ?: (appConfig.pr ? "PR-${appConfig.pr}" :  appConfig.branch)
-
-        String updatedCommonArgs = "${localTestParams.Testcase_runner_config.common_args} " + "--logs-path ${cntrlWorkSpace}/${appConfig.name}_${refFolder}"
-        TestUtils.updateOrCreateKeyValue(localTestParams,"Testcase_runner_config.common_args",updatedCommonArgs)
-
-        steps.echo "Updated common_args : ${updatedCommonArgs}"
-        def test_params_json = JsonOutput.toJson(localTestParams)
-        steps.echo "JSON params ${test_params_json}"
+        // 7. Inject Metadata for Python Testcase_Runner.py
         localTestParams.Testcase_runner_config.metadata = [
-            app_name: appConfig.name,
-            branch: appConfig.branch ?: "",
-            sha: appConfig.sha ?: "",
-            tag: appConfig.tag ?: "",
-            pr: appConfig.pr ?: ""
+            app_name : appConfig.name,
+            branch   : appConfig.branch ?: "",
+            sha      : appConfig.sha ?: "",
+            tag      : appConfig.tag ?: "",
+            pr       : appConfig.pr ?: "",
+            reference: ref // The finalized ID (e.g., "v2.15-beta2.1")
         ]
+
+        steps.echo "Final log path suffix: ${logSubDir}"
+        steps.echo "Injected Metadata: ${localTestParams.Testcase_runner_config.metadata}"
+        
         return localTestParams
     }
 

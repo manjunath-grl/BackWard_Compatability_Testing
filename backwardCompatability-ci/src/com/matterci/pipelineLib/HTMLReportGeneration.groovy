@@ -2,14 +2,6 @@ package com.matterci.pipelineLib
 
 class HTMLReportGeneration {
 
-    def resolveDutRef(app) {
-        if (app.sha) {
-            def baseRef = app.branch ?: app.tag ?: (app.pr ? "PR-${app.pr}" : "master")
-            return "${baseRef} (${app.sha})"
-        }
-        return app.tag ?: (app.pr ? "PR-${app.pr}" : app.branch)
-    }
-
     def resolveControllerRef(testConfigs) {
         def ctrl = testConfigs.ci_config.clone_sdk_code_stage.controller_sdk
         if (ctrl.sha) {
@@ -37,8 +29,6 @@ class HTMLReportGeneration {
         }
 
         def state = [durationMatrix: [:], testcaseExecutionOrder: []]
-        
-        // Use a stable UMD version of Chart.js
         def chartJSUrl = "https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"
 
         def html = """<!DOCTYPE html>
@@ -47,15 +37,18 @@ class HTMLReportGeneration {
     <meta charset="UTF-8">
     <script src="${chartJSUrl}"></script>
     <style>
-        body { font-family: Arial, sans-serif; margin: 30px; background-color: #f4f7f6; }
-        .card { background: white; padding: 20px; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); margin-bottom: 30px; }
-        table { border-collapse: collapse; width: 100%; margin-top: 10px; table-layout: fixed; }
-        th { background-color: #2c3e50; color: white; padding: 12px; text-align: left; }
-        td { padding: 10px; border-bottom: 1px solid #eee; word-wrap: break-word; }
+        body { font-family: Arial, sans-serif; margin: 30px; background-color: #f4f7f6; width: 1000px; }
+        .card { background: white; padding: 20px; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); margin-bottom: 30px; page-break-inside: avoid; }
+        table { border-collapse: collapse; width: 100%; margin-bottom: 20px; table-layout: fixed; }
+        th { background-color: #2c3e50; color: white; padding: 10px; text-align: left; font-size: 14px; }
+        td { padding: 8px; border-bottom: 1px solid #eee; font-size: 13px; word-wrap: break-word; }
         .status-pass { color: #27ae60; font-weight: bold; }
         .status-fail { color: #e74c3c; font-weight: bold; }
         .error-text { color: #7f8c8d; font-size: 0.85em; font-style: italic; }
-        .chart-container { display: flex; align-items: center; justify-content: space-around; flex-wrap: wrap; }
+        
+        /* Container sizes for PDF stability */
+        .pie-container { width: 400px; height: 250px; margin: 10px auto; }
+        .line-container { width: 900px; height: 450px; margin: 20px auto; }
     </style>
 </head>
 <body>
@@ -71,49 +64,42 @@ class HTMLReportGeneration {
             int passCount = 0
             int failCount = 0
             
+            // Generate Table Rows first
+            def tableRows = ""
             testCases.each { name, data ->
                 if (data.result == 'PASS') passCount++ else failCount++
                 if (!state.testcaseExecutionOrder.contains(name)) state.testcaseExecutionOrder.add(name)
                 if (!state.durationMatrix[name]) state.durationMatrix[name] = [:]
                 state.durationMatrix[name][appKey] = data.duration
+
+                tableRows += """
+                <tr>
+                    <td>${name}</td>
+                    <td class="${data.result == 'PASS' ? 'status-pass' : 'status-fail'}">${data.result}</td>
+                    <td>${data.duration}s</td>
+                    <td class="error-text">${data.error ?: '-'}</td>
+                </tr>"""
             }
 
             html += """
             <div class="card">
                 <h2>DUT: ${appKey}</h2>
-                <div class="chart-container">
-                    <div style="width: 300px; height: 300px;">
-                        <canvas id="${chartId}"></canvas>
-                    </div>
-                    <div>
-                        <p><b>Total Tests:</b> ${passCount + failCount}</p>
-                        <p class="status-pass"><b>Passed:</b> ${passCount}</p>
-                        <p class="status-fail"><b>Failed:</b> ${failCount}</p>
-                    </div>
-                </div>
-                
                 <table>
                     <thead>
                         <tr>
                             <th style="width: 25%;">Testcase</th>
-                            <th style="width: 10%;">Status</th>
+                            <th style="width: 15%;">Status</th>
                             <th style="width: 15%;">Duration</th>
-                            <th style="width: 50%;">Error / Details</th>
+                            <th style="width: 45%;">Error / Details</th>
                         </tr>
                     </thead>
-                    <tbody>"""
-            
-            testCases.each { name, data ->
-                html += """
-                        <tr>
-                            <td>${name}</td>
-                            <td class="${data.result == 'PASS' ? 'status-pass' : 'status-fail'}">${data.result}</td>
-                            <td>${data.duration}s</td>
-                            <td class="error-text">${data.error ?: '-'}</td>
-                        </tr>"""
-            }
-            
-            html += """</tbody></table>
+                    <tbody>${tableRows}</tbody>
+                </table>
+
+                <h3 style="text-align:center;">Test Execution Summary</h3>
+                <div class="pie-container">
+                    <canvas id="${chartId}" width="400" height="250"></canvas>
+                </div>
             </div>
             <script>
                 new Chart(document.getElementById('${chartId}'), {
@@ -122,12 +108,17 @@ class HTMLReportGeneration {
                         labels: ['Pass', 'Fail'],
                         datasets: [{ data: [${passCount}, ${failCount}], backgroundColor: ['#27ae60', '#e74c3c'] }]
                     },
-                    options: { animation: false, responsive: false }
+                    options: { 
+                        animation: false, 
+                        responsive: false,
+                        maintainAspectRatio: false,
+                        plugins: { legend: { position: 'bottom' } }
+                    }
                 });
             </script>"""
         }
 
-        // Comparison Section
+        // Comparison Section (Big Chart)
         def labels = state.testcaseExecutionOrder.collect { "'${it}'" }.join(",")
         def datasets = masterData.collect { appKey, testCases ->
             def values = state.testcaseExecutionOrder.collect { state.durationMatrix[it][appKey] ?: 0 }.join(",")
@@ -136,9 +127,9 @@ class HTMLReportGeneration {
 
         html += """
         <div class="card">
-            <h2>Performance Comparison</h2>
-            <div style="width: 800px; height: 400px;">
-                <canvas id="compChart"></canvas>
+            <h2>Performance Comparison (All DUTs)</h2>
+            <div class="line-container">
+                <canvas id="compChart" width="900" height="450"></canvas>
             </div>
         </div>
         <script>
@@ -148,7 +139,12 @@ class HTMLReportGeneration {
                 options: { 
                     animation: false, 
                     responsive: false,
-                    scales: { y: { beginAtZero: true, title: { display: true, text: 'Duration (sec)' } } }
+                    maintainAspectRatio: false,
+                    scales: { 
+                        y: { beginAtZero: true, title: { display: true, text: 'Duration (sec)' } },
+                        x: { ticks: { autoSkip: false, maxRotation: 45, minRotation: 45 } }
+                    },
+                    plugins: { legend: { position: 'bottom' } }
                 }
             });
         </script>
@@ -157,9 +153,8 @@ class HTMLReportGeneration {
         steps.ws(logDir) {
             steps.writeFile(file: "BackwardCompatibility_Report.html", text: html)
             try {
-                steps.sh "sudo apt-get update && sudo apt-get install -y wkhtmltopdf"
-                // The delay is kept at 5000ms to ensure scripts load even on slow nodes
-                steps.sh "wkhtmltopdf --enable-javascript --javascript-delay 5000 --no-stop-slow-scripts --enable-local-file-access BackwardCompatibility_Report.html BackwardCompatibility_Report.pdf"
+                // PDF generation with specific fixes for Chart.js rendering
+                steps.sh "wkhtmltopdf --enable-javascript --javascript-delay 5000 --no-stop-slow-scripts --enable-local-file-access --smart-indexing --viewport-size 1024x768 BackwardCompatibility_Report.html BackwardCompatibility_Report.pdf"
             } catch (Exception e) {
                 steps.echo "PDF Failed: ${e.message}"
             }

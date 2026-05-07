@@ -426,6 +426,13 @@ class RaspiPipelineLib implements Serializable {
         steps.echo "Updated common_args : ${updatedCommonArgs}"
         def test_params_json = JsonOutput.toJson(localTestParams)
         steps.echo "JSON params ${test_params_json}"
+        params.Testcase_runner_config.metadata = [
+            app_name: app.name,
+            branch: app.branch ?: "",
+            sha: app.sha ?: "",
+            tag: app.tag ?: "",
+            pr: app.pr ?: ""
+        ]
         return localTestParams
     }
 

@@ -72,7 +72,7 @@ class HTMLReportGeneration {
     Generate HTML + PDF Report
     ============================================================
     */
-    def generateReport(def steps,String logDir,String buildNumber,def testConfigs) {
+    def generateReport(def steps,String logDir,String buildNumber,def testConfigs, String workspace) {
         steps.echo "Starting Backward Compatibility Report"
         def controllerRef = resolveControllerRef(testConfigs)
         def jsonFiles = []
@@ -455,9 +455,9 @@ window.onload = function() {
             """
             )
             steps.sh """
-                NODE_PATH=${steps.pwd()}/node_modules \
-                node generate_pdf.js
-                """
+            NODE_PATH=${workspace}/node_modules \
+            node generate_pdf.js
+            """
             steps.echo "Playwright PDF generation successful"
             /*
             ============================================================

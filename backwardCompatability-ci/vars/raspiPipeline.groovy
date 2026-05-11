@@ -215,7 +215,7 @@ def call(testConfigs, testCasesList) {
                         def logDir = "${env.HOME}/Backward_Compatability_LOGS/${env.BUILD_NUMBER}"
                         echo "Aggregating data from: ${logDir}"
                         def reportGen = new HTMLReportGeneration()
-                        reportGen.generateReport(this, logDir, env.BUILD_NUMBER, testConfigs)
+                        reportGen.generateReport(this, logDir, env.BUILD_NUMBER, testConfigs, env.WORKSPACE)
                     }
                 }
             }

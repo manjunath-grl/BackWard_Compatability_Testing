@@ -12,14 +12,16 @@ class HTMLReportGeneration {
     }
 
     def formatDutName(appKey, testConfigs) {
-        def ctrl = testConfigs.ci_config.clone_sdk_code_stage.controller_sdk
-        def ref = ctrl.tag ?: ctrl.branch ?: (ctrl.pr ? "PR-${ctrl.pr}" : "master")
-        def sha = ctrl.sha ? "-${ctrl.sha.take(7)}" : ""
+        // Find the specific app config from the platform apps list 
+        def apps = testConfigs.platforms.raspi.apps
+        def appEntry = apps.find { it.name == appKey || appKey.contains(it.sha ?: "NON_EXISTENT") }
         
-        // Extract app name by removing the leading hash prefix if present
-        def appName = appKey.contains('-') ? appKey.tokenize('-')[1..-1].join('-') : appKey
+        if (!appEntry) return appKey // Fallback if not found
+
+        def ref = appEntry.tag ?: appEntry.branch ?: (appEntry.pr ? "PR-${appEntry.pr}" : "master")
+        def shaSuffix = appEntry.sha ? "-${appEntry.sha}" : ""
         
-        return "${appName} - ( ${ref}${sha} )"
+        return "${appEntry.name} - ( ${ref}${shaSuffix} )"
     }
 
     def generateReport(def steps, String logDir, String buildNumber, def testConfigs) {
@@ -30,7 +32,7 @@ class HTMLReportGeneration {
         }
         
         if (jsonFiles.length == 0) {
-            steps.error "No execution_results.json files found."
+            steps.error "No execution_results.json files found." [cite: 4]
         }
 
         def masterData = [:]
@@ -62,11 +64,10 @@ class HTMLReportGeneration {
         .status-fail { color: #e74c3c; font-weight: bold; }
         h1 { color: #2c3e50; }
         h2 { color: #2980b9; margin: 0; }
-        .summary-stats { font-size:15px; margin-top:10px; line-height: 1.6; }
         @media print {
             body { padding: 0; background: white; }
             .report-wrapper { width: 100%; max-width: none; }
-            .card { box-shadow: none; border: 1px solid #ccc; }
+            .card { box-shadow: none; }
         }
     </style>
 </head>
@@ -74,7 +75,7 @@ class HTMLReportGeneration {
     <div class="report-wrapper">
         <h1>Backward Compatibility Report</h1>
         <div class="header-strip">
-            <strong>Controller SDK:</strong> ${controllerRef} &nbsp;|&nbsp; <strong>Build ID:</strong> #${buildNumber}
+            <strong>Controller SDK:</strong> ${controllerRef} &nbsp;|&nbsp; <strong>Build ID:</strong> #${buildNumber} [cite: 21]
         </div>
 """
 
@@ -96,13 +97,12 @@ class HTMLReportGeneration {
 
             double rate = (passCount + failCount) > 0 ? (passCount / (passCount + failCount) * 100).toBigDecimal().setScale(1, java.math.RoundingMode.HALF_UP).doubleValue() : 0
 
-            // Restored the Passed/Failed/Rate Summary Block
             dutContent += """
             <div class="card">
                 <div class="dut-header-row">
                     <div>
                         <h2>DUT: ${formattedName}</h2>
-                        <div class="summary-stats">
+                        <div style="font-size:15px; margin-top:10px;">
                             <b>Passed:</b> <span class="status-pass">${passCount}</span> | 
                             <b>Failed:</b> <span class="status-fail">${failCount}</span> | 
                             <b>Pass Rate:</b> ${rate}%
@@ -125,7 +125,7 @@ class HTMLReportGeneration {
         }
 
         def labels = state.testcaseExecutionOrder.collect { "'${it}'" }.join(",")
-        def datasets = masterData.collect { appKey, v -> 
+        def datasets = masterData.collect { appKey, testCases ->
             def values = state.testcaseExecutionOrder.collect { state.durationMatrix[it][appKey] ?: 0 }.join(",")
             return "{ label: '${formatDutName(appKey, testConfigs)}', data: [${values}], fill: false, tension: 0.2, borderWidth: 3, pointRadius: 4 }"
         }.join(",")
@@ -145,8 +145,6 @@ class HTMLReportGeneration {
                     plugins: { legend: { position: 'bottom' } }
                 }
             });
-            // Final signal for Chromium PDF conversion
-            window.onload = () => { setTimeout(() => { window.status = 'ready'; }, 2000); };
         </script>
         """
 
@@ -154,14 +152,12 @@ class HTMLReportGeneration {
 
         steps.ws(logDir) {
             steps.writeFile(file: "BackwardCompatibility_Report.html", text: finalHtml)
-            
-            // Ubuntu 2024 PDF FIX: Chromium with forced virtual time budget for Chart rendering
             try {
                 steps.echo "Generating PDF using Chromium..."
-                steps.sh "chromium-browser --headless --disable-gpu --no-sandbox --print-to-pdf=BackwardCompatibility_Report.pdf --run-all-compositor-stages-before-draw --virtual-time-budget=10000 BackwardCompatibility_Report.html"
+                steps.sh "chromium-browser --headless --disable-gpu --no-sandbox --print-to-pdf=BackwardCompatibility_Report.pdf --run-all-compositor-stages-before-draw --virtual-time-budget=20000 BackwardCompatibility_Report.html" [cite: 35]
             } catch (Exception e) {
                 steps.echo "Chromium failed. Falling back to wkhtmltopdf..."
-                steps.sh "wkhtmltopdf --enable-javascript --javascript-delay 10000 BackwardCompatibility_Report.html BackwardCompatibility_Report.pdf"
+                steps.sh "wkhtmltopdf --enable-javascript --javascript-delay 15000 BackwardCompatibility_Report.html BackwardCompatibility_Report.pdf" [cite: 36]
             }
             
             steps.publishHTML(target: [reportDir: '.', reportFiles: 'BackwardCompatibility_Report.html', reportName: 'Compatibility Report'])

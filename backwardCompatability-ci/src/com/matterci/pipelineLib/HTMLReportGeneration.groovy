@@ -28,8 +28,6 @@ class HTMLReportGeneration {
                     apps.addAll(platformData.apps)
                 }
         }
-        steps.echo "Available apps config:"
-        steps.echo "${apps}"
         steps.echo "Resolving DUT Name for: ${appKey}"
         def parts = appKey.tokenize("__")
         def appName = parts.size() > 0 ? parts[0] : ""
@@ -41,14 +39,6 @@ class HTMLReportGeneration {
                 it.tag ? "TAG-${it.tag}" : (
                 it.pr ? "PR-${it.pr}" : ""
             ))
-            steps.echo """
-            Checking:
-            name=${it.name}
-            branch=${it.branch}
-            tag=${it.tag}
-            pr=${it.pr}
-            sha=${it.sha}
-            """
             it.name == appName &&
             (branch ? configRef == branch : true) &&
             (shaPart ? (it.sha?.startsWith(shaPart)) : true)
@@ -139,8 +129,10 @@ body {
     height: 180px;
 }
 .big-chart {
+    position: relative;
     width: 100%;
-    height: 450px;
+    min-height: 55vh;
+    height: auto;
 }
 table {
     width: 100%;
@@ -351,6 +343,15 @@ new Chart(
             maintainAspectRatio: false,
             animation: false,
             scales: {
+                x: {
+                    ticks: {
+                        maxRotation: 45,
+                        minRotation: 20,
+                        font: {
+                            size: window.innerWidth < 1200 ? 10 : 12
+                        }
+                    }
+                },
                 y: {
                     beginAtZero: true,
                     title: {
@@ -361,7 +362,14 @@ new Chart(
             },
             plugins: {
                 legend: {
-                    position: "bottom"
+                    position: "bottom",
+                    labels: {
+                        boxWidth: 15,
+                        padding: 15,
+                        font: {
+                            size: window.innerWidth < 1200 ? 10 : 14
+                        }
+                    }
                 }
             }
         }

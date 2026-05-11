@@ -200,13 +200,17 @@ def call(testConfigs, testCasesList) {
                     }
                 }
             }
-            stage('Generate Reports') {
+            stage('Install Playwright') {
                 node(cntrlNode) {
                     sh '''
                         npm init -y
                         npm install playwright
                         npx playwright install chromium
                     '''
+                }
+            }
+            stage('Generate Reports') {
+                node(cntrlNode) {
                     script {
                         def logDir = "${env.HOME}/Backward_Compatability_LOGS/${env.BUILD_NUMBER}"
                         echo "Aggregating data from: ${logDir}"

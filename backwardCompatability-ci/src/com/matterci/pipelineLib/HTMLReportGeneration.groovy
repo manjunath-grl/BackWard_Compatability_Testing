@@ -23,10 +23,10 @@ class HTMLReportGeneration {
 
     def formatDutName(def steps, String appKey, def testConfigs) {
         def apps = []
-        testConfigs?.platforms?.each { platformName, platformData ->
-            if (platformData?.apps) {
-                apps.addAll(platformData.apps)
-            }
+        testConfigs?.ci_config?.clone_sdk_code_stage?.platforms?.each { platformName, platformData ->
+                if (platformData?.apps) {
+                    apps.addAll(platformData.apps)
+                }
         }
         steps.echo "Available apps config:"
         steps.echo "${apps}"
@@ -455,7 +455,7 @@ window.onload = function() {
             """
             )
             steps.sh """
-                NODE_PATH=${env.WORKSPACE}/node_modules \
+                NODE_PATH=${steps.pwd()}/node_modules \
                 node generate_pdf.js
                 """
             steps.echo "Playwright PDF generation successful"

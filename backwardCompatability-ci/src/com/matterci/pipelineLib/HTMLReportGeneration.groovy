@@ -399,36 +399,41 @@ window.onload = function() {
             Generate PDF
             ============================================================
             */
-            try {
-                steps.echo "Trying Chrome PDF generation..."
-                steps.sh """
-
-chromium-browser \
---headless \
---disable-gpu \
---no-sandbox \
---run-all-compositor-stages-before-draw \
---virtual-time-budget=10000 \
---print-to-pdf=BackwardCompatibility_Report.pdf \
-file://${logDir}/BackwardCompatibility_Report.html
-
-"""
-                steps.echo "Chrome PDF generation successful"
-            } catch(Exception ex) {
-                steps.echo "Chrome PDF failed"
-                steps.echo "Falling back to wkhtmltopdf"
-                steps.sh """
-wkhtmltopdf \
---enable-javascript \
---javascript-delay 5000 \
---no-stop-slow-scripts \
---enable-local-file-access \
---disable-smart-shrinking \
-BackwardCompatibility_Report.html \
-BackwardCompatibility_Report.pdf
-
-"""
-            }
+            steps.echo "Generating PDF using Playwright..."
+            steps.writeFile(
+                file: "generate_pdf.js",
+                text: """
+            const { chromium } = require('playwright');
+            (async () => {
+                const browser = await chromium.launch({
+                    headless: true
+                });
+                const page = await browser.newPage();
+                await page.goto(
+                    'file://${logDir}/BackwardCompatibility_Report.html',
+                    {
+                        waitUntil: 'networkidle'
+                    }
+                );
+                // Wait for chart rendering
+                await page.waitForTimeout(5000);
+                await page.pdf({
+                    path: 'BackwardCompatibility_Report.pdf',
+                    format: 'A4',
+                    printBackground: true,
+                    margin: {
+                        top: '20px',
+                        bottom: '20px',
+                        left: '15px',
+                        right: '15px'
+                    }
+                });
+                await browser.close();
+            })();
+            """
+            )
+            steps.sh "node generate_pdf.js"
+            steps.echo "Playwright PDF generation successful"
             /*
             ============================================================
             Publish

@@ -21,19 +21,19 @@ class HTMLReportGeneration {
     def formatDutName(def steps, appKey, testConfigs) {
         def apps = testConfigs?.platforms?.raspi?.apps ?: []
         
-        steps.echo "--- DEBUG: Formatting DUT Name ---" [cite: 1, 2]
-        steps.echo "Incoming appKey: ${appKey}" [cite: 1, 2]
-        steps.echo "Apps found in config: ${apps.collect { it.name }}" [cite: 1, 2]
+        steps.echo "--- DEBUG: Formatting DUT Name ---"
+        steps.echo "Incoming appKey: ${appKey}"
+        steps.echo "Apps found in config: ${apps.collect { it.name }}"
 
         // Find the matching app entry from the configuration
         def appEntry = apps.find { it.name == appKey || (it.sha && appKey.contains(it.sha)) }
         
         if (!appEntry) {
-            steps.echo "DEBUG: No match found in config for ${appKey}. Using fallback cleaning." [cite: 1, 2]
+            steps.echo "DEBUG: No match found in config for ${appKey}. Using fallback cleaning."
             return appKey.contains('-') ? appKey.tokenize('-')[1..-1].join('-') : appKey
         }
 
-        steps.echo "DEBUG: Match found! Name: ${appEntry.name}, Branch: ${appEntry.branch}, SHA: ${appEntry.sha}" [cite: 1, 2]
+        steps.echo "DEBUG: Match found! Name: ${appEntry.name}, Branch: ${appEntry.branch}, SHA: ${appEntry.sha}"
 
         def ref = appEntry.tag ?: appEntry.branch ?: (appEntry.pr ? "PR-${appEntry.pr}" : "master")
         def shaSuffix = appEntry.sha ? "-${appEntry.sha}" : ""
@@ -45,15 +45,15 @@ class HTMLReportGeneration {
         def controllerRef = resolveControllerRef(testConfigs)
         def jsonFiles = []
         
-        steps.echo "--- DEBUG: Starting Report Generation ---" [cite: 1, 2, 4]
-        steps.echo "Log Directory: ${logDir}" [cite: 1, 2, 4]
+        steps.echo "--- DEBUG: Starting Report Generation ---"
+        steps.echo "Log Directory: ${logDir}"
 
         steps.dir(logDir) {
             jsonFiles = steps.findFiles(glob: "**/execution_results.json")
         }
         
         if (jsonFiles.length == 0) {
-            steps.error "No execution_results.json files found in ${logDir}" [cite: 4]
+            steps.error "No execution_results.json files found in ${logDir}"
         }
 
         def masterData = [:]
@@ -93,12 +93,12 @@ class HTMLReportGeneration {
         <div class="header-strip">
             <strong>Controller SDK:</strong> ${controllerRef} &nbsp;|&nbsp; <strong>Build ID:</strong> #${buildNumber}
         </div>
-""" [cite: 5, 21]
+"""
 
         def dutContent = ""
         masterData.each { appKey, testCases ->
             // Updated call to include 'steps' for logging
-            def formattedName = formatDutName(steps, appKey, testConfigs) [cite: 1, 2]
+            def formattedName = formatDutName(steps, appKey, testConfigs)
             def chartId = "pie_" + appKey.replaceAll(/[^a-zA-Z0-9]/, '_')
             int passCount = 0
             int failCount = 0
@@ -110,7 +110,7 @@ class HTMLReportGeneration {
                 if (!state.durationMatrix[name]) state.durationMatrix[name] = [:]
                 state.durationMatrix[name][appKey] = data.duration
                 tableRows += "<tr><td><b>${name}</b></td><td class='${data.result == 'PASS' ? 'status-pass' : 'status-fail'}'>${data.result}</td><td>${data.duration}s</td><td>${data.error ?: '-'}</td></tr>"
-            } [cite: 22, 23, 24]
+            }
 
             double rate = (passCount + failCount) > 0 ? (passCount / (passCount + failCount) * 100).toBigDecimal().setScale(1, java.math.RoundingMode.HALF_UP).doubleValue() : 0
 
@@ -138,7 +138,7 @@ class HTMLReportGeneration {
                     data: { labels: ['Pass', 'Fail'], datasets: [{ data: [${passCount}, ${failCount}], backgroundColor: ['#2ecc71', '#e74c3c'] }] },
                     options: { animation: false, responsive: true, maintainAspectRatio: false, plugins: { legend: { position: 'right' } } }
                 });
-            </script>""" [cite: 25, 26, 27, 28, 29]
+            </script>"""
         }
 
         def labels = state.testcaseExecutionOrder.collect { "'${it}'" }.join(",")
@@ -146,10 +146,10 @@ class HTMLReportGeneration {
         masterData.each { appKey, testCases ->
             def values = state.testcaseExecutionOrder.collect { state.durationMatrix[it][appKey] ?: 0 }.join(",")
             // Updated call to include 'steps' for logging
-            def dName = formatDutName(steps, appKey, testConfigs) [cite: 1, 2]
+            def dName = formatDutName(steps, appKey, testConfigs)
             datasetsList.add("{ label: '${dName}', data: [${values}], fill: false, tension: 0.2, borderWidth: 3, pointRadius: 4 }")
         }
-        def datasets = datasetsList.join(",") [cite: 30]
+        def datasets = datasetsList.join(",")
 
         def comparisonHtml = """
         <div class="card">
@@ -167,14 +167,14 @@ class HTMLReportGeneration {
                 }
             });
         </script>
-        """ [cite: 31, 32, 33, 34]
+        """ 
 
         def finalHtml = htmlHeader + dutContent + comparisonHtml + "</div></body></html>"
 
         steps.ws(logDir) {
             steps.writeFile(file: "BackwardCompatibility_Report.html", text: finalHtml)
             
-            steps.echo "Generating PDF using wkhtmltopdf..." [cite: 35]
+            steps.echo "Generating PDF using wkhtmltopdf..."
             steps.sh "wkhtmltopdf --enable-javascript --javascript-delay 15000 BackwardCompatibility_Report.html BackwardCompatibility_Report.pdf"
             
             steps.publishHTML(target: [reportDir: '.', reportFiles: 'BackwardCompatibility_Report.html', reportName: 'Compatibility Report'])

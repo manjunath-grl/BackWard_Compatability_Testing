@@ -2,183 +2,453 @@ package com.matterci.pipelineLib
 
 class HTMLReportGeneration {
 
+    /*
+    ============================================================
+    Resolve Controller Reference
+    ============================================================
+    */
     def resolveControllerRef(testConfigs) {
-        def ciConfig = testConfigs?.ci_config
-        def ctrl = ciConfig?.clone_sdk_code_stage?.controller_sdk
-        if (!ctrl) return "Unknown-Controller"
-
+        def ctrl = testConfigs?.ci_config?.clone_sdk_code_stage?.controller_sdk
+        if (!ctrl) {
+            return "Unknown Controller"
+        }
+        def ref = ctrl.branch ?: ctrl.tag ?: (
+            ctrl.pr ? "PR-${ctrl.pr}" : "master"
+        )
         if (ctrl.sha) {
-            def baseRef = ctrl.branch ?: ctrl.tag ?: (ctrl.pr ? "PR-${ctrl.pr}" : "master")
-            return "${baseRef} (${ctrl.sha})"
+            return "${ref} (${ctrl.sha})"
         }
-        return ctrl.tag ?: (ctrl.pr ? "PR-${ctrl.pr}" : ctrl.branch)
+        return ref
     }
 
-    /**
-     * Resolves the full DUT details by looking up the appKey in the platforms config.
-     * Added debug logging to trace the matching process.
-     */
-    def formatDutName(def steps, appKey, testConfigs) {
+    def formatDutName(def steps, String appKey, def testConfigs) {
         def apps = testConfigs?.platforms?.raspi?.apps ?: []
-        
-        steps.echo "--- DEBUG: Formatting DUT Name ---"
-        steps.echo "Incoming appKey: ${appKey}"
-        steps.echo "Apps found in config: ${apps.collect { it.name }}"
-
-        // Find the matching app entry from the configuration
-        def appEntry = apps.find { it.name == appKey || (it.sha && appKey.contains(it.sha)) }
-        
-        if (!appEntry) {
-            steps.echo "DEBUG: No match found in config for ${appKey}. Using fallback cleaning."
-            return appKey.contains('-') ? appKey.tokenize('-')[1..-1].join('-') : appKey
+        steps.echo "Resolving DUT Name for: ${appKey}"
+        def parts = appKey.tokenize("__")
+        def appName = parts.size() > 0 ? parts[0] : ""
+        def branch  = parts.size() > 1 ? parts[1] : ""
+        def shaPart = parts.size() > 2 ? parts[2] : ""
+        def appEntry = apps.find {
+            it.name == appName &&
+            (branch ? it.branch == branch : true) &&
+            (shaPart ? (it.sha?.startsWith(shaPart)) : true)
         }
 
-        steps.echo "DEBUG: Match found! Name: ${appEntry.name}, Branch: ${appEntry.branch}, SHA: ${appEntry.sha}"
-
-        def ref = appEntry.tag ?: appEntry.branch ?: (appEntry.pr ? "PR-${appEntry.pr}" : "master")
-        def shaSuffix = appEntry.sha ? "-${appEntry.sha}" : ""
-        
-        return "${appEntry.name} - ( ${ref}${shaSuffix} )"
+        if (!appEntry) {
+            steps.echo "WARNING: Unable to resolve appKey=${appKey}"
+            return appKey
+        }
+        def ref = appEntry.branch ?: appEntry.tag ?: (
+            appEntry.pr ? "PR-${appEntry.pr}" : "master"
+        )
+        if (appEntry.sha) {
+            return "${appEntry.name} ( ${ref} - ${appEntry.sha} )"
+        }
+        return "${appEntry.name} ( ${ref} )"
     }
 
-    def generateReport(def steps, String logDir, String buildNumber, def testConfigs) {
+    /*
+    ============================================================
+    Generate HTML + PDF Report
+    ============================================================
+    */
+    def generateReport(def steps,String logDir,String buildNumber,def testConfigs) {
+        steps.echo "Starting Backward Compatibility Report"
         def controllerRef = resolveControllerRef(testConfigs)
         def jsonFiles = []
-        
-        steps.echo "--- DEBUG: Starting Report Generation ---"
-        steps.echo "Log Directory: ${logDir}"
-
         steps.dir(logDir) {
             jsonFiles = steps.findFiles(glob: "**/execution_results.json")
         }
-        
-        if (jsonFiles.length == 0) {
-            steps.error "No execution_results.json files found in ${logDir}"
+        if (!jsonFiles || jsonFiles.size() == 0) {
+            steps.error "No execution_results.json files found"
         }
-
         def masterData = [:]
         jsonFiles.each { file ->
-            def data = steps.readJSON(file: "${logDir}/${file.path}")
+            steps.echo "Reading JSON: ${file.path}"
+            def data = steps.readJSON(
+                file: "${logDir}/${file.path}"
+            )
             masterData << data
         }
 
-        def state = [durationMatrix: [:], testcaseExecutionOrder: []]
-        def chartJSUrl = "https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"
-
-        def htmlHeader = """<!DOCTYPE html>
+        def state = [ durationMatrix: [:],testcaseExecutionOrder: [] ]
+        def html = """
+<!DOCTYPE html>
 <html>
 <head>
-    <meta charset="UTF-8">
-    <script src="${chartJSUrl}"></script>
-    <style>
-        body { font-family: 'Segoe UI', Tahoma, Arial, sans-serif; margin: 0; padding: 20px; background-color: #f4f7f9; }
-        .report-wrapper { width: 95%; max-width: 1200px; margin: 0 auto; }
-        .header-strip { background: #2c3e50; color: white; padding: 20px; border-radius: 8px; margin-bottom: 25px; font-size: 14px; }
-        .card { background: white; padding: 25px; border-radius: 10px; box-shadow: 0 4px 6px rgba(0,0,0,0.05); margin-bottom: 30px; page-break-inside: avoid; border: 1px solid #e1e4e8; }
-        .dut-header-row { display: flex; justify-content: space-between; align-items: center; border-bottom: 2px solid #3498db; padding-bottom: 15px; margin-bottom: 20px; }
-        .pie-chart-box { width: 300px; height: 180px; }
-        .comparison-chart-box { width: 100%; height: 450px; margin-top: 20px; }
-        table { border-collapse: collapse; width: 100%; margin-top: 15px; table-layout: fixed; }
-        th { background-color: #f8f9fa; color: #2c3e50; padding: 12px; text-align: left; border-bottom: 2px solid #dee2e6; font-size: 13px; }
-        td { padding: 10px; border-bottom: 1px solid #eee; font-size: 12px; word-wrap: break-word; }
-        .status-pass { color: #27ae60; font-weight: bold; }
-        .status-fail { color: #e74c3c; font-weight: bold; }
-        h1 { color: #2c3e50; }
-        h2 { color: #2980b9; margin: 0; }
-    </style>
+<meta charset="UTF-8">
+<title>Backward Compatibility Report</title>
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<style>
+body {
+    font-family: Arial, sans-serif;
+    background: #f4f7fa;
+    margin: 0;
+    padding: 20px;
+}
+.container {
+    width: 95%;
+    margin: auto;
+}
+.main-title {
+    color: #2c3e50;
+    margin-bottom: 20px;
+}
+.header-box {
+    background: #2c3e50;
+    color: white;
+    padding: 20px;
+    border-radius: 8px;
+    margin-bottom: 25px;
+}
+.card {
+    background: white;
+    border-radius: 10px;
+    padding: 25px;
+    margin-bottom: 30px;
+    box-shadow: 0px 2px 8px rgba(0,0,0,0.08);
+    page-break-inside: avoid;
+}
+.dut-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+.chart-box {
+    width: 280px;
+    height: 180px;
+}
+.big-chart {
+    width: 100%;
+    height: 450px;
+}
+table {
+    width: 100%;
+    border-collapse: collapse;
+    margin-top: 20px;
+}
+th {
+    background: #f1f3f5;
+    padding: 12px;
+    text-align: left;
+    border-bottom: 2px solid #dee2e6;
+}
+td {
+    padding: 10px;
+    border-bottom: 1px solid #e9ecef;
+    word-break: break-word;
+}
+.pass {
+    color: green;
+    font-weight: bold;
+}
+.fail {
+    color: red;
+    font-weight: bold;
+}
+.summary {
+    margin-top: 10px;
+    font-size: 15px;
+}
+.chart-image {
+    width: 280px;
+}
+</style>
 </head>
 <body>
-    <div class="report-wrapper">
-        <h1>Backward Compatibility Report</h1>
-        <div class="header-strip">
-            <strong>Controller SDK:</strong> ${controllerRef} &nbsp;|&nbsp; <strong>Build ID:</strong> #${buildNumber}
-        </div>
-"""
 
-        def dutContent = ""
+<div class="container">
+<h1 class="main-title">
+Backward Compatibility Report
+</h1>
+<div class="header-box">
+<b>Controller SDK:</b> ${controllerRef}
+&nbsp;&nbsp; | &nbsp;&nbsp;
+<b>Build ID:</b> #${buildNumber}
+</div>
+"""
         masterData.each { appKey, testCases ->
-            // Updated call to include 'steps' for logging
-            def formattedName = formatDutName(steps, appKey, testConfigs)
-            def chartId = "pie_" + appKey.replaceAll(/[^a-zA-Z0-9]/, '_')
+            def formattedName = formatDutName(steps,appKey,testConfigs)
+            def chartId = "chart_" + appKey.replaceAll(/[^a-zA-Z0-9_]/,"_")
             int passCount = 0
             int failCount = 0
-            def tableRows = ""
-
-            testCases.each { name, data ->
-                if (data.result == 'PASS') passCount++ else failCount++
-                if (!state.testcaseExecutionOrder.contains(name)) state.testcaseExecutionOrder.add(name)
-                if (!state.durationMatrix[name]) state.durationMatrix[name] = [:]
-                state.durationMatrix[name][appKey] = data.duration
-                tableRows += "<tr><td><b>${name}</b></td><td class='${data.result == 'PASS' ? 'status-pass' : 'status-fail'}'>${data.result}</td><td>${data.duration}s</td><td>${data.error ?: '-'}</td></tr>"
-            }
-
-            double rate = (passCount + failCount) > 0 ? (passCount / (passCount + failCount) * 100).toBigDecimal().setScale(1, java.math.RoundingMode.HALF_UP).doubleValue() : 0
-
-            dutContent += """
-            <div class="card">
-                <div class="dut-header-row">
-                    <div>
-                        <h2>DUT: ${formattedName}</h2>
-                        <div style="font-size:15px; margin-top:10px;">
-                            <b>Passed:</b> <span class="status-pass">${passCount}</span> | 
-                            <b>Failed:</b> <span class="status-fail">${failCount}</span> | 
-                            <b>Pass Rate:</b> ${rate}%
-                        </div>
-                    </div>
-                    <div class="pie-chart-box"><canvas id="${chartId}"></canvas></div>
-                </div>
-                <table>
-                    <thead><tr><th style="width:30%">Testcase</th><th style="width:15%">Status</th><th style="width:15%">Duration</th><th style="width:40%">Details</th></tr></thead>
-                    <tbody>${tableRows}</tbody>
-                </table>
-            </div>
-            <script>
-                new Chart(document.getElementById('${chartId}'), {
-                    type: 'pie',
-                    data: { labels: ['Pass', 'Fail'], datasets: [{ data: [${passCount}, ${failCount}], backgroundColor: ['#2ecc71', '#e74c3c'] }] },
-                    options: { animation: false, responsive: true, maintainAspectRatio: false, plugins: { legend: { position: 'right' } } }
-                });
-            </script>"""
-        }
-
-        def labels = state.testcaseExecutionOrder.collect { "'${it}'" }.join(",")
-        def datasetsList = []
-        masterData.each { appKey, testCases ->
-            def values = state.testcaseExecutionOrder.collect { state.durationMatrix[it][appKey] ?: 0 }.join(",")
-            // Updated call to include 'steps' for logging
-            def dName = formatDutName(steps, appKey, testConfigs)
-            datasetsList.add("{ label: '${dName}', data: [${values}], fill: false, tension: 0.2, borderWidth: 3, pointRadius: 4 }")
-        }
-        def datasets = datasetsList.join(",")
-
-        def comparisonHtml = """
-        <div class="card">
-            <h2>Performance Trend Comparison (All DUTs)</h2>
-            <div class="comparison-chart-box"><canvas id="compChart"></canvas></div>
-        </div>
-        <script>
-            new Chart(document.getElementById('compChart'), {
-                type: 'line',
-                data: { labels: [${labels}], datasets: [${datasets}] },
-                options: { 
-                    animation: false, responsive: true, maintainAspectRatio: false,
-                    scales: { y: { beginAtZero: true, title: { display: true, text: 'Seconds' } } },
-                    plugins: { legend: { position: 'bottom' } }
+            def rows = ""
+            testCases.each { tcName, tcData ->
+                if (tcData.result == "PASS") {
+                    passCount++
+                } else {
+                    failCount++
                 }
-            });
-        </script>
-        """ 
+                if (!state.testcaseExecutionOrder.contains(tcName)) {
+                    state.testcaseExecutionOrder.add(tcName)
+                }
+                if (!state.durationMatrix[tcName]) {
+                    state.durationMatrix[tcName] = [:]
+                }
+                state.durationMatrix[tcName][appKey] = tcData.duration
 
-        def finalHtml = htmlHeader + dutContent + comparisonHtml + "</div></body></html>"
+                rows += """
+<tr>
+<td><b>${tcName}</b></td>
 
+<td class="${tcData.result == 'PASS' ? 'pass' : 'fail'}">
+${tcData.result}
+</td>
+
+<td>${tcData.duration}s</td>
+
+<td>${tcData.error ?: "-"}</td>
+</tr>
+"""
+            }
+            double passRate =
+                (passCount + failCount) > 0 ?
+                ((passCount * 100.0) /
+                (passCount + failCount)).round(1)
+                : 0
+
+            html += """
+<div class="card">
+<div class="dut-row">
+<div>
+<h2>
+DUT: ${formattedName}
+</h2>
+<div class="summary">
+<b>Passed:</b>
+<span class="pass">${passCount}</span>
+
+|
+
+<b>Failed:</b>
+<span class="fail">${failCount}</span>
+
+|
+
+<b>Pass Rate:</b>
+${passRate}%
+
+</div>
+</div>
+<div class="chart-box">
+<canvas id="${chartId}"></canvas>
+</div>
+</div>
+<table>
+<thead>
+<tr>
+<th width="30%">Testcase</th>
+<th width="15%">Status</th>
+<th width="15%">Duration</th>
+<th width="40%">Details</th>
+</tr>
+</thead>
+
+<tbody>
+${rows}
+</tbody>
+</table>
+</div>
+<script>
+
+new Chart(
+    document.getElementById("${chartId}"),
+    {
+        type: "pie",
+        data: {
+            labels: ["Pass", "Fail"],
+            datasets: [{
+                data: [${passCount}, ${failCount}],
+                backgroundColor: [
+                    "#2ecc71",
+                    "#e74c3c"
+                ]
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            animation: false,
+            plugins: {
+                legend: {
+                    position: "right"
+                }
+            }
+        }
+    }
+);
+</script>
+"""
+        }
+
+        /*
+        ============================================================
+        Comparison Chart
+        ============================================================
+        */
+
+        def labels =state.testcaseExecutionOrder.collect {"'${it}'"}.join(",")
+        def datasets = []
+        masterData.each { appKey, tcData ->
+            def vals = state.testcaseExecutionOrder.collect { state.durationMatrix[it][appKey] ?: 0 }.join(",")
+            def label = formatDutName(steps,appKey,testConfigs)
+            datasets.add("""
+{
+label: "${label}",
+data: [${vals}],
+fill: false,
+tension: 0.2,
+borderWidth: 3,
+pointRadius: 4
+}
+""")
+        }
+        html += """
+<div class="card">
+
+<h2>
+Performance Comparison
+</h2>
+<div class="big-chart">
+<canvas id="comparisonChart"></canvas>
+</div>
+</div>
+<script>
+new Chart(
+    document.getElementById("comparisonChart"),
+    {
+        type: "line",
+        data: {
+            labels: [${labels}],
+            datasets: [
+                ${datasets.join(",")}
+            ]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            animation: false,
+            scales: {
+                y: {
+                    beginAtZero: true,
+                    title: {
+                        display: true,
+                        text: "Seconds"
+                    }
+                }
+            },
+            plugins: {
+                legend: {
+                    position: "bottom"
+                }
+            }
+        }
+    }
+);
+
+</script>
+"""
+        /*
+        ============================================================
+        Convert Charts To Images
+        IMPORTANT FOR PDF
+        ============================================================
+        */
+        html += """
+<script>
+window.onload = function() {
+    setTimeout(function() {
+        document.querySelectorAll("canvas").forEach(function(canvas) {
+            try {
+                const image = document.createElement("img");
+                image.src = canvas.toDataURL("image/png");
+                image.className = "chart-image";
+                canvas.parentNode.appendChild(image);
+                canvas.style.display = "none";
+            } catch(e) {
+                console.log("Chart conversion failed", e);
+            }
+        });
+    }, 3000);
+};
+
+</script>
+"""
+        /*
+        ============================================================
+        HTML Footer
+        ============================================================
+        */
+        html += """
+</div>
+</body>
+</html>
+"""
+        /*
+        ============================================================
+        Write HTML
+        ============================================================
+        */
         steps.ws(logDir) {
-            steps.writeFile(file: "BackwardCompatibility_Report.html", text: finalHtml)
-            
-            steps.echo "Generating PDF using wkhtmltopdf..."
-            steps.sh "wkhtmltopdf --enable-javascript --javascript-delay 15000 BackwardCompatibility_Report.html BackwardCompatibility_Report.pdf"
-            
-            steps.publishHTML(target: [reportDir: '.', reportFiles: 'BackwardCompatibility_Report.html', reportName: 'Compatibility Report'])
-            steps.archiveArtifacts artifacts: '*.pdf, *.html', allowEmptyArchive: true
+            steps.writeFile(
+                file: "BackwardCompatibility_Report.html",
+                text: html
+            )
+            /*
+            ============================================================
+            Generate PDF
+            ============================================================
+            */
+            try {
+                steps.echo "Trying Chrome PDF generation..."
+                steps.sh """
+
+google-chrome \
+--headless \
+--disable-gpu \
+--no-sandbox \
+--print-to-pdf=BackwardCompatibility_Report.pdf \
+file://${logDir}/BackwardCompatibility_Report.html
+
+"""
+                steps.echo "Chrome PDF generation successful"
+            } catch(Exception ex) {
+                steps.echo "Chrome PDF failed"
+                steps.echo "Falling back to wkhtmltopdf"
+                steps.sh """
+wkhtmltopdf \
+--enable-javascript \
+--javascript-delay 5000 \
+--no-stop-slow-scripts \
+--enable-local-file-access \
+--disable-smart-shrinking \
+BackwardCompatibility_Report.html \
+BackwardCompatibility_Report.pdf
+
+"""
+            }
+            /*
+            ============================================================
+            Publish
+            ============================================================
+            */
+            steps.publishHTML(
+                target: [
+                    reportDir: '.',
+                    reportFiles: 'BackwardCompatibility_Report.html',
+                    reportName: 'Backward Compatibility Report',
+                    keepAll: true,
+                    alwaysLinkToLastBuild: true,
+                    allowMissing: false
+                ]
+            )
+            steps.archiveArtifacts(
+                artifacts: '*.html, *.pdf',
+                allowEmptyArchive: true
+            )
+            steps.echo "========================================"
+            steps.echo "Report Generation Completed"
+            steps.echo "========================================"
         }
     }
 }

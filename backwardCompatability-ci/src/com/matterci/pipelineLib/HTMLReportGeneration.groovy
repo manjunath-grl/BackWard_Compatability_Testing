@@ -11,15 +11,15 @@ class HTMLReportGeneration {
         return ctrl.tag ?: (ctrl.pr ? "PR-${ctrl.pr}" : ctrl.branch)
     }
 
-    // Fixed Naming: chip-all-clusters-app - ( 6feac77 )
-    def formatDutName(appKey) {
-        if (appKey.contains('-')) {
-            def parts = appKey.tokenize('-')
-            def hash = parts[0]
-            def name = parts[1..-1].join('-')
-            return "${name} - ( ${hash} )"
-        }
-        return appKey
+    def formatDutName(appKey, testConfigs) {
+        def ctrl = testConfigs.ci_config.clone_sdk_code_stage.controller_sdk
+        def ref = ctrl.tag ?: ctrl.branch ?: (ctrl.pr ? "PR-${ctrl.pr}" : "master")
+        def sha = ctrl.sha ? "-${ctrl.sha.take(7)}" : ""
+        
+        // Extract app name by removing the leading hash prefix if present
+        def appName = appKey.contains('-') ? appKey.tokenize('-')[1..-1].join('-') : appKey
+        
+        return "${appName} - ( ${ref}${sha} )"
     }
 
     def generateReport(def steps, String logDir, String buildNumber, def testConfigs) {
@@ -62,10 +62,11 @@ class HTMLReportGeneration {
         .status-fail { color: #e74c3c; font-weight: bold; }
         h1 { color: #2c3e50; }
         h2 { color: #2980b9; margin: 0; }
+        .summary-stats { font-size:15px; margin-top:10px; line-height: 1.6; }
         @media print {
             body { padding: 0; background: white; }
             .report-wrapper { width: 100%; max-width: none; }
-            .card { box-shadow: none; }
+            .card { box-shadow: none; border: 1px solid #ccc; }
         }
     </style>
 </head>
@@ -79,7 +80,7 @@ class HTMLReportGeneration {
 
         def dutContent = ""
         masterData.each { appKey, testCases ->
-            def formattedName = formatDutName(appKey)
+            def formattedName = formatDutName(appKey, testConfigs)
             def chartId = "pie_" + appKey.replaceAll(/[^a-zA-Z0-9]/, '_')
             int passCount = 0
             int failCount = 0
@@ -95,12 +96,13 @@ class HTMLReportGeneration {
 
             double rate = (passCount + failCount) > 0 ? (passCount / (passCount + failCount) * 100).toBigDecimal().setScale(1, java.math.RoundingMode.HALF_UP).doubleValue() : 0
 
+            // Restored the Passed/Failed/Rate Summary Block
             dutContent += """
             <div class="card">
                 <div class="dut-header-row">
                     <div>
                         <h2>DUT: ${formattedName}</h2>
-                        <div style="font-size:15px; margin-top:10px;">
+                        <div class="summary-stats">
                             <b>Passed:</b> <span class="status-pass">${passCount}</span> | 
                             <b>Failed:</b> <span class="status-fail">${failCount}</span> | 
                             <b>Pass Rate:</b> ${rate}%
@@ -123,9 +125,9 @@ class HTMLReportGeneration {
         }
 
         def labels = state.testcaseExecutionOrder.collect { "'${it}'" }.join(",")
-        def datasets = masterData.collect { appKey, testCases ->
+        def datasets = masterData.collect { appKey, v -> 
             def values = state.testcaseExecutionOrder.collect { state.durationMatrix[it][appKey] ?: 0 }.join(",")
-            return "{ label: '${formatDutName(appKey)}', data: [${values}], fill: false, tension: 0.2, borderWidth: 3, pointRadius: 4 }"
+            return "{ label: '${formatDutName(appKey, testConfigs)}', data: [${values}], fill: false, tension: 0.2, borderWidth: 3, pointRadius: 4 }"
         }.join(",")
 
         def comparisonHtml = """
@@ -143,6 +145,8 @@ class HTMLReportGeneration {
                     plugins: { legend: { position: 'bottom' } }
                 }
             });
+            // Final signal for Chromium PDF conversion
+            window.onload = () => { setTimeout(() => { window.status = 'ready'; }, 2000); };
         </script>
         """
 
@@ -151,12 +155,12 @@ class HTMLReportGeneration {
         steps.ws(logDir) {
             steps.writeFile(file: "BackwardCompatibility_Report.html", text: finalHtml)
             
-            // Ubuntu 2024 PDF FIX: Use Chromium Headless
+            // Ubuntu 2024 PDF FIX: Chromium with forced virtual time budget for Chart rendering
             try {
                 steps.echo "Generating PDF using Chromium..."
                 steps.sh "chromium-browser --headless --disable-gpu --no-sandbox --print-to-pdf=BackwardCompatibility_Report.pdf --run-all-compositor-stages-before-draw --virtual-time-budget=10000 BackwardCompatibility_Report.html"
             } catch (Exception e) {
-                steps.echo "Chromium failed: ${e.message}. Falling back to wkhtmltopdf..."
+                steps.echo "Chromium failed. Falling back to wkhtmltopdf..."
                 steps.sh "wkhtmltopdf --enable-javascript --javascript-delay 10000 BackwardCompatibility_Report.html BackwardCompatibility_Report.pdf"
             }
             

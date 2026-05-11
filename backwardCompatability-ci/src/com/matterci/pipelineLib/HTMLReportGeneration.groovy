@@ -131,8 +131,8 @@ body {
 .big-chart {
     position: relative;
     width: 100%;
-    min-height: 55vh;
-    height: auto;
+    height: 650px;
+    min-height: 650px;
 }
 table {
     width: 100%;
@@ -245,7 +245,7 @@ ${passRate}%
 </div>
 </div>
 <div class="chart-box">
-<canvas id="${chartId}"></canvas>
+<canvas id="${chartId}" class="pdf-chart"></canvas>
 </div>
 </div>
 <table>
@@ -388,7 +388,7 @@ new Chart(
 <script>
 window.onload = function() {
     setTimeout(function() {
-        document.querySelectorAll("canvas").forEach(function(canvas) {
+        document.querySelectorAll(".pdf-chart").forEach(function(canvas) {
             try {
                 const image = document.createElement("img");
                 image.src = canvas.toDataURL("image/png");

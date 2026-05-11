@@ -29,8 +29,14 @@ class HTMLReportGeneration {
         def branch  = parts.size() > 1 ? parts[1] : ""
         def shaPart = parts.size() > 2 ? parts[2] : ""
         def appEntry = apps.find {
+            def configRef =
+                it.branch ?: (
+                it.tag ? "TAG-${it.tag}" : (
+                it.pr ? "PR-${it.pr}" : ""
+            ))
+
             it.name == appName &&
-            (branch ? it.branch == branch : true) &&
+            (branch ? configRef == branch : true) &&
             (shaPart ? (it.sha?.startsWith(shaPart)) : true)
         }
 
@@ -203,8 +209,10 @@ ${tcData.result}
             }
             double passRate =
                 (passCount + failCount) > 0 ?
-                ((passCount * 100.0) /
-                (passCount + failCount)).round(1)
+                Math.round(
+                    ((passCount * 100.0) /
+                    (passCount + failCount)) * 10
+                ) / 10.0
                 : 0
 
             html += """

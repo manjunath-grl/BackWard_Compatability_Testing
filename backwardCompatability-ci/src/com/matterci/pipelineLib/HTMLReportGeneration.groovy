@@ -22,7 +22,14 @@ class HTMLReportGeneration {
     }
 
     def formatDutName(def steps, String appKey, def testConfigs) {
-        def apps = testConfigs?.platforms?.raspi?.apps ?: []
+        def apps = []
+        testConfigs?.platforms?.each { platformName, platformData ->
+            if (platformData?.apps) {
+                apps.addAll(platformData.apps)
+            }
+        }
+        steps.echo "Available apps config:"
+        steps.echo "${apps}"
         steps.echo "Resolving DUT Name for: ${appKey}"
         def parts = appKey.tokenize("__")
         def appName = parts.size() > 0 ? parts[0] : ""
@@ -34,7 +41,14 @@ class HTMLReportGeneration {
                 it.tag ? "TAG-${it.tag}" : (
                 it.pr ? "PR-${it.pr}" : ""
             ))
-
+            steps.echo """
+            Checking:
+            name=${it.name}
+            branch=${it.branch}
+            tag=${it.tag}
+            pr=${it.pr}
+            sha=${it.sha}
+            """
             it.name == appName &&
             (branch ? configRef == branch : true) &&
             (shaPart ? (it.sha?.startsWith(shaPart)) : true)
@@ -440,7 +454,10 @@ window.onload = function() {
             })();
             """
             )
-            steps.sh "node generate_pdf.js"
+            steps.sh """
+                NODE_PATH=${env.WORKSPACE}/node_modules \
+                node generate_pdf.js
+                """
             steps.echo "Playwright PDF generation successful"
             /*
             ============================================================

@@ -403,10 +403,12 @@ window.onload = function() {
                 steps.echo "Trying Chrome PDF generation..."
                 steps.sh """
 
-google-chrome \
+chromium-browser \
 --headless \
 --disable-gpu \
 --no-sandbox \
+--run-all-compositor-stages-before-draw \
+--virtual-time-budget=10000 \
 --print-to-pdf=BackwardCompatibility_Report.pdf \
 file://${logDir}/BackwardCompatibility_Report.html
 

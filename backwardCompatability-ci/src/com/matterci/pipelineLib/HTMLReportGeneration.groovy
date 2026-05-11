@@ -3,7 +3,10 @@ package com.matterci.pipelineLib
 class HTMLReportGeneration {
 
     def resolveControllerRef(testConfigs) {
-        def ctrl = testConfigs.ci_config.clone_sdk_code_stage.controller_sdk
+        def ciConfig = testConfigs?.ci_config
+        def ctrl = ciConfig?.clone_sdk_code_stage?.controller_sdk
+        if (!ctrl) return "Unknown-Controller"
+
         if (ctrl.sha) {
             def baseRef = ctrl.branch ?: ctrl.tag ?: (ctrl.pr ? "PR-${ctrl.pr}" : "master")
             return "${baseRef} (${ctrl.sha})"
@@ -12,10 +15,17 @@ class HTMLReportGeneration {
     }
 
     def formatDutName(appKey, testConfigs) {
-        def apps = testConfigs.platforms.raspi.apps
-        def appEntry = apps.find { it.name == appKey || appKey.contains(it.sha ?: "NON_EXISTENT") }
+        // Null-safe access to the apps list
+        def apps = testConfigs?.platforms?.raspi?.apps ?: []
         
-        if (!appEntry) return appKey
+        // Find the app by matching the name or checking if the appKey (which might be a hash) 
+        // is contained within the SHA of a config entry.
+        def appEntry = apps.find { it.name == appKey || (it.sha && appKey.contains(it.sha)) }
+        
+        if (!appEntry) {
+            // Fallback: If it's a known hash-prefixed key, clean it up
+            return appKey.contains('-') ? appKey.tokenize('-')[1..-1].join('-') : appKey
+        }
 
         def ref = appEntry.tag ?: appEntry.branch ?: (appEntry.pr ? "PR-${appEntry.pr}" : "master")
         def shaSuffix = appEntry.sha ? "-${appEntry.sha}" : ""
@@ -31,9 +41,7 @@ class HTMLReportGeneration {
         }
         
         if (jsonFiles.length == 0) {
-            // FIX: Use a simple string for the error message
-            def errMsg = "No execution_results.json files found."
-            steps.error(errMsg)
+            steps.error "No execution_results.json files found in ${logDir}"
         }
 
         def masterData = [:]
@@ -126,11 +134,13 @@ class HTMLReportGeneration {
         }
 
         def labels = state.testcaseExecutionOrder.collect { "'${it}'" }.join(",")
-        def datasets = masterData.collect { appKey, testCases ->
+        def datasetsList = []
+        masterData.each { appKey, testCases ->
             def values = state.testcaseExecutionOrder.collect { state.durationMatrix[it][appKey] ?: 0 }.join(",")
             def dName = formatDutName(appKey, testConfigs)
-            return "{ label: '${dName}', data: [${values}], fill: false, tension: 0.2, borderWidth: 3, pointRadius: 4 }"
-        }.join(",")
+            datasetsList.add("{ label: '${dName}', data: [${values}], fill: false, tension: 0.2, borderWidth: 3, pointRadius: 4 }")
+        }
+        def datasets = datasetsList.join(",")
 
         def comparisonHtml = """
         <div class="card">
@@ -154,8 +164,7 @@ class HTMLReportGeneration {
 
         steps.ws(logDir) {
             steps.writeFile(file: "BackwardCompatibility_Report.html", text: finalHtml)
-            
-            // FIX: Define shell commands as simple strings before execution
+       
             def chromiumCmd = "chromium-browser --headless --disable-gpu --no-sandbox --print-to-pdf=BackwardCompatibility_Report.pdf --run-all-compositor-stages-before-draw --virtual-time-budget=20000 BackwardCompatibility_Report.html"
             def wkhtmlCmd = "wkhtmltopdf --enable-javascript --javascript-delay 15000 BackwardCompatibility_Report.html BackwardCompatibility_Report.pdf"
 

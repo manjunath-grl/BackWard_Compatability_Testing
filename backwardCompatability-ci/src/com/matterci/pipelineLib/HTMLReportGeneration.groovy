@@ -12,11 +12,10 @@ class HTMLReportGeneration {
     }
 
     def formatDutName(appKey, testConfigs) {
-        // Find the specific app config from the platform apps list 
         def apps = testConfigs.platforms.raspi.apps
         def appEntry = apps.find { it.name == appKey || appKey.contains(it.sha ?: "NON_EXISTENT") }
         
-        if (!appEntry) return appKey // Fallback if not found
+        if (!appEntry) return appKey
 
         def ref = appEntry.tag ?: appEntry.branch ?: (appEntry.pr ? "PR-${appEntry.pr}" : "master")
         def shaSuffix = appEntry.sha ? "-${appEntry.sha}" : ""
@@ -32,7 +31,9 @@ class HTMLReportGeneration {
         }
         
         if (jsonFiles.length == 0) {
-            steps.error "No execution_results.json files found." [cite: 4]
+            // FIX: Use a simple string for the error message
+            def errMsg = "No execution_results.json files found."
+            steps.error(errMsg)
         }
 
         def masterData = [:]
@@ -75,7 +76,7 @@ class HTMLReportGeneration {
     <div class="report-wrapper">
         <h1>Backward Compatibility Report</h1>
         <div class="header-strip">
-            <strong>Controller SDK:</strong> ${controllerRef} &nbsp;|&nbsp; <strong>Build ID:</strong> #${buildNumber} [cite: 21]
+            <strong>Controller SDK:</strong> ${controllerRef} &nbsp;|&nbsp; <strong>Build ID:</strong> #${buildNumber}
         </div>
 """
 
@@ -92,7 +93,7 @@ class HTMLReportGeneration {
                 if (!state.testcaseExecutionOrder.contains(name)) state.testcaseExecutionOrder.add(name)
                 if (!state.durationMatrix[name]) state.durationMatrix[name] = [:]
                 state.durationMatrix[name][appKey] = data.duration
-                tableRows += "<tr><td><b>${name}</b></td><td class='${data.result == 'PASS' ? 'status-pass' : 'status-fail'}'>${data.result}</td><td>${data.duration}s</td><td style='color:#7f8c8d; font-size:11px;'>${data.error ?: '-'}</td></tr>"
+                tableRows += "<tr><td><b>${name}</b></td><td class='${data.result == 'PASS' ? 'status-pass' : 'status-fail'}'>${data.result}</td><td>${data.duration}s</td><td>${data.error ?: '-'}</td></tr>"
             }
 
             double rate = (passCount + failCount) > 0 ? (passCount / (passCount + failCount) * 100).toBigDecimal().setScale(1, java.math.RoundingMode.HALF_UP).doubleValue() : 0
@@ -127,7 +128,8 @@ class HTMLReportGeneration {
         def labels = state.testcaseExecutionOrder.collect { "'${it}'" }.join(",")
         def datasets = masterData.collect { appKey, testCases ->
             def values = state.testcaseExecutionOrder.collect { state.durationMatrix[it][appKey] ?: 0 }.join(",")
-            return "{ label: '${formatDutName(appKey, testConfigs)}', data: [${values}], fill: false, tension: 0.2, borderWidth: 3, pointRadius: 4 }"
+            def dName = formatDutName(appKey, testConfigs)
+            return "{ label: '${dName}', data: [${values}], fill: false, tension: 0.2, borderWidth: 3, pointRadius: 4 }"
         }.join(",")
 
         def comparisonHtml = """
@@ -152,12 +154,17 @@ class HTMLReportGeneration {
 
         steps.ws(logDir) {
             steps.writeFile(file: "BackwardCompatibility_Report.html", text: finalHtml)
+            
+            // FIX: Define shell commands as simple strings before execution
+            def chromiumCmd = "chromium-browser --headless --disable-gpu --no-sandbox --print-to-pdf=BackwardCompatibility_Report.pdf --run-all-compositor-stages-before-draw --virtual-time-budget=20000 BackwardCompatibility_Report.html"
+            def wkhtmlCmd = "wkhtmltopdf --enable-javascript --javascript-delay 15000 BackwardCompatibility_Report.html BackwardCompatibility_Report.pdf"
+
             try {
                 steps.echo "Generating PDF using Chromium..."
-                steps.sh "chromium-browser --headless --disable-gpu --no-sandbox --print-to-pdf=BackwardCompatibility_Report.pdf --run-all-compositor-stages-before-draw --virtual-time-budget=20000 BackwardCompatibility_Report.html" [cite: 35]
+                steps.sh(chromiumCmd)
             } catch (Exception e) {
                 steps.echo "Chromium failed. Falling back to wkhtmltopdf..."
-                steps.sh "wkhtmltopdf --enable-javascript --javascript-delay 15000 BackwardCompatibility_Report.html BackwardCompatibility_Report.pdf" [cite: 36]
+                steps.sh(wkhtmlCmd)
             }
             
             steps.publishHTML(target: [reportDir: '.', reportFiles: 'BackwardCompatibility_Report.html', reportName: 'Compatibility Report'])

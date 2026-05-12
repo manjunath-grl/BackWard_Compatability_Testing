@@ -345,9 +345,12 @@ class RaspiPipelineLib implements Serializable {
         boolean buildSuccess = false
         def status = 0
         def controllerCfg = testConfigs.ci_config?.clone_sdk_code_stage?.controller_sdk
-
         def repoUrl = controllerCfg?.repoUrl ?: "git@github.com:project-chip/certification-tool.git"
         def branch  = controllerCfg?.branch
+        if (artifactType == "DUT") {
+            branch = appConfig?.branch
+        }
+
         def certBinariesWorkspace = "${steps.env.WORKSPACE}/${steps.env.BUILD_NUMBER}/copied_cert_binaries"
         def hostname = steps.sh(script: "hostname",returnStdout: true).trim()
         steps.echo "Artifact type: ${artifactType}"

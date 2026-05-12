@@ -131,8 +131,8 @@ body {
 .big-chart {
     position: relative;
     width: 100%;
-    height: 650px;
-    min-height: 650px;
+    height: 420px;
+    min-height: 420px;
 }
 table {
     width: 100%;
@@ -313,7 +313,8 @@ data: [${vals}],
 fill: false,
 tension: 0.2,
 borderWidth: 3,
-pointRadius: 4
+pointRadius: 5,
+pointHoverRadius: 7
 }
 """)
         }
@@ -344,19 +345,16 @@ new Chart(
             animation: false,
             scales: {
                 x: {
-                    ticks: {
-                        maxRotation: 45,
-                        minRotation: 20,
-                        font: {
-                            size: window.innerWidth < 1200 ? 10 : 12
-                        }
+                    grid: { display: false },
+                    ticks: { maxRotation: 30, minRotation: 15, autoSkip: false, font: { size: 10 }
                     }
                 },
                 y: {
                     beginAtZero: true,
-                    title: {
-                        display: true,
-                        text: "Seconds"
+                    grid: { display: false },
+                    title: { display: true, text: "Seconds" },
+                    ticks: {
+                        font: { size: 10 }
                     }
                 }
             },
@@ -450,6 +448,7 @@ window.onload = function() {
                 await page.pdf({
                     path: 'BackwardCompatibility_Report.pdf',
                     format: 'A4',
+                    landscape: true,
                     printBackground: true,
                     margin: {
                         top: '20px',

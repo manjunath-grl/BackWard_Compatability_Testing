@@ -130,9 +130,12 @@ body {
 }
 .big-chart {
     position: relative;
-    width: 100%;
+    width: 95%;
+    max-width: 1050px;
     height: 420px;
     min-height: 420px;
+    margin: auto;
+    overflow: hidden;
 }
 table {
     width: 100%;
@@ -164,6 +167,9 @@ td {
 }
 .chart-image {
     width: 280px;
+}
+canvas {
+    max-width: 100% !important;
 }
 </style>
 </head>
@@ -300,7 +306,6 @@ new Chart(
         Comparison Chart
         ============================================================
         */
-
         def labels =state.testcaseExecutionOrder.collect {"'${it}'"}.join(",")
         def datasets = []
         masterData.each { appKey, tcData ->
@@ -436,7 +441,12 @@ window.onload = function() {
                 const browser = await chromium.launch({
                     headless: true
                 });
-                const page = await browser.newPage();
+                const page = await browser.newPage({
+                    viewport: {
+                        width: 1400,
+                        height: 900
+                    }
+                });
                 await page.goto(
                     'file://${logDir}/BackwardCompatibility_Report.html',
                     {

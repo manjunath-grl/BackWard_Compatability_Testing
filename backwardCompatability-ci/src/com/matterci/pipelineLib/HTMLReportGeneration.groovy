@@ -117,7 +117,7 @@ body {
     padding: 25px;
     margin-bottom: 30px;
     box-shadow: 0px 2px 8px rgba(0,0,0,0.08);
-    page-break-inside: avoid;
+    break-inside: auto;
 }
 .dut-row {
     display: flex;
@@ -141,6 +141,11 @@ table {
     width: 100%;
     border-collapse: collapse;
     margin-top: 20px;
+    page-break-inside: auto;
+}
+tr {
+    page-break-inside: avoid;
+    page-break-after: auto;
 }
 th {
     background: #f1f3f5;
@@ -203,7 +208,7 @@ Backward Compatibility Report
                 if (!state.durationMatrix[tcName]) {
                     state.durationMatrix[tcName] = [:]
                 }
-                state.durationMatrix[tcName][appKey] = tcData.duration
+                state.durationMatrix[tcName][appKey] = tcData.result == "PASS" ? tcData.duration : 0
 
                 rows += """
 <tr>
